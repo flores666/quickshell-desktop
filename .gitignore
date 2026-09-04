@@ -1,0 +1,9 @@
+# Editor and OS cruft
+*.swp
+*~
+.DS_Store
+.idea/
+.vscode/
+
+# Scratch output from tools/ (the lint wrapper works in a temp dir, but just in case)
+/.lint/
