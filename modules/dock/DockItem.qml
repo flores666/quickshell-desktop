@@ -33,6 +33,15 @@ Clickable {
     /*! Whether a drag is still in flight somewhere in the dock. */
     property bool rearranging: false
     readonly property bool dragging: dragging_.active
+    /*!
+        How far the icon has been carried, measured from where the drag became
+        active. `activeTranslation` cannot be used for this: it counts from the
+        press, so it opens a whole drag threshold wide — 15px, measured — and
+        the icon would leap that far sideways the moment it is picked up.
+    */
+    readonly property real dragX: dragging_.centroid.scenePosition.x - root.dragOrigin
+    /*! Where the pointer was when the drag became active. */
+    property real dragOrigin: 0
 
     signal dragMoved(real dx)
     signal dragEnded
@@ -49,7 +58,7 @@ Clickable {
     z: root.dragging ? 1 : 0
 
     transform: Translate {
-        x: root.dragging ? dragging_.activeTranslation.x : root.slide
+        x: root.dragging ? root.dragX : root.slide
 
         Behavior on x {
             // Only while a drag is in flight, and never for the icon under the
@@ -73,8 +82,13 @@ Clickable {
         target: null
         yAxis.enabled: false
         cursorShape: Qt.ClosedHandCursor
-        onActiveChanged: if (!dragging_.active) root.dragEnded()
-        onActiveTranslationChanged: if (dragging_.active) root.dragMoved(dragging_.activeTranslation.x)
+        onActiveChanged: {
+            if (dragging_.active)
+                root.dragOrigin = dragging_.centroid.scenePosition.x;
+            else
+                root.dragEnded();
+        }
+        onCentroidChanged: if (dragging_.active) root.dragMoved(root.dragX)
     }
 
     onClicked: Dock.activate(root.item)

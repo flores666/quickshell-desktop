@@ -33,22 +33,34 @@ PanelWindow {
 
     readonly property bool pointerNear: dockHover.hovered || triggerHover.hovered
     /*! Stay out while a menu of ours is up, or a drag is in progress. */
-    readonly property bool held: Overlay.isOpen(Overlay.dockMenu) || root.dragSlot >= 0
+    readonly property bool held: Overlay.isOpen(Overlay.dockMenu) || root.drag !== null
 
-    /*! The icon being dragged into a new position, and the slot it would land in. */
-    property int dragSlot: -1
-    property int dropSlot: -1
+    /*!
+        The drag in flight: the slot the icon came from, and the slot it would
+        land in.
+
+        One property and not two. Assigning a pair of them leaves a frame in
+        which `slideFor` sees the new drag against the last drop — QML
+        re-evaluates every binding on the first write, before the second has
+        happened — and with the drop still at its cleared -1 every icon left of
+        the drag reads as being inside the gap. Measured on the frame a drag
+        began: both icons to its left kicked 46px sideways and animated back,
+        which is the cascade the dock used to show for a drag that had not
+        reordered anything yet.
+    */
+    property var drag: null
+
     readonly property int slotStride: Appearance.m.dockCell + Appearance.m.dockGap
 
     property bool revealed: false
 
     /*! How far an icon has to step aside to open a gap where the drag will land. */
     function slideFor(slot: int): real {
-        if (root.dragSlot < 0 || slot === root.dragSlot)
+        if (!root.drag || slot === root.drag.from)
             return 0;
-        if (slot > root.dragSlot && slot <= root.dropSlot)
+        if (slot > root.drag.from && slot <= root.drag.to)
             return -root.slotStride;
-        if (slot < root.dragSlot && slot >= root.dropSlot)
+        if (slot < root.drag.from && slot >= root.drag.to)
             return root.slotStride;
         return 0;
     }
@@ -167,23 +179,22 @@ PanelWindow {
                     item: this.modelData
                     screen: root.modelData
                     slide: root.slideFor(this.index)
-                    rearranging: root.dragSlot >= 0
+                    rearranging: root.drag !== null
                     onHoverChanged: (key, label, centerX, entered) =>
                         root.onChildHover(key, label, centerX, entered)
 
-                    onDragMoved: dx => {
-                        root.dragSlot = this.index;
-                        root.dropSlot = Math.max(0, Math.min(Dock.items.length - 1,
-                            this.index + Math.round(dx / root.slotStride)));
-                    }
+                    onDragMoved: dx => root.drag = ({
+                        from: this.index,
+                        to: Math.max(0, Math.min(Dock.items.length - 1,
+                            this.index + Math.round(dx / root.slotStride)))
+                    })
                     onDragEnded: {
-                        const from = root.dragSlot;
-                        const to = root.dropSlot;
+                        const drag = root.drag;
                         // Cleared before the move, so the offsets are already
                         // gone by the time the new order is laid out.
-                        root.dragSlot = -1;
-                        root.dropSlot = -1;
-                        Dock.moveItem(from, to);
+                        root.drag = null;
+                        if (drag)
+                            Dock.moveItem(drag.from, drag.to);
                     }
                 }
             }

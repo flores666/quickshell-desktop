@@ -21,6 +21,7 @@ QtObject {
         "lock",
         "volumeUp", "volumeDown", "volumeMute", "micMute",
         "brightnessUp", "brightnessDown",
+        "screenshot", "screenshotRegion",
         "playPause", "next", "previous",
         "toggleTheme", "toggleDnd"
     ]
@@ -55,6 +56,9 @@ QtObject {
         case "brightnessUp": Brightness.step(0.05); break;
         case "brightnessDown": Brightness.step(-0.05); break;
 
+        case "screenshot": Screenshot.capture(); break;
+        case "screenshotRegion": Screenshot.captureRegion(); break;
+
         case "playPause": Players.playPause(); break;
         case "next": Players.next(); break;
         case "previous": Players.previous(); break;
@@ -83,6 +87,9 @@ QtObject {
 
         function brightnessUp(): void { root.run("brightnessUp"); }
         function brightnessDown(): void { root.run("brightnessDown"); }
+
+        function screenshot(): void { root.run("screenshot"); }
+        function screenshotRegion(): void { root.run("screenshotRegion"); }
 
         function playPause(): void { root.run("playPause"); }
         function next(): void { root.run("next"); }

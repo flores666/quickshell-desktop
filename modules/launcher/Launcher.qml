@@ -24,17 +24,30 @@ ShellOverlay {
     initialFocusItem: search.input
 
     readonly property var results: Apps.search(search.text)
+    /*!
+        Which tile is selected: the one the highlight sits on and the one Enter
+        launches.
+
+        Deliberately not the grid's own `currentIndex`. A GridView scrolls to
+        keep its current item in view, so writing the hovered tile there fed
+        back on itself — hovering the half-row at the bottom edge scrolled it
+        into view, which put the next half-row under the pointer, which scrolled
+        again. Measured as a runaway from contentY 82 to 1026 in one sweep of
+        the pointer. The view scrolls only when the wheel, the scrollbar or
+        `navigate()` moves it.
+    */
+    property int selectedIndex: 0
 
     onShownChanged: {
         if (root.shown) {
             search.clear();
-            grid.currentIndex = 0;
+            root.selectedIndex = 0;
             grid.positionViewAtBeginning();
         }
     }
 
     function launchCurrent(): void {
-        const entry = root.results[grid.currentIndex];
+        const entry = root.results[root.selectedIndex];
         if (!entry)
             return;
         Overlay.close();
@@ -56,7 +69,7 @@ ShellOverlay {
             placeholder: qsTr("Search applications…")
 
             onTextChanged: {
-                grid.currentIndex = 0;
+                root.selectedIndex = 0;
                 grid.positionViewAtBeginning();
             }
             onAccepted: root.launchCurrent()
@@ -79,7 +92,6 @@ ShellOverlay {
             cellWidth: Math.floor((width - 1) / Math.max(1, Math.floor(width / 118)))
             cellHeight: 118
             boundsBehavior: Flickable.StopAtBounds
-            highlightMoveDuration: 0
 
             readonly property int columns: Math.max(1, Math.floor(width / cellWidth))
 
@@ -87,7 +99,7 @@ ShellOverlay {
                 const n = grid.count;
                 if (n === 0)
                     return;
-                let i = grid.currentIndex;
+                let i = root.selectedIndex;
                 switch (key) {
                 case Qt.Key_Down: i += grid.columns; break;
                 case Qt.Key_Up: i -= grid.columns; break;
@@ -97,8 +109,8 @@ ShellOverlay {
                 case Qt.Key_PageUp: i -= grid.columns * 3; break;
                 default: return;
                 }
-                grid.currentIndex = Math.max(0, Math.min(n - 1, i));
-                grid.positionViewAtIndex(grid.currentIndex, GridView.Contain);
+                root.selectedIndex = Math.max(0, Math.min(n - 1, i));
+                grid.positionViewAtIndex(root.selectedIndex, GridView.Contain);
             }
 
             /*!
@@ -123,13 +135,13 @@ ShellOverlay {
                 width: grid.cellWidth
                 height: grid.cellHeight
                 entry: this.modelData
-                current: grid.currentIndex === this.index
+                current: root.selectedIndex === this.index
 
                 onClicked: {
                     Overlay.close();
                     Apps.launch(this.modelData);
                 }
-                onHoveredChanged: if (this.hovered) grid.currentIndex = this.index
+                onHoveredChanged: if (this.hovered) root.selectedIndex = this.index
             }
         }
 
