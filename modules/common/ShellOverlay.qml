@@ -285,6 +285,14 @@ PanelWindow {
             // animating to a new height its content is already at full size, and
             // without this it spills over the edge onto the desktop.
             clip: true
+            // Fades as one flattened image. An opacity on the card is applied to
+            // every descendant separately, so a control drawn from opaque shapes
+            // painted over each other shows through itself: a quick-settings tile
+            // that has a detail page is a body, a chevron and a rectangle bridging
+            // the seam between them, and each one it overlaps adds its colour
+            // again. Measured on the closing fade, with the tile at accent: the
+            // seam read 60% brighter than the tile around it.
+            layer.enabled: card.opacity < 1
         }
 
         Keys.onPressed: event => {
