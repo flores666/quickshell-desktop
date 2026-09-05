@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Services.SystemTray
 import "root:/config"
@@ -59,6 +60,13 @@ Row {
                 source: entry.modelData.icon
                 size: Appearance.m.icon
                 fallbackIcon: "settings"
+                // Applications ship their tray icons in their own brand colours,
+                // which is the one place the bar would carry any. Drained of
+                // colour they read as part of the same set of glyphs as the rest
+                // of it; their luminance is untouched, so the shapes stay as
+                // legible as the author drew them.
+                layer.enabled: true
+                layer.effect: MultiEffect { saturation: -1 }
             }
 
             MouseArea {
