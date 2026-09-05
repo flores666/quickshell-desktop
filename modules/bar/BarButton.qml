@@ -5,7 +5,7 @@ import Quickshell
 import "root:/config"
 import "root:/components"
 
-/*! A pill-shaped item in the top bar. Content goes in as children. */
+/*! A rounded item in one of the bar's groups. Content goes in as children. */
 Clickable {
     id: root
 
@@ -15,7 +15,7 @@ Clickable {
 
     implicitWidth: content.implicitWidth + root.padding * 2
     implicitHeight: Appearance.m.barItemHeight
-    radius: Appearance.r.full
+    radius: Appearance.r.sm
     focusable: false
 
     /*! Horizontal centre of this button in its window's coordinates. */

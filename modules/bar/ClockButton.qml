@@ -17,7 +17,7 @@ BarButton {
     required property ShellScreen screen
 
     selected: Overlay.isOpen(Overlay.dateMenu)
-    padding: Appearance.s.lg
+    padding: Appearance.s.md
 
     onClicked: {
         Overlay.anchorX = root.windowCenterX();

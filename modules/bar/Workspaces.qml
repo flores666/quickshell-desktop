@@ -21,7 +21,7 @@ Item {
 
     readonly property var list: Compositor.workspacesFor(root.monitor)
 
-    implicitWidth: row.implicitWidth + Appearance.s.md * 2
+    implicitWidth: row.implicitWidth + Appearance.s.xs * 2
     implicitHeight: Appearance.m.barItemHeight
 
     MouseArea {
@@ -50,8 +50,13 @@ Item {
 
                 implicitWidth: item.isActive ? 26 : 18
                 implicitHeight: Appearance.m.barItemHeight
-                radius: Appearance.r.full
+                radius: Appearance.r.sm
                 focusable: false
+                // The dot already says which workspace is active. A hover wash
+                // behind it says it too, and says it about whichever one the
+                // pointer is crossing, so the strip reads as though the
+                // selection follows the mouse.
+                showStateLayer: false
 
                 Behavior on implicitWidth {
                     NumberAnimation {

@@ -27,7 +27,7 @@ PanelWindow {
     implicitWidth: 400
     anchors { top: true; right: true }
     // Clear the bar: an "ignore exclusive zones" surface starts at the screen edge.
-    margins.top: Appearance.m.barHeight + Appearance.s.md
+    margins.top: Appearance.m.barFootprint + Appearance.m.popupGap
     margins.right: Appearance.s.lg
 
     WlrLayershell.namespace: "shell-toasts"

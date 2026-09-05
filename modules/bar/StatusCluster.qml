@@ -30,7 +30,7 @@ BarButton {
         anchors.verticalCenter: parent.verticalCenter
         visible: Network.vpnActive
         name: "vpn"
-        size: Appearance.m.icon
+        size: Appearance.m.iconSm
         color: Appearance.c.success
     }
 
@@ -38,7 +38,7 @@ BarButton {
         anchors.verticalCenter: parent.verticalCenter
         visible: Audio.micInUse
         name: Audio.micIcon
-        size: Appearance.m.icon
+        size: Appearance.m.iconSm
         color: Audio.micMuted ? Appearance.c.textMuted : Appearance.c.accent
     }
 
@@ -46,7 +46,7 @@ BarButton {
         anchors.verticalCenter: parent.verticalCenter
         visible: Settings.doNotDisturb
         name: "dnd"
-        size: Appearance.m.icon
+        size: Appearance.m.iconSm
         color: Appearance.c.textMuted
     }
 
@@ -54,19 +54,19 @@ BarButton {
         anchors.verticalCenter: parent.verticalCenter
         visible: Bt.available && Bt.enabled
         name: Bt.icon
-        size: Appearance.m.icon
+        size: Appearance.m.iconSm
     }
 
     Icon {
         anchors.verticalCenter: parent.verticalCenter
         name: Network.icon
-        size: Appearance.m.icon
+        size: Appearance.m.iconSm
     }
 
     Icon {
         anchors.verticalCenter: parent.verticalCenter
         name: Audio.volumeIcon
-        size: Appearance.m.icon
+        size: Appearance.m.iconSm
     }
 
     Row {
@@ -77,7 +77,7 @@ BarButton {
         Icon {
             anchors.verticalCenter: parent.verticalCenter
             name: Power.icon
-            size: Appearance.m.icon
+            size: Appearance.m.iconSm
             color: Power.critical ? Appearance.c.danger
                 : Power.low ? Appearance.c.warning : Appearance.c.text
         }

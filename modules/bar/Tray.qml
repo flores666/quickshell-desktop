@@ -30,7 +30,7 @@ Row {
 
             implicitWidth: Appearance.m.barItemHeight
             implicitHeight: Appearance.m.barItemHeight
-            radius: Appearance.r.full
+            radius: Appearance.r.sm
             focusable: false
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
             selected: Overlay.isOpen(Overlay.trayMenu) && Overlay.payload === entry.modelData

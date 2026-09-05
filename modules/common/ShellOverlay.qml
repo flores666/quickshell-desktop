@@ -22,6 +22,8 @@ import "root:/services"
 PanelWindow {
     id: root
 
+    /*! Where the card sits. Only `Centre` differs across the screen; every
+        placement keeps the same `popupGap` from the panel it opens off. */
     enum Placement { BelowBar, AboveDock, Centre }
 
     required property string overlayId
@@ -76,7 +78,7 @@ PanelWindow {
     */
     readonly property int surfaceHeight: Math.max(root.cardHeight, root.liveHeight,
         (root.screen ? root.screen.height : 1080)
-            - Appearance.m.barHeight - Appearance.m.dockFootprint - Appearance.s.md * 2)
+            - Appearance.m.barFootprint - Appearance.m.dockFootprint - Appearance.m.popupGap * 2)
     property int elevation: 3
     property int cardRadius: Appearance.r.lg
     /*! What takes the keyboard when the popup opens. */
@@ -127,10 +129,8 @@ PanelWindow {
     }
 
     margins {
-        top: root.placement === ShellOverlay.Placement.Centre
-            ? Math.round((root.screen ? root.screen.height : 1080) * 0.07) - root.pad
-            : Appearance.m.barHeight + Appearance.s.md - root.pad
-        bottom: Appearance.m.dockFootprint + Appearance.s.md - root.pad
+        top: Appearance.m.barFootprint + Appearance.m.popupGap - root.pad
+        bottom: Appearance.m.dockFootprint + Appearance.m.popupGap - root.pad
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
