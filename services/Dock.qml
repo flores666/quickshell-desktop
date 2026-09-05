@@ -28,11 +28,44 @@ Singleton {
         const out = [];
         const claimed = ({});
 
+        /*!
+            Whether a window is one a taskbar should stand for. Both tests are
+            about what the compositor says the window is, not about which
+            application it belongs to.
+
+            A foreign-toplevel handle is the first: that protocol exists to list
+            the windows a taskbar shows, so a Hyprland toplevel without one is
+            not a window at all. Quickshell keeps a stub for every address it
+            heard about in an event and never got data for, and those stubs are
+            never dropped — nine of them were standing in this dock as anonymous
+            icons that outlived the windows they came from.
+
+            An application identity is the second: a window with neither an app
+            id nor a class cannot be named or given an icon, and the ones that
+            reach here are internal surfaces rather than windows — XWayland drag
+            proxies most of all.
+
+            A child window would be excluded by its handle's `parent`, which is
+            what that field is for. Hyprland 0.56.2 never sends it: measured on
+            the wire against a client that calls xdg_toplevel.set_parent, both
+            natively and through XWayland, zero parent events for a dialog and a
+            tool window it had just parented. The test is kept because it is the
+            right one and costs a term; nothing else Hyprland reports separates
+            a dialog from a window except `floating`, which is a state the user
+            drives as well.
+        */
+        function isTaskbarWindow(w) {
+            const handle = w.wayland;
+            return Boolean(handle) && !handle.parent && Compositor.appIdOf(w) !== "";
+        }
+
         // Group the open windows by the desktop entry they resolve to, keeping
         // Hyprland's own ordering so icons do not shuffle as focus moves.
         const byApp = ({});
         const order = [];
         for (const w of Compositor.toplevels) {
+            if (!isTaskbarWindow(w))
+                continue;
             const appId = Compositor.appIdOf(w);
             const entry = Apps.byAppId(appId);
             const key = entry ? entry.id : (appId !== "" ? appId : "window");
