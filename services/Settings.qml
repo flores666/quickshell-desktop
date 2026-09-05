@@ -18,6 +18,7 @@ Singleton {
     readonly property bool effectiveDark: adapter.theme !== "light"
     readonly property bool doNotDisturb: adapter.doNotDisturb
     readonly property var pinnedApps: adapter.pinnedApps
+    readonly property var dockOrder: adapter.dockOrder
     readonly property string accentColor: adapter.accentColor
     readonly property string backgroundLight: adapter.backgroundLight
     readonly property string backgroundDark: adapter.backgroundDark
@@ -62,6 +63,11 @@ Singleton {
         adapter.pinnedApps = adapter.pinnedApps.filter(x => x !== id);
     }
 
+    /*! The order the user dragged the dock into, as application keys. */
+    function setDockOrder(keys: var): void {
+        adapter.dockOrder = keys;
+    }
+
     readonly property bool ready: file.loaded
 
     JsonAdapter {
@@ -70,6 +76,9 @@ Singleton {
         property string theme: "dark"
         property bool doNotDisturb: false
         property list<string> pinnedApps: []
+        /*! Application keys in the order the dock shows them. Keys that are
+            neither pinned nor running are ignored, so it never needs pruning. */
+        property list<string> dockOrder: []
         /*! Empty means "use the built-in colour for the current theme". */
         property string accentColor: ""
         property string backgroundLight: ""

@@ -19,7 +19,11 @@ ShellOverlay {
     cardWidth: 220
     cardHeight: column.implicitHeight + Appearance.s.md * 2
 
-    readonly property var item: Overlay.payload
+    readonly property var item: root.subject
+    /*! The menu has one sub-level: the list of workspaces to send a window to. */
+    property bool pickingWorkspace: false
+
+    onRenderedChanged: if (!root.rendered) root.pickingWorkspace = false
     readonly property bool pinned: root.item?.entry ? Settings.isPinned(root.item.entry.id) : false
     readonly property bool launchable: root.item?.entry !== null && root.item?.entry !== undefined
     readonly property string launchLabel: root.item?.running ? qsTr("New Window") : qsTr("Open")
@@ -44,7 +48,7 @@ ShellOverlay {
         Label {
             width: parent.width
             height: 26
-            text: root.item?.name ?? ""
+            text: root.pickingWorkspace ? qsTr("Move to Workspace") : (root.item?.name ?? "")
             role: Label.Role.Caption
             faint: true
             leftPadding: Appearance.s.md
@@ -52,7 +56,33 @@ ShellOverlay {
 
         MenuItemRow {
             width: parent.width
-            visible: root.launchable
+            visible: root.pickingWorkspace
+            icon: "chevron-left"
+            label: qsTr("Back")
+            onClicked: root.pickingWorkspace = false
+        }
+
+        Repeater {
+            model: root.pickingWorkspace ? Compositor.workspaces : []
+
+            MenuItemRow {
+                id: wsRow
+                required property var modelData
+
+                width: column.width
+                label: qsTr("Workspace %1").arg(wsRow.modelData.name)
+                checkable: true
+                checked: root.item?.toplevel?.workspace?.id === wsRow.modelData.id
+                onClicked: {
+                    Overlay.close();
+                    Compositor.moveWindowToWorkspace(root.item.toplevel, wsRow.modelData.id);
+                }
+            }
+        }
+
+        MenuItemRow {
+            width: parent.width
+            visible: !root.pickingWorkspace && root.launchable
             icon: "add"
             label: root.launchLabel
             onClicked: {
@@ -62,7 +92,7 @@ ShellOverlay {
         }
 
         Repeater {
-            model: root.extraActions
+            model: root.pickingWorkspace ? [] : root.extraActions
 
             MenuItemRow {
                 id: actionRow
@@ -79,7 +109,16 @@ ShellOverlay {
 
         MenuItemRow {
             width: parent.width
-            visible: root.launchable
+            visible: !root.pickingWorkspace && (root.item?.toplevel ?? null) !== null
+            icon: "grid"
+            label: qsTr("Move to Workspace")
+            submenu: true
+            onClicked: root.pickingWorkspace = true
+        }
+
+        MenuItemRow {
+            width: parent.width
+            visible: !root.pickingWorkspace && root.launchable
             icon: "pin"
             label: root.pinned ? qsTr("Unpin from Dock") : qsTr("Pin to Dock")
             onClicked: {
@@ -90,7 +129,7 @@ ShellOverlay {
 
         MenuItemRow {
             width: parent.width
-            visible: root.item?.running ?? false
+            visible: !root.pickingWorkspace && (root.item?.running ?? false)
             icon: "close"
             danger: true
             label: qsTr("Close")

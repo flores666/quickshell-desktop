@@ -21,18 +21,16 @@ ShellOverlay {
     cardWidth: 240
     cardHeight: column.implicitHeight + Appearance.s.md * 2
 
-    Behavior on cardHeight {
-        NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
-    }
-
     /*! Menu handles from the root of the item's menu down to the visible level. */
     property var stack: []
 
     readonly property var entries: opener.children.values.filter(e => e)
 
-    onShownChanged: {
-        root.stack = root.shown && Overlay.payload?.menu ? [Overlay.payload.menu] : [];
-    }
+    onShownChanged: if (root.shown) root.stack = root.subject?.menu ? [root.subject.menu] : []
+
+    // Emptied only once the surface is gone: resetting it as the popup starts
+    // closing would collapse the card in the middle of its fade-out.
+    onRenderedChanged: if (!root.rendered) root.stack = []
 
     QsMenuOpener {
         id: opener

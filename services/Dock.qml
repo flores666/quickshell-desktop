@@ -6,8 +6,8 @@ import Quickshell
 import Quickshell.Hyprland
 
 /*!
-    What the dock shows: pinned applications first, then everything else that is
-    running.
+    What the dock shows: the applications the user arranged, then anything
+    pinned it has not heard of, then anything else that is running.
 
     Every open window gets its own icon — three terminals are three icons, each
     activating its own window. A pinned application collapses to a single
@@ -18,9 +18,11 @@ Singleton {
     id: root
 
     /*!
-        [{ key, entry, appId, name, icon, toplevel, pinned, running, active, grouped }]
+        [{ key, appKey, entry, appId, name, icon, toplevel, pinned, running, active, grouped }]
 
         `toplevel` is null for a pinned application that is not running.
+        `key` identifies the icon; `appKey` the application it belongs to, which
+        is what the dock's arrangement is stored in terms of.
     */
     readonly property var items: {
         const out = [];
@@ -46,6 +48,7 @@ Singleton {
                 : (group.appId !== "" ? group.appId : qsTr("Window"));
             return {
                 key: `w:${w.address}`,
+                appKey: key,
                 entry: group.entry,
                 appId: group.appId,
                 toplevel: w,
@@ -62,41 +65,85 @@ Singleton {
             };
         }
 
+        // The application key a pinned id resolves to, so a pin and a running
+        // window of the same application land in the same slot.
+        const pinnedKeys = ({});
         for (const id of Settings.pinnedApps) {
             const pinnedEntry = Apps.byId(id);
-            const key = pinnedEntry ? pinnedEntry.id : id;
-            const group = byApp[key];
-            if (group) {
-                claimed[key] = true;
-                for (const w of group.windows)
-                    out.push(windowEntry(key, group, w, true));
-            } else {
-                const name = pinnedEntry ? pinnedEntry.name : id;
-                out.push({
-                    key: `p:${key}`,
-                    entry: pinnedEntry,
-                    appId: pinnedEntry && pinnedEntry.startupClass !== ""
-                        ? pinnedEntry.startupClass : id,
-                    toplevel: null,
-                    pinned: true,
-                    running: false,
-                    active: false,
-                    name,
-                    grouped: false,
-                    icon: pinnedEntry ? pinnedEntry.icon : id
-                });
-            }
+            pinnedKeys[pinnedEntry ? pinnedEntry.id : id] = id;
         }
 
-        for (const key of order) {
-            if (claimed[key])
-                continue;
+        // Whatever the user dragged into place first, then pins it has not been
+        // told about, then the rest of what is running, in Hyprland's order.
+        const keys = [];
+        function want(key) {
+            if (claimed[key] || (!(key in byApp) && !(key in pinnedKeys)))
+                return;
+            claimed[key] = true;
+            keys.push(key);
+        }
+        for (const key of Settings.dockOrder)
+            want(key);
+        for (const key of Object.keys(pinnedKeys))
+            want(key);
+        for (const key of order)
+            want(key);
+
+        for (const key of keys) {
             const group = byApp[key];
-            for (const w of group.windows)
-                out.push(windowEntry(key, group, w, false));
+            const pinned = key in pinnedKeys;
+            if (group) {
+                for (const w of group.windows)
+                    out.push(windowEntry(key, group, w, pinned));
+                continue;
+            }
+            const id = pinnedKeys[key];
+            const pinnedEntry = Apps.byId(id);
+            out.push({
+                key: `p:${key}`,
+                appKey: key,
+                entry: pinnedEntry,
+                appId: pinnedEntry && pinnedEntry.startupClass !== ""
+                    ? pinnedEntry.startupClass : id,
+                toplevel: null,
+                pinned: true,
+                running: false,
+                active: false,
+                name: pinnedEntry ? pinnedEntry.name : id,
+                grouped: false,
+                icon: pinnedEntry ? pinnedEntry.icon : id
+            });
         }
 
         return out;
+    }
+
+    /*! The applications the dock is showing, in the order it shows them. */
+    readonly property var appKeys: {
+        const out = [];
+        for (const item of root.items)
+            if (out.indexOf(item.appKey) === -1)
+                out.push(item.appKey);
+        return out;
+    }
+
+    /*!
+        Move the application an icon belongs to so that it sits where the icon at
+        `to` is now. Stored as an arrangement of applications rather than of
+        icons, because a window's icon lives only as long as its window does.
+    */
+    function moveItem(from: int, to: int): void {
+        const items = root.items;
+        if (from < 0 || to < 0 || from >= items.length || to >= items.length)
+            return;
+        const moved = items[from].appKey;
+        const onto = items[to].appKey;
+        if (moved === onto)
+            return;
+        const keys = root.appKeys.filter(k => k !== moved);
+        const at = keys.indexOf(onto);
+        keys.splice(to > from ? at + 1 : at, 0, moved);
+        Settings.setDockOrder(keys);
     }
 
     /*! Focus this item's window, or launch the application if it has none. */
@@ -122,9 +169,14 @@ Singleton {
     function togglePinned(item: var): void {
         if (!item || !item.entry)
             return;
-        if (Settings.isPinned(item.entry.id))
+        if (Settings.isPinned(item.entry.id)) {
             Settings.unpin(item.entry.id);
-        else
-            Settings.pin(item.entry.id);
+            return;
+        }
+        // Freeze the arrangement first: pinning would otherwise promote the
+        // application ahead of everything unpinned, and its icon would jump out
+        // from under the pointer that just asked for it.
+        Settings.setDockOrder(root.appKeys);
+        Settings.pin(item.entry.id);
     }
 }

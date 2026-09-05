@@ -28,12 +28,54 @@ Clickable {
     /*! Reported to the dock, which owns the one shared tooltip. */
     signal hoverChanged(string key, string label, real centerX, bool entered)
 
+    /*! How far the dock wants this icon shifted to make room for a drag. */
+    property real slide: 0
+    /*! Whether a drag is still in flight somewhere in the dock. */
+    property bool rearranging: false
+    readonly property bool dragging: dragging_.active
+
+    signal dragMoved(real dx)
+    signal dragEnded
+
     implicitWidth: Appearance.m.dockCell
     implicitHeight: Appearance.m.dockCell
     radius: Appearance.r.md
     focusable: false
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     selected: root.item.active
+
+    // Above its neighbours while it is being carried, so it is never clipped by
+    // the icon it is passing over.
+    z: root.dragging ? 1 : 0
+
+    transform: Translate {
+        x: root.dragging ? dragging_.activeTranslation.x : root.slide
+
+        Behavior on x {
+            // Only while a drag is in flight, and never for the icon under the
+            // pointer — that one has to track the hand exactly. At the drop the
+            // dock's order changes in the same frame, so every offset has to
+            // vanish with it; animating them away instead leaves the icons
+            // sliding out of a layout that no longer exists.
+            enabled: root.rearranging && !root.dragging
+            NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
+        }
+    }
+
+    /*!
+        Rearranging the dock. `target: null` because the icon is moved by the
+        transform above, which leaves the Row's layout alone — the dock decides
+        where the icon lands, and only when the drag ends.
+    */
+    DragHandler {
+        id: dragging_
+
+        target: null
+        yAxis.enabled: false
+        cursorShape: Qt.ClosedHandCursor
+        onActiveChanged: if (!dragging_.active) root.dragEnded()
+        onActiveTranslationChanged: if (dragging_.active) root.dragMoved(dragging_.activeTranslation.x)
+    }
 
     onClicked: Dock.activate(root.item)
     onMiddleClicked: Dock.launchNew(root.item)

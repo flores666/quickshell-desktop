@@ -95,6 +95,12 @@ Singleton {
             Hyprland.dispatch(`closewindow address:0x${toplevel.address}`);
     }
 
+    /*! Silent: the window moves, the workspace you are looking at does not. */
+    function moveWindowToWorkspace(toplevel: HyprlandToplevel, id: int): void {
+        if (toplevel && toplevel.address !== "")
+            Hyprland.dispatch(`movetoworkspacesilent ${id},address:0x${toplevel.address}`);
+    }
+
     function switchToWorkspace(id: int): void {
         Hyprland.dispatch(`workspace ${id}`);
     }

@@ -24,14 +24,19 @@ ShellOverlay {
     cardWidth: Appearance.m.popoverWidth
     cardHeight: content.implicitHeight + Appearance.s.lg * 2
 
-    Behavior on cardHeight {
-        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
-    }
-
     /*! "" is the front page; anything else names the sub-page component. */
     property string page: ""
+    /*!
+        The page actually on screen.
 
-    readonly property string pageTitle: switch (root.page) {
+        It follows `page` only once whatever was there has faded out. Fading the
+        two into each other instead leaves both legible at half strength for the
+        length of the transition, which reads as the controls smearing.
+    */
+    property string visiblePage: ""
+    readonly property bool swapping: root.page !== root.visiblePage
+
+    readonly property string pageTitle: switch (root.visiblePage) {
         case "wifi": return qsTr("Wi-Fi");
         case "bluetooth": return qsTr("Bluetooth");
         case "output": return qsTr("Output Device");
@@ -41,14 +46,29 @@ ShellOverlay {
         default: return "";
     }
 
-    onShownChanged: if (!root.shown) root.page = ""
+    Timer {
+        // Hands the card over to the incoming page. A Behavior animation never
+        // emits finished(), so the handover is timed rather than chained off the
+        // fade; `running` is a plain binding, which cannot fail to fire.
+        running: root.swapping
+        interval: Appearance.t.fast
+        onTriggered: root.visiblePage = root.page
+    }
+
+    // Restored once the surface is gone, not as the popup starts closing: doing
+    // it on the way out fades the front page back in over the sub-page and grows
+    // the card again, all through the closing fade.
+    onRenderedChanged: if (!root.rendered) {
+        root.page = "";
+        root.visiblePage = "";
+    }
 
     Item {
         id: content
 
         anchors.fill: parent
         anchors.margins: Appearance.s.lg
-        implicitHeight: root.page === "" ? main.implicitHeight
+        implicitHeight: root.visiblePage === "" ? main.implicitHeight
             : header.height + Appearance.s.md + pageLoader.implicitHeight
 
         // ------------------------------------------------------- sub-page
@@ -57,8 +77,8 @@ ShellOverlay {
             id: header
             width: parent.width
             height: 32
-            visible: root.page !== ""
-            opacity: root.page !== "" ? 1 : 0
+            visible: opacity > 0
+            opacity: !root.swapping && root.visiblePage !== "" ? 1 : 0
 
             Behavior on opacity {
                 NumberAnimation { duration: Appearance.t.fast }
@@ -86,15 +106,16 @@ ShellOverlay {
             y: header.height + Appearance.s.md
             width: parent.width
             height: pageLoader.implicitHeight
-            active: root.page !== ""
-            opacity: root.page !== "" ? 1 : 0
+            active: root.visiblePage !== ""
+            opacity: !root.swapping && root.visiblePage !== "" ? 1 : 0
             visible: opacity > 0
+            layer.enabled: opacity < 1
 
             Behavior on opacity {
                 NumberAnimation { duration: Appearance.t.fast }
             }
 
-            sourceComponent: switch (root.page) {
+            sourceComponent: switch (root.visiblePage) {
                 case "wifi": return wifiPage;
                 case "bluetooth": return bluetoothPage;
                 case "output": return outputPage;
@@ -122,7 +143,11 @@ ShellOverlay {
             width: parent.width
             spacing: Appearance.s.lg
             visible: opacity > 0
-            opacity: root.page === "" ? 1 : 0
+            opacity: !root.swapping && root.visiblePage === "" ? 1 : 0
+            // Fades as one flattened image. Without this every child is faded
+            // separately, and the tiles — which are opaque shapes painted over
+            // each other — show through themselves as bright accent blocks.
+            layer.enabled: opacity < 1
 
             Behavior on opacity {
                 NumberAnimation { duration: Appearance.t.fast }

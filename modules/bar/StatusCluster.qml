@@ -89,11 +89,4 @@ BarButton {
             muted: true
         }
     }
-
-    Icon {
-        anchors.verticalCenter: parent.verticalCenter
-        name: "chevron-down"
-        size: Appearance.m.iconSm
-        color: Appearance.c.textMuted
-    }
 }

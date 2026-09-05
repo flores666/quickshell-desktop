@@ -101,6 +101,21 @@ ShellOverlay {
                 grid.positionViewAtIndex(grid.currentIndex, GridView.Contain);
             }
 
+            /*!
+                Swallows every press that does not land on a tile — the ragged
+                end of the last row, mostly. A tile holds its own press
+                (`preventStealing`); without this the gaps between them are
+                still enough for the Flickable to turn a click with a few pixels
+                of movement in it into a scroll. The wheel and the scrollbar are
+                what scroll the grid.
+            */
+            MouseArea {
+                z: -1
+                width: grid.contentWidth
+                height: grid.contentHeight
+                preventStealing: true
+            }
+
             delegate: AppTile {
                 required property var modelData
                 required property int index

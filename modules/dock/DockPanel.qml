@@ -32,9 +32,26 @@ PanelWindow {
     property string hoveredKey: ""
 
     readonly property bool pointerNear: dockHover.hovered || triggerHover.hovered
-    /*! Stay out while a menu of ours is up, or the menu would close itself. */
-    readonly property bool held: Overlay.isOpen(Overlay.dockMenu)
+    /*! Stay out while a menu of ours is up, or a drag is in progress. */
+    readonly property bool held: Overlay.isOpen(Overlay.dockMenu) || root.dragSlot >= 0
+
+    /*! The icon being dragged into a new position, and the slot it would land in. */
+    property int dragSlot: -1
+    property int dropSlot: -1
+    readonly property int slotStride: Appearance.m.dockCell + Appearance.m.dockGap
+
     property bool revealed: false
+
+    /*! How far an icon has to step aside to open a gap where the drag will land. */
+    function slideFor(slot: int): real {
+        if (root.dragSlot < 0 || slot === root.dragSlot)
+            return 0;
+        if (slot > root.dragSlot && slot <= root.dropSlot)
+            return -root.slotStride;
+        if (slot < root.dragSlot && slot >= root.dropSlot)
+            return root.slotStride;
+        return 0;
+    }
 
     screen: root.modelData
     visible: !root.suppressed
@@ -145,10 +162,29 @@ PanelWindow {
 
                 DockItem {
                     required property var modelData
+                    required property int index
+
                     item: this.modelData
                     screen: root.modelData
+                    slide: root.slideFor(this.index)
+                    rearranging: root.dragSlot >= 0
                     onHoverChanged: (key, label, centerX, entered) =>
                         root.onChildHover(key, label, centerX, entered)
+
+                    onDragMoved: dx => {
+                        root.dragSlot = this.index;
+                        root.dropSlot = Math.max(0, Math.min(Dock.items.length - 1,
+                            this.index + Math.round(dx / root.slotStride)));
+                    }
+                    onDragEnded: {
+                        const from = root.dragSlot;
+                        const to = root.dropSlot;
+                        // Cleared before the move, so the offsets are already
+                        // gone by the time the new order is laid out.
+                        root.dragSlot = -1;
+                        root.dropSlot = -1;
+                        Dock.moveItem(from, to);
+                    }
                 }
             }
 

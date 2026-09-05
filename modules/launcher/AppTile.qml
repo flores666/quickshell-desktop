@@ -14,6 +14,13 @@ Clickable {
     radius: Appearance.r.md
     focusable: false
     selected: root.current
+    /*!
+        A tile keeps the press it was given. The grid is a Flickable, so without
+        this it steals the press as soon as the pointer moves a few pixels and
+        turns a slightly shaky click into a scroll — measured at 68px of travel
+        from a 48px twitch. The wheel still scrolls the grid; nothing else does.
+    */
+    preventStealing: true
 
     Column {
         anchors.centerIn: parent

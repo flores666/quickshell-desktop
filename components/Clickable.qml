@@ -31,6 +31,8 @@ Item {
     property alias containsMouse: mouse.containsMouse
     property alias acceptedButtons: mouse.acceptedButtons
     property alias cursorShape: mouse.cursorShape
+    /*! Keep the press even inside a Flickable, which would otherwise steal it. */
+    property alias preventStealing: mouse.preventStealing
 
     readonly property bool hovered: root.enabled && root.hoverEnabled && mouse.containsMouse
     readonly property bool down: root.enabled && root.pressEnabled && mouse.pressed && mouse.containsMouse
