@@ -7,6 +7,8 @@
 # different headers, so this must be re-run after every Hyprland update.
 set -euo pipefail
 
+# Resolved before the cd into the build tree, so `patch` below still points here.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo=https://github.com/sandwichfarm/hyprexpo.git
 dest="${XDG_DATA_HOME:-$HOME/.local/share}/hyprexpo"
 work="$(mktemp -d)"
@@ -25,6 +27,13 @@ tag="$(git tag --list "v${series}*" --sort=-v:refname | head -1)"
 [[ -n "$tag" ]] || { echo "no hyprexpo tag for Hyprland ${series}" >&2; exit 1; }
 echo "building hyprexpo ${tag}"
 git checkout --quiet "$tag"
+
+# hyprexpo's wallpaper_bg draws MON->m_background, which is Hyprland's built-in
+# wall*.png asset rather than the background layer surface hyprpaper paints, so the
+# overview backdrop ends up being a stock wallpaper nobody chose. Not upstreamed, so
+# this is the step that breaks when the tag moves.
+patch="$script_dir/hyprexpo-real-wallpaper-bg.patch"
+git apply "$patch" || { echo "hyprexpo-real-wallpaper-bg.patch no longer applies to ${tag}" >&2; exit 1; }
 
 make all
 install -Dm755 hyprexpo.so "$dest/hyprexpo.so"
