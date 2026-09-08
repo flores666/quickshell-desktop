@@ -4,8 +4,7 @@ import QtQuick
 import "root:/config"
 import "root:/components"
 
-/*! The top bar: how tall it stands, how far off the edges, and the two things
-    that decide how the whole shell is drawn rather than just this panel. */
+/*! The top bar: how tall it stands and how far off the edges it sits. */
 Column {
     id: root
 
@@ -44,33 +43,5 @@ Column {
         role: Label.Role.Caption
         faint: true
         wrapMode: Text.Wrap
-    }
-
-    Divider { width: root.width }
-
-    Label {
-        text: qsTr("Everywhere")
-        role: Label.Role.Small
-        muted: true
-    }
-
-    SettingRow {
-        width: root.width
-        key: "border"
-        label: qsTr("Border")
-        min: Tuning.spec.border.min
-        max: Tuning.spec.border.max
-        value: Appearance.m.border
-    }
-
-    SettingRow {
-        width: root.width
-        key: "roundness"
-        label: qsTr("Corner roundness")
-        min: Tuning.spec.roundness.min
-        max: Tuning.spec.roundness.max
-        value: Tuning.pick("roundness")
-        suffix: qsTr("%")
-        step: 5
     }
 }

@@ -67,6 +67,8 @@ D-Bus, PipeWire or Hyprland directly, and never duplicates a derivation.
 | `Notifs` | the notification server | empty history |
 | `Apps` | XDG desktop entries | empty index |
 | `Compositor` | Hyprland IPC | empty workspace and window lists |
+| `Wallpaper` | `~/Pictures/Wallpapers` + hyprpaper IPC | no pictures, and the strip says where they go |
+| `Fonts` | Qt's font database | the shell's own family, alone |
 | `Keyboard` | Hyprland `activelayout` events | indicator hidden |
 | `Dock` | `Compositor` + `Settings` | pinned entries only |
 | `Session`, `Settings`, `Time`, `Osd`, `Overlay`, `InputMode` | — | — |
@@ -141,6 +143,20 @@ the accent's text colour is picked for contrast. Changes apply live and persist
 in `settings.json`, which also accepts any hex value the swatches do not offer.
 
 This only ever affects the shell. Nothing here touches GTK, Qt or system themes.
+
+## Settings
+
+One tab per thing that can be configured, and each thing configured in exactly
+one tab: the dock's hide delay is under *Dock* rather than filed with the other
+timings, and the border and corner radius every surface is drawn with are under
+*Appearance* rather than under the panel that happened to need them first.
+
+*Appearance* also holds the type: any installed family, and one **text size**
+that scales the whole ramp together the way roundness scales the whole set of
+radii. *Wallpaper* is a strip of the pictures in `~/Pictures/Wallpapers` that
+scrolls sideways under the wheel; picking one drives hyprpaper over IPC and
+remembers the choice, which is what puts it back at the next login — hyprpaper
+itself forgets an IPC change when it restarts.
 
 ## The dock
 

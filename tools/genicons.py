@@ -101,6 +101,7 @@ ICONS = {
     "warning": "dialog-warning",
     "error": "dialog-error",
     "night-light": "night-light",
+    "wallpaper": "preferences-desktop-wallpaper",
     "calendar": "x-office-calendar",
     "loading": "content-loading",
     "password": "dialog-password",

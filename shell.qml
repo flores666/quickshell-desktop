@@ -28,7 +28,10 @@ ShellRoot {
         // so the bar renders with real values instead of empty placeholders.
         void [Audio.ready, Network.available, Bt.available, Power.hasBattery,
               Brightness.available, Players.any, Apps.all.length, Notifs.count,
-              Compositor.workspaces.length, Settings.ready, Osd.armed, Keyboard.available];
+              Compositor.workspaces.length, Settings.ready, Osd.armed, Keyboard.available,
+              // Not for the sake of a first paint: this is what puts the
+              // remembered wallpaper back up after the daemon restarted.
+              Wallpaper.available];
     }
 
     Variants {

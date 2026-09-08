@@ -22,6 +22,8 @@ Singleton {
     readonly property string accentColor: adapter.accentColor
     readonly property string backgroundLight: adapter.backgroundLight
     readonly property string backgroundDark: adapter.backgroundDark
+    readonly property string fontFamily: adapter.fontFamily
+    readonly property string wallpaper: adapter.wallpaper
 
     // ------------------------------------------------------------- overrides
     //
@@ -39,13 +41,14 @@ Singleton {
     readonly property int screenGap: adapter.screenGap
     readonly property int border: adapter.border
     readonly property int roundness: adapter.roundness
+    readonly property int fontScale: adapter.fontScale
     readonly property int notificationTimeout: adapter.notificationTimeout
     readonly property int dockHideDelay: adapter.dockHideDelay
 
     /*! Every key `setOverride` accepts, and everything `resetOverrides` clears. */
     readonly property var overrideKeys: [
         "barHeight", "barGap", "barSideGap", "dockIcon", "screenGap",
-        "border", "roundness", "notificationTimeout", "dockHideDelay"
+        "border", "roundness", "fontScale", "notificationTimeout", "dockHideDelay"
     ]
 
     function setTheme(name: string): void {
@@ -70,6 +73,16 @@ Singleton {
             adapter.backgroundLight = value;
         else
             adapter.backgroundDark = value;
+    }
+
+    /*! Empty means the shell's own face. Any installed family is accepted. */
+    function setFontFamily(value: string): void {
+        adapter.fontFamily = value;
+    }
+
+    /*! The picture the wallpaper is set from, as an absolute path. */
+    function setWallpaper(path: string): void {
+        adapter.wallpaper = path;
     }
 
     /*! Set one override. A negative value restores the built-in value. */
@@ -126,6 +139,11 @@ Singleton {
         property string accentColor: ""
         property string backgroundLight: ""
         property string backgroundDark: ""
+        /*! Empty means the built-in font family. */
+        property string fontFamily: ""
+        /*! Absolute path; empty means the shell has never set the wallpaper and
+            leaves whatever the wallpaper daemon was configured with alone. */
+        property string wallpaper: ""
         /*! Layout and timing overrides. -1 means "use the tuned value". */
         property int barHeight: -1
         property int barGap: -1
@@ -134,6 +152,7 @@ Singleton {
         property int screenGap: -1
         property int border: -1
         property int roundness: -1
+        property int fontScale: -1
         property int notificationTimeout: -1
         property int dockHideDelay: -1
     }

@@ -100,7 +100,11 @@ Singleton {
         return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
     }
 
-    readonly property string fontFamily: "Adwaita Sans"
+    /*! The face the whole shell is set in. Any installed family will do; the
+        settings panel only ever offers ones Qt reports as present. */
+    readonly property string defaultFontFamily: "Adwaita Sans"
+    readonly property string fontFamily: Settings.fontFamily === ""
+        ? root.defaultFontFamily : Settings.fontFamily
 
     readonly property Typography font: Typography {}
     readonly property Spacing s: Spacing {}

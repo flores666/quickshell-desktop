@@ -4,11 +4,23 @@ import QtQuick
 
 /*! Type scale, in device-independent pixels. */
 QtObject {
-    readonly property int caption: 11
-    readonly property int small: 12
-    readonly property int body: 13
-    readonly property int subtitle: 15
-    readonly property int title: 19
-    readonly property int display: 34
-    readonly property int clock: 44
+    id: root
+
+    /*!
+        The whole scale, as a fraction of the tuned sizes.
+
+        One control over the set rather than a knob per role, for the same
+        reason roundness is one number: the sizes below stand in proportion to
+        each other — a caption is a caption because a title is bigger — and
+        scaling them together is what keeps that true at any text size.
+    */
+    readonly property real scale: Tuning.pick("fontScale") / 100
+
+    readonly property int caption: Math.round(11 * root.scale)
+    readonly property int small: Math.round(12 * root.scale)
+    readonly property int body: Math.round(13 * root.scale)
+    readonly property int subtitle: Math.round(15 * root.scale)
+    readonly property int title: Math.round(19 * root.scale)
+    readonly property int display: Math.round(34 * root.scale)
+    readonly property int clock: Math.round(44 * root.scale)
 }

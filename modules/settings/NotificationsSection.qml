@@ -5,8 +5,9 @@ import "root:/config"
 import "root:/components"
 import "root:/services"
 
-/*! How long things wait. The ranges here belong to the services that act on
-    them, which clamp what lands in settings.json the same way. */
+/*! Notifications: whether they are shown at all, and for how long. The range
+    here belongs to Notifs, which clamps what lands in settings.json the same
+    way. */
 Column {
     id: root
 
@@ -29,22 +30,11 @@ Column {
     SettingRow {
         width: root.width
         key: "notificationTimeout"
-        label: qsTr("Notification dwell")
+        label: qsTr("Dwell")
         min: 1500
         max: 30000
         step: 500
         value: Notifs.defaultTimeout
-        suffix: qsTr("ms")
-    }
-
-    SettingRow {
-        width: root.width
-        key: "dockHideDelay"
-        label: qsTr("Dock hide delay")
-        min: 0
-        max: 3000
-        step: 100
-        value: Dock.hideDelay
         suffix: qsTr("ms")
     }
 

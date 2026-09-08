@@ -119,9 +119,12 @@ is what both the clamp and the settings panel's sliders read — a knob cannot
 drift from its own guard rail. Timings are not design tokens and stay with the
 service that acts on them (`Notifs.defaultTimeout`, `Dock.hideDelay`).
 
-**Seed** — a user-settable colour (accent, background) from which the rest of a
-palette family is derived. Unset seeds mean the hand-tuned defaults are used
-verbatim, so the default look is exactly what it was.
+**Seed** — a preference chosen from a list rather than measured: the accent and
+background colours the rest of a palette family is derived from, the font
+family, the wallpaper. Every one is a string whose empty value means "unset", so
+an untouched shell looks exactly as it was tuned, and every one carries its own
+way back inside its own control — which is why *Reset all* leaves them alone and
+is only ever about the numbers.
 
 **Placement** — where a popup attaches: `BelowBar`, `AboveDock`, `Centre`.
 
@@ -141,7 +144,7 @@ contents.
 |---|---|---|
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `s` `r` `m` `t` `font`, `shadowFor(level)` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border` |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `accentColor`, `background{Light,Dark}`, `pin/unpin`, `toggleTheme`, `overrideKeys`, `setOverride/isOverridden/resetOverrides` |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `accentColor`, `background{Light,Dark}`, `fontFamily`, `wallpaper`, `pin/unpin`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `setOverride/isOverridden/resetOverrides` |
 | `Overlay` | which popup is open, on which screen, and outside-click dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `setPointerOver`, `dismissOnOutsideClick` |
 | `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
 | `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
@@ -156,6 +159,8 @@ contents.
 | `Keyboard` | the active XKB layout | `available`, `code` (e.g. `EN`), `cycle` |
 | `Osd` | the transient volume/mic/brightness indicator | `shown`, `kind`, `value`, `icon`, `text` |
 | `Screenshot` | screen capture through grim/slurp | `capture`, `captureRegion` |
+| `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current`, `set` |
+| `Fonts` | the font families Qt found at startup | `families`, `available`, `search` |
 | `Session` | lock, suspend, logout, reboot, shutdown | `lock` (raises `lockRequested`), `suspend`, `logout`, … |
 | `Time` | one clock for the whole shell | `now`, `time`, `dateShort`, `dateLong` |
 | `InputMode` | whether the user is currently navigating by keyboard | `keyboard`, `pointerUsed`, `keyboardUsed` |
@@ -201,6 +206,15 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **`Palette` collides with a QtQuick type.** The palette component is called
   `ColorScheme` for this reason. Watch for the same with `Icon`, `Label`,
   `Slider` if `QtQuick.Controls` is ever imported (it currently is not).
+- **`import QtCore` shadows the `Settings` singleton** with QtCore's own
+  `Settings` type, and every use of ours then fails to resolve. `Wallpaper`
+  needs `StandardPaths` from it, so it imports it qualified (`as Core`).
+- **A Flickable adopts anything declared inside it into its content item**, so a
+  pointer handler written there is parented but never registered and silently
+  never fires. `Filmstrip` catches the wheel with a `MouseArea` that accepts no
+  buttons, laid over the list — a `WheelHandler` on the wrapper is not offered
+  the event either. Note also that `WheelHandler.orientation` is a single
+  `Qt.Orientation`, not a set: a handler asked for both axes matches neither.
 - **A file name that matches a singleton shadows it.** `modules/dock/Dock.qml`
   would hide the `Dock` service, which is why the window is `DockPanel.qml` and
   the OSD window is `OsdWindow.qml`. Do not name a module file after a service.

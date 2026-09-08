@@ -33,7 +33,8 @@ Singleton {
         dockIcon:   { min: 28, max: 48,  def: 34  },
         screenGap:  { min: 0,  max: 24,  def: 8   },
         border:     { min: 0,  max: 2,   def: 1   },
-        roundness:  { min: 0,  max: 150, def: 100 }
+        roundness:  { min: 0,  max: 150, def: 100 },
+        fontScale:  { min: 85, max: 125, def: 100 }
     })
 
     /*! A user override, clamped — or the tuned value, when unset (negative). */

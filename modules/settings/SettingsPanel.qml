@@ -9,6 +9,13 @@ import "root:/modules/common"
 /*!
     The settings surface: everything about the shell a user is allowed to change.
 
+    One tab per thing that can be configured, and each thing in exactly one tab:
+    the dock's hide delay is under Dock rather than filed with the other
+    timings, and the border and corner radius every surface is drawn with are
+    under Appearance rather than under the panel that happened to need them
+    first.  Somewhere to look is worth more than a tidy grouping of like
+    controls.
+
     Sections down the left, one of them on the right.  A list rather than the
     sub-page slide quick settings uses — quick settings is a popover you dip
     into and dismiss, where a page at a time is the point; this is somewhere you
@@ -32,14 +39,23 @@ ShellOverlay {
 
     readonly property var sections: [
         { key: "appearance", title: qsTr("Appearance"), icon: "night-light" },
+        { key: "wallpaper", title: qsTr("Wallpaper"), icon: "wallpaper" },
         { key: "panel", title: qsTr("Top panel"), icon: "display" },
         { key: "dock", title: qsTr("Dock"), icon: "apps" },
-        { key: "behaviour", title: qsTr("Behaviour"), icon: "bell" }
+        { key: "notifications", title: qsTr("Notifications"), icon: "bell" }
     ]
 
     property string section: "appearance"
 
-    onShownChanged: if (root.shown) root.section = "appearance"
+    onShownChanged: {
+        if (!root.shown)
+            return;
+        root.section = "appearance";
+        // The pane outlives being closed, so without this it reopens wherever
+        // it was left — which since Appearance grew a type section is halfway
+        // down a list the user came back to the top of.
+        scroller.contentY = 0;
+    }
 
     readonly property int navWidth: 168
 
@@ -63,8 +79,9 @@ ShellOverlay {
             anchors.rightMargin: Appearance.s.lg
             text: qsTr("Reset all")
             icon: "refresh"
-            // Colours are seeds rather than sizes and are reset by their own
-            // default swatch, so this is only ever about the numbers.
+            // The colour, font and wallpaper choices are picked from a list
+            // rather than measured, and each list carries its own way back, so
+            // this is only ever about the numbers.
             enabled: Settings.overrideKeys.some(k => Settings.isOverridden(k))
             onClicked: Settings.resetOverrides()
         }
@@ -129,9 +146,10 @@ ShellOverlay {
 
                 width: scroller.width - Appearance.s.md
                 sourceComponent: switch (root.section) {
+                    case "wallpaper": return wallpaperSection;
                     case "panel": return panelSection;
                     case "dock": return dockSection;
-                    case "behaviour": return behaviourSection;
+                    case "notifications": return notificationsSection;
                     default: return appearanceSection;
                 }
             }
@@ -141,7 +159,8 @@ ShellOverlay {
     }
 
     Component { id: appearanceSection; AppearanceSection { width: pane.width } }
+    Component { id: wallpaperSection; WallpaperSection { width: pane.width } }
     Component { id: panelSection; PanelSection { width: pane.width } }
     Component { id: dockSection; DockSection { width: pane.width } }
-    Component { id: behaviourSection; BehaviourSection { width: pane.width } }
+    Component { id: notificationsSection; NotificationsSection { width: pane.width } }
 }
