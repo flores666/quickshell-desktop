@@ -32,7 +32,7 @@ PanelWindow {
     screen: root.modelData
     visible: !root.suppressed
     color: "transparent"
-    implicitHeight: Appearance.m.barFootprint + Appearance.shadowFor(panel.elevation).blur
+    implicitHeight: Appearance.m.barFootprint + Appearance.shadowFor(panel.elevation).pad
     exclusionMode: ExclusionMode.Normal
     exclusiveZone: Appearance.m.barFootprint
     anchors { top: true; left: true; right: true }
@@ -56,7 +56,9 @@ PanelWindow {
         anchors.rightMargin: Appearance.m.barSideGap
         height: Appearance.m.barHeight
         radius: Appearance.r.lg
-        elevation: 1
+        // The panel stands clear of the screen edge, so it casts the shadow of
+        // something raised off the desktop rather than of trim resting on it.
+        elevation: 2
 
         HoverHandler {
             id: pointer

@@ -24,7 +24,7 @@ Item {
 
     readonly property var spec: Appearance.shadowFor(root.level)
     /*! Room for the blur to spread past the shape without being clipped. */
-    readonly property int pad: root.spec.blur
+    readonly property int pad: root.spec.pad
 
     visible: root.level > 0
     z: -1
@@ -38,7 +38,7 @@ Item {
         layer.effect: MultiEffect {
             blurEnabled: true
             blur: 1
-            blurMax: Math.max(2, root.pad)
+            blurMax: Math.max(2, root.spec.blur)
         }
 
         Rectangle {

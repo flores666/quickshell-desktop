@@ -108,13 +108,19 @@ Singleton {
     readonly property Metrics m: Metrics {}
     readonly property Motion t: Motion {}
 
-    /*! Elevation presets consumed by Shadow.qml: offset, blur radius, strength. */
+    /*! Elevation presets consumed by Shadow.qml: offset, blur radius, strength,
+        and `pad` — the room the blurred silhouette needs around the shape. The
+        silhouette is dropped by `y`, so its tail reaches `blur` past that; a
+        surface that budgets only `blur` shears the bottom of its own shadow. */
     function shadowFor(level: int): var {
+        let spec;
         switch (level) {
-        case 1: return { y: 1, blur: 8, alpha: 0.7 };
-        case 2: return { y: 2, blur: 14, alpha: 0.85 };
-        case 3: return { y: 3, blur: 22, alpha: 1.0 };
-        default: return { y: 0, blur: 0, alpha: 0 };
+        case 1: spec = { y: 1, blur: 8, alpha: 0.7 }; break;
+        case 2: spec = { y: 2, blur: 14, alpha: 0.85 }; break;
+        case 3: spec = { y: 3, blur: 22, alpha: 1.0 }; break;
+        default: spec = { y: 0, blur: 0, alpha: 0 }; break;
         }
+        spec.pad = spec.blur + spec.y;
+        return spec;
     }
 }

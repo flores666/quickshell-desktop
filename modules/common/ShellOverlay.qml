@@ -107,7 +107,7 @@ PanelWindow {
     */
     property var subject: null
     /*! Room for the shadow to spread outside the card. */
-    readonly property int pad: Appearance.shadowFor(root.elevation).blur + Appearance.s.md
+    readonly property int pad: Appearance.shadowFor(root.elevation).pad + Appearance.s.md
 
     /*!
         Keys the popup did not handle itself. Escape is consumed here; anything
