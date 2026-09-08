@@ -74,7 +74,7 @@ config/              the design system — pure tokens, no logic
 services/            one singleton per source of system state
 components/          reusable widgets, all built on Clickable
 modules/             the surfaces themselves
-  bar/ dock/ panels/ launcher/ notifications/ osd/ lock/
+  bar/ dock/ panels/ launcher/ settings/ notifications/ osd/ lock/
   common/            shared surface chrome (ShellOverlay), IPC, overview theming
 tools/               generators and the lint wrapper; not loaded at runtime
 ```
@@ -97,8 +97,8 @@ persistent ones (bar, dock) and transient ones (popups, OSD, toasts). Every
 surface has a `WlrLayershell.namespace` of `shell-<name>`, which is how you
 identify it in `hyprctl layers`.
 
-**Popup** — launcher, quick settings, date menu, tray menu, dock menu. All share
-`ShellOverlay`. Exactly one can be open at a time.
+**Popup** — launcher, quick settings, settings, date menu, tray menu, dock menu.
+All share `ShellOverlay`. Exactly one can be open at a time.
 
 **Overlay (the service)** — the arbiter that enforces "one popup at a time".
 Every open/close routes through it, which is why the invariant holds by
@@ -110,6 +110,14 @@ masked to the card alone.
 
 **Token** — a named design value in `config/`. `Appearance.c.accent`,
 `Appearance.s.lg`, `Appearance.t.fast` and so on.
+
+**Override** — a token or timing the user has changed, in `settings.json`. Every
+one is an integer whose negative value means "unset", the way `""` means it for
+a colour seed, so an untouched shell renders exactly what was tuned. The layout
+overrides and their legal ranges live in one table, `config/Tuning.qml`, which
+is what both the clamp and the settings panel's sliders read — a knob cannot
+drift from its own guard rail. Timings are not design tokens and stay with the
+service that acts on them (`Notifs.defaultTimeout`, `Dock.hideDelay`).
 
 **Seed** — a user-settable colour (accent, background) from which the rest of a
 palette family is derived. Unset seeds mean the hand-tuned defaults are used
@@ -132,10 +140,11 @@ contents.
 | Service | Owns | Key surface |
 |---|---|---|
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `s` `r` `m` `t` `font`, `shadowFor(level)` |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `accentColor`, `background{Light,Dark}`, `pin/unpin`, `toggleTheme` |
+| `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border` |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `accentColor`, `background{Light,Dark}`, `pin/unpin`, `toggleTheme`, `overrideKeys`, `setOverride/isOverridden/resetOverrides` |
 | `Overlay` | which popup is open, on which screen, and outside-click dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `setPointerOver`, `dismissOnOutsideClick` |
 | `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
-| `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `activate`, `launchNew`, `close`, `togglePinned` |
+| `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink`, `volume`, `muted`, `micInUse`, `volumeIcon`, `sinks`, `setVolume`, `toggleMute`, `setSink` |
 | `Network` | NetworkManager state and the Wi-Fi list | `available`, `icon`, `label`, `wifiNetworks`, `activeWifi`, `vpnActive`, `connect`, `setScanning`, `passwordRequested` |
@@ -171,7 +180,7 @@ implemented.
 
 | File | Purpose |
 |---|---|
-| `ShellOverlay` | the base every popup derives from: sizing, placement, masking, fade, Escape, outside-click dismissal |
+| `ShellOverlay` | the base every popup derives from: sizing, placement, masking, fade, Escape, outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
 | `OverviewTheme` | pushes the shell's colours into the hyprexpo plugin so the overview matches the theme |
 | `MenuItemRow` | one row of a popup menu |

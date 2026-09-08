@@ -24,6 +24,11 @@ Singleton {
         `key` identifies the icon; `appKey` the application it belongs to, which
         is what the dock's arrangement is stored in terms of.
     */
+    /*! How long the dock waits after the pointer leaves before it slides away.
+        Long enough by default to cross the gap to a menu it opened. */
+    readonly property int hideDelay: Settings.dockHideDelay < 0
+        ? 700 : Math.max(0, Math.min(5000, Settings.dockHideDelay))
+
     readonly property var items: {
         const out = [];
         const claimed = ({});

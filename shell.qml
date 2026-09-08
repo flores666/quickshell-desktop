@@ -9,6 +9,7 @@ import "root:/modules/dock"
 import "root:/modules/panels"
 import "root:/modules/common"
 import "root:/modules/launcher"
+import "root:/modules/settings"
 import "root:/modules/osd"
 import "root:/modules/lock"
 import "root:/modules/notifications"
@@ -49,6 +50,8 @@ ShellRoot {
     DateMenu {}
 
     Launcher {}
+
+    SettingsPanel {}
 
     TrayMenu {}
 

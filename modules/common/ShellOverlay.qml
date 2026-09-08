@@ -75,10 +75,35 @@ PanelWindow {
         which is pure client-side rendering the compositor never sees. The rest
         of the surface is transparent and masked out of the input region, the
         same way the dock's window is far wider than the dock.
+
+        "Once" is enforced by `frame`, below. The bar's and dock's footprints are
+        settable, so they can change while a popup is up — and the popup that
+        changes them is this one, holding the settings panel. Left as a live
+        binding this would resize and re-margin the very surface the user is
+        dragging a slider in, which is the 77px artifact above, on every step.
     */
     readonly property int surfaceHeight: Math.max(root.cardHeight, root.liveHeight,
         (root.screen ? root.screen.height : 1080)
-            - Appearance.m.barFootprint - Appearance.m.dockFootprint - Appearance.m.popupGap * 2)
+            - root.frame.top - root.frame.bottom - Appearance.m.popupGap * 2)
+
+    /*!
+        The room the bar and the dock leave.
+
+        Live while the surface is down, frozen for as long as it is up: the
+        window is configured from the footprints as they are at the moment it
+        maps, and nothing the user does to the bar while it is on screen moves
+        it again. Only the surface reads this — the card's contents read
+        Appearance directly, since redrawing them is client-side and free.
+    */
+    property var frame: root.footprints()
+
+    function footprints(): var {
+        return { top: Appearance.m.barFootprint, bottom: Appearance.m.dockFootprint };
+    }
+
+    onRenderedChanged: root.frame = root.rendered
+        ? root.footprints()
+        : Qt.binding(() => root.footprints())
     property int elevation: 3
     property int cardRadius: Appearance.r.lg
     /*! What takes the keyboard when the popup opens. */
@@ -129,8 +154,11 @@ PanelWindow {
     }
 
     margins {
-        top: Appearance.m.barFootprint + Appearance.m.popupGap - root.pad
-        bottom: Appearance.m.dockFootprint + Appearance.m.popupGap - root.pad
+        // Never negative: a hand-edited settings.json can put the bar closer to
+        // the top than a level-3 shadow is deep, and a negative layer-shell
+        // margin pushes the surface off the edge it is anchored to.
+        top: Math.max(0, root.frame.top + Appearance.m.popupGap - root.pad)
+        bottom: Math.max(0, root.frame.bottom + Appearance.m.popupGap - root.pad)
     }
 
     WlrLayershell.layer: WlrLayer.Overlay

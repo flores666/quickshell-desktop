@@ -23,6 +23,31 @@ Singleton {
     readonly property string backgroundLight: adapter.backgroundLight
     readonly property string backgroundDark: adapter.backgroundDark
 
+    // ------------------------------------------------------------- overrides
+    //
+    // Every one of these replaces a value the design system or a service tuned
+    // by hand.  A negative value means "unset", exactly as an empty string does
+    // for the colour seeds above, so a fresh settings.json reproduces the
+    // built-in look precisely.  The legal range for each lives with whoever owns
+    // the value — the layout keys in Appearance.m.adjustable, the timings in the
+    // service that acts on them — so nothing here has an opinion about them.
+
+    readonly property int barHeight: adapter.barHeight
+    readonly property int barGap: adapter.barGap
+    readonly property int barSideGap: adapter.barSideGap
+    readonly property int dockIcon: adapter.dockIcon
+    readonly property int screenGap: adapter.screenGap
+    readonly property int border: adapter.border
+    readonly property int roundness: adapter.roundness
+    readonly property int notificationTimeout: adapter.notificationTimeout
+    readonly property int dockHideDelay: adapter.dockHideDelay
+
+    /*! Every key `setOverride` accepts, and everything `resetOverrides` clears. */
+    readonly property var overrideKeys: [
+        "barHeight", "barGap", "barSideGap", "dockIcon", "screenGap",
+        "border", "roundness", "notificationTimeout", "dockHideDelay"
+    ]
+
     function setTheme(name: string): void {
         adapter.theme = name === "light" ? "light" : "dark";
     }
@@ -45,6 +70,24 @@ Singleton {
             adapter.backgroundLight = value;
         else
             adapter.backgroundDark = value;
+    }
+
+    /*! Set one override. A negative value restores the built-in value. */
+    function setOverride(key: string, value: int): void {
+        // An undeclared key would have JsonAdapter grow a property nothing reads
+        // and then write it out to the file forever.
+        if (adapter[key] === undefined)
+            return;
+        adapter[key] = value;
+    }
+
+    function isOverridden(key: string): bool {
+        return adapter[key] !== undefined && adapter[key] >= 0;
+    }
+
+    function resetOverrides(): void {
+        for (const key of root.overrideKeys)
+            adapter[key] = -1;
     }
 
     function isPinned(id: string): bool {
@@ -83,6 +126,16 @@ Singleton {
         property string accentColor: ""
         property string backgroundLight: ""
         property string backgroundDark: ""
+        /*! Layout and timing overrides. -1 means "use the tuned value". */
+        property int barHeight: -1
+        property int barGap: -1
+        property int barSideGap: -1
+        property int dockIcon: -1
+        property int screenGap: -1
+        property int border: -1
+        property int roundness: -1
+        property int notificationTimeout: -1
+        property int dockHideDelay: -1
     }
 
     FileView {

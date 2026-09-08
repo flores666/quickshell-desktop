@@ -96,7 +96,7 @@ PanelWindow {
 
     Timer {
         id: hideTimer
-        interval: 700
+        interval: Dock.hideDelay
         onTriggered: if (!root.pointerNear && !root.held) root.revealed = false
     }
 
@@ -146,6 +146,19 @@ PanelWindow {
         elevation: 3
 
         Behavior on anchors.bottomMargin {
+            NumberAnimation {
+                duration: Appearance.t.base
+                easing.type: Appearance.t.emphasizedEasing
+            }
+        }
+
+        Behavior on height {
+            // On the same clock as the margin, which is what keeps the hidden
+            // dock hidden. The icon size is settable, so dockHeight can change
+            // while the dock is away; the margin that parks it offscreen is
+            // derived from that height, and if only one of the two eased, the
+            // difference between them would open and close — the dock peeking
+            // up over the bottom edge and sliding back for no reason.
             NumberAnimation {
                 duration: Appearance.t.base
                 easing.type: Appearance.t.emphasizedEasing

@@ -17,7 +17,8 @@ QtObject {
     id: root
 
     readonly property var actions: [
-        "launcher", "overview", "quickSettings", "dateMenu", "close", "dismiss", "escapeKey",
+        "launcher", "overview", "quickSettings", "dateMenu", "settings",
+        "close", "dismiss", "escapeKey",
         "lock",
         "volumeUp", "volumeDown", "volumeMute", "micMute",
         "brightnessUp", "brightnessDown",
@@ -31,6 +32,7 @@ QtObject {
         case "launcher":
         case "quickSettings":
         case "dateMenu":
+        case "settings":
             if (Overlay.isOpen(action))
                 Overlay.close();
             else
@@ -75,6 +77,7 @@ QtObject {
         function overview(): void { root.run("overview"); }
         function quickSettings(): void { root.run("quickSettings"); }
         function dateMenu(): void { root.run("dateMenu"); }
+        function settings(): void { root.run("settings"); }
         function close(): void { root.run("close"); }
         function dismiss(): void { root.run("dismiss"); }
         function escapeKey(): void { root.run("escapeKey"); }

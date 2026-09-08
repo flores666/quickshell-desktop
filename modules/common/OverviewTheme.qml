@@ -10,8 +10,9 @@ import "root:/config"
 
     The overview is drawn by the compositor, so its palette lives in Hyprland's
     config rather than in the design system. Rather than let the two drift, the
-    shell pushes the three colours that matter whenever the theme or the user's
-    accent changes — a handful of times a day, not on a timer.
+    shell pushes the three colours and the border weight that matter whenever
+    the theme, the accent or the border setting changes — a handful of times a
+    day, not on a timer.
 
     Everything else about the overview (grid shape, gestures) is static and
     belongs in hyprland.conf.
@@ -22,6 +23,8 @@ QtObject {
     readonly property color background: Appearance.c.base
     readonly property color accent: Appearance.c.accent
     readonly property color border: Appearance.c.borderStrong
+    /*! The plugin draws its own tile borders; keep them the shell's weight. */
+    readonly property int borderSize: Appearance.m.border
 
     /*! Hyprland wants rrggbb, QML gives #rrggbb. */
     function rgb(value: color): string {
@@ -32,7 +35,8 @@ QtObject {
         command: ["hyprctl", "--batch",
             `keyword plugin:hyprexpo:bg_col ${root.rgb(root.background)}`
             + ` ; keyword plugin:hyprexpo:border_color_focus ${root.rgb(root.accent)}`
-            + ` ; keyword plugin:hyprexpo:border_color ${root.rgb(root.border)}`]
+            + ` ; keyword plugin:hyprexpo:border_color ${root.rgb(root.border)}`
+            + ` ; keyword plugin:hyprexpo:border_size ${root.borderSize}`]
     }
 
     readonly property Timer apply: Timer {
@@ -43,6 +47,7 @@ QtObject {
         onTriggered: root.push.running = true
     }
 
+    onBorderSizeChanged: root.apply.restart()
     onBackgroundChanged: root.apply.restart()
     onAccentChanged: root.apply.restart()
     onBorderChanged: root.apply.restart()

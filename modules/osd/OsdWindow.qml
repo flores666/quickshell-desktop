@@ -23,7 +23,11 @@ PanelWindow {
     visible: root.rendered
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    implicitHeight: 120
+    /*! Exactly the room the pill needs: it sits a fixed distance above the
+        dock, and the dock is settable. The literal this replaced was two pixels
+        short of the tuned layout and clipped the pill's shadow outright. */
+    implicitHeight: Appearance.m.dockFootprint + Appearance.s.lg + pill.height
+        + Appearance.shadowFor(pill.elevation).pad
     anchors { bottom: true; left: true; right: true }
 
     WlrLayershell.namespace: "shell-osd"

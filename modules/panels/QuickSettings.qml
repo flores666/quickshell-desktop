@@ -8,6 +8,7 @@ import "root:/components"
 import "root:/services"
 import "root:/modules/common"
 import "root:/modules/panels/qs"
+import "root:/modules/settings"
 
 /*!
     The system panel, opened from the right of the top bar.
@@ -134,7 +135,7 @@ ShellOverlay {
             id: powerPage
             PowerPage { onActionTaken: Overlay.close() }
         }
-        Component { id: colorsPage; ColorsPage {} }
+        Component { id: colorsPage; ColorsSection {} }
 
         // ----------------------------------------------------- front page
 
@@ -298,6 +299,14 @@ ShellOverlay {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Appearance.s.xs
+
+                    IconButton {
+                        icon: "settings"
+                        onClicked: {
+                            Overlay.close();
+                            Overlay.openUnanchored(Overlay.settings);
+                        }
+                    }
 
                     IconButton {
                         icon: "lock"

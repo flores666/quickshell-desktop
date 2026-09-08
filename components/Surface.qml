@@ -28,7 +28,7 @@ Item {
         anchors.fill: parent
         radius: root.radius
         color: root.color
-        border.width: root.bordered ? 1 : 0
+        border.width: root.bordered ? Appearance.m.border : 0
         border.color: root.borderColor
         antialiasing: root.radius > 0
     }

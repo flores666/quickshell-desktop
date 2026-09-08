@@ -28,7 +28,10 @@ Singleton {
 
     readonly property int maxHistory: 64
     readonly property int maxPopups: 3
-    readonly property int defaultTimeout: 5000
+    /*! How long a toast with no timeout of its own stays up. Clamped to the
+        same range an application's own expireTimeout is held to below. */
+    readonly property int defaultTimeout: Settings.notificationTimeout < 0
+        ? 5000 : Math.max(1500, Math.min(30000, Settings.notificationTimeout))
 
     signal notified(var notification)
 
