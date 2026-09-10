@@ -149,7 +149,7 @@ Scope {
 
                 Item {
                     width: 300
-                    height: 42
+                    height: Appearance.m.fieldHeight
 
                     Rectangle {
                         anchors.fill: parent
@@ -180,7 +180,7 @@ Scope {
                         passwordCharacter: "•"
                         color: Appearance.c.text
                         font.family: Appearance.fontFamily
-                        font.pixelSize: Appearance.font.subtitle
+                        font.pixelSize: Appearance.font.body
                         selectionColor: Appearance.c.accent
                         selectedTextColor: Appearance.c.accentText
                         clip: true

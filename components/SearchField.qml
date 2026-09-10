@@ -18,7 +18,7 @@ FocusScope {
     signal navigate(int key)
 
     implicitWidth: 320
-    implicitHeight: 40
+    implicitHeight: Appearance.m.fieldHeight
 
     function clear(): void { input.text = ""; }
 
@@ -51,7 +51,7 @@ FocusScope {
         focus: true
         color: Appearance.c.text
         font.family: Appearance.fontFamily
-        font.pixelSize: Appearance.font.subtitle
+        font.pixelSize: Appearance.font.body
         selectionColor: Appearance.c.accent
         selectedTextColor: Appearance.c.accentText
         selectByMouse: true
@@ -92,7 +92,6 @@ FocusScope {
         x: input.x
         width: input.width
         visible: input.text === ""
-        role: Label.Role.Subtitle
         faint: true
     }
 

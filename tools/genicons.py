@@ -134,6 +134,55 @@ def find(name):
     return None
 
 
+NUM = re.compile(r"[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?")
+ARGC = {"M": 2, "L": 2, "H": 1, "V": 1, "C": 6, "S": 4, "Q": 4, "T": 2, "A": 7,
+        "Z": 0}
+
+
+def normalize(d):
+    """Re-emit path data with one space between every command and argument.
+
+    Qt's PathSvg misreads SVG's compacted arc syntax.  In `a1 1 0 00-1 1` the
+    large-arc and sweep flags are single digits written without a separator;
+    Qt takes `00` for one number and shifts the remaining arguments along, so
+    the arc collapses into a straight line and the glyph comes out with square
+    corners.  Adwaita's optimised files write arcs that way, so the arguments
+    are pulled apart here instead of being trusted to the parser.  Everything
+    else is copied through verbatim.
+    """
+    out, i, n, cmd = [], 0, len(d), None
+    while i < n:
+        if d[i] in " ,\t\r\n":
+            i += 1
+            continue
+        if d[i] in "MmZzLlHhVvCcSsQqTtAa":
+            cmd = d[i]
+            out.append(cmd)
+            i += 1
+            continue
+        if cmd is None or ARGC[cmd.upper()] == 0:
+            raise ValueError(f"unexpected {d[i]!r} at {i} in {d!r}")
+        up = cmd.upper()
+        for k in range(ARGC[up]):
+            while i < n and d[i] in " ,\t\r\n":
+                i += 1
+            # The two arc flags are one digit each, never a full number.
+            if up == "A" and k in (3, 4):
+                out.append(d[i])
+                i += 1
+                continue
+            m = NUM.match(d, i)
+            if not m:
+                raise ValueError(f"expected a number at {i} in {d!r}")
+            out.append(m.group())
+            i = m.end()
+        # Arguments repeating without a new letter mean the command again, and
+        # a moveto repeats as a lineto.
+        if up == "M":
+            cmd = "l" if cmd.islower() else "L"
+    return " ".join(out)
+
+
 def extract(path):
     """-> (viewBox size, [(d, opacity)])"""
     root = ET.parse(path).getroot()
@@ -149,7 +198,7 @@ def extract(path):
         m = re.search(r"fill-opacity:\s*([0-9.]+)", style)
         if m:
             op = m.group(1)
-        out.append((" ".join(d.split()), float(op) if op else 1.0))
+        out.append((normalize(d), float(op) if op else 1.0))
     return size, out
 
 

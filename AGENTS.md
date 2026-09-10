@@ -63,7 +63,11 @@ compositor do the right thing". Use the real session:
 5. **Degrade, never fake.** If hardware or a service is absent, the control is
    absent. No placeholder rows, no disabled buttons that would do nothing, no
    mock data.
-6. Keep files small. The largest is under 300 lines; that is the ceiling.
+6. **The wheel only ever scrolls.** No control changes a value or a selection
+   from it, so a wheel anywhere inside a panel reaches the surface that
+   scrolls. Do not add an `onWheel` to a widget; the two on the bar
+   (`Workspaces`, `Tray`) are outside the panels and are the only exceptions.
+7. Keep files small. The largest is under 300 lines; that is the ceiling.
 
 ## Architecture
 
@@ -211,10 +215,21 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   needs `StandardPaths` from it, so it imports it qualified (`as Core`).
 - **A Flickable adopts anything declared inside it into its content item**, so a
   pointer handler written there is parented but never registered and silently
-  never fires. `Filmstrip` catches the wheel with a `MouseArea` that accepts no
-  buttons, laid over the list — a `WheelHandler` on the wrapper is not offered
-  the event either. Note also that `WheelHandler.orientation` is a single
-  `Qt.Orientation`, not a set: a handler asked for both axes matches neither.
+  never fires; a `WheelHandler` on a wrapper item around the list is not offered
+  the event either. Catching a wheel over a list therefore needs a `MouseArea`
+  laid over it, taking no buttons so that what is underneath stays clickable.
+  Note also that `WheelHandler.orientation` is a single `Qt.Orientation`, not a
+  set: a handler asked for both axes matches neither.
+- **A `MouseArea` accepts the wheel merely by having `onWheel` connected**, so a
+  handler that declines to act on the event still swallows it and the scrolling
+  surface underneath never sees it. `event.accepted = false` hands it back;
+  declaring no `onWheel` at all is better where nothing wants it, which is how
+  hard rule 6 is kept.
+- **Qt's `PathSvg` misreads SVG's compacted arc syntax.** In `a1 1 0 00-1 1`
+  the large-arc and sweep flags are single digits with no separator; Qt takes
+  `00` for one number, shifts every later argument along, and the arc comes out
+  a straight line. `tools/genicons.py` pulls every argument apart before
+  emitting it. Adwaita's `legacy/` icons are the ones written that way.
 - **A file name that matches a singleton shadows it.** `modules/dock/Dock.qml`
   would hide the `Dock` service, which is why the window is `DockPanel.qml` and
   the OSD window is `OsdWindow.qml`. Do not name a module file after a service.

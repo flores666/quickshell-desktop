@@ -16,7 +16,7 @@ Column {
         id: strip
 
         width: root.width
-        height: 84
+        cellHeight: 84
         visible: Wallpaper.available
         model: Wallpaper.items
         currentIndex: Math.max(0, Wallpaper.items.indexOf(Wallpaper.current))
@@ -27,7 +27,7 @@ Column {
             required property string modelData
 
             implicitWidth: 132
-            height: strip.height
+            height: strip.cellHeight
             radius: Appearance.r.md
             focusable: false
             showStateLayer: false

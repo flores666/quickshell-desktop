@@ -35,12 +35,13 @@ Column {
 
     Item {
         width: root.width
-        height: 58
+        height: strip.implicitHeight
 
         Filmstrip {
             id: strip
 
             anchors.fill: parent
+            cellHeight: 58
             model: root.families
             currentIndex: Math.max(0, root.families.indexOf(Settings.fontFamily))
 
@@ -57,7 +58,7 @@ Column {
                 /*! One cell per family, all the same width: a name runs as long
                     as it likes, and a strip of ragged chips reads as a mess. */
                 implicitWidth: 108
-                height: strip.height
+                height: strip.cellHeight
                 radius: Appearance.r.md
                 focusable: false
                 preventStealing: true

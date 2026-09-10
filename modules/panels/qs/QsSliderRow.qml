@@ -36,7 +36,9 @@ Item {
     Slider {
         anchors.verticalCenter: parent.verticalCenter
         x: leading.x + leading.width + Appearance.s.sm
-        width: (root.hasPage ? trailing.x : root.width) - x - Appearance.s.sm
+        // Always stop where a chevron would be, whether or not this row has
+        // one, so a stack of rows shares a right edge.
+        width: trailing.x - x - Appearance.s.sm
         value: root.value
         fillColor: root.muted ? Appearance.c.textFaint : Appearance.c.accent
         onMoved: v => root.moved(v)

@@ -44,6 +44,9 @@ QtObject {
     readonly property int popupGap: 8
     readonly property int popoverWidth: 372
     readonly property int touchTarget: 32
+    /*! How tall a text field stands. Named once so the search fields and the
+        password wells cannot drift apart. */
+    readonly property int fieldHeight: 32
 
     readonly property int iconSm: 14
     readonly property int icon: 16

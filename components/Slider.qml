@@ -5,11 +5,16 @@ import "root:/config"
 import "root:/services"
 
 /*!
-    A continuous slider.
+    A continuous slider. Dragged with the pointer, or moved with the arrow keys
+    when it has focus.
 
     Emits moved() while dragging and committed() when the interaction ends, so
     callers can throttle expensive work (like writing to a device) to the end of
     a gesture if they need to.
+
+    No wheel handler, deliberately: a wheel belongs to whatever surface is
+    scrolling, and a slider that took it would change a value under a pointer
+    that was only passing over it.
 */
 Item {
     id: root
@@ -122,12 +127,6 @@ Item {
                 root.setFromX(event.x);
         }
         onReleased: root.committed(root.clamped)
-        onWheel: event => {
-            const dir = event.angleDelta.y > 0 ? 1 : -1;
-            const v = Math.max(0, Math.min(1, root.clamped + dir * root.stepSize));
-            root.moved(v);
-            root.committed(v);
-        }
     }
 
     Keys.onPressed: event => {

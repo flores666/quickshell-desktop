@@ -9,20 +9,20 @@ import "root:/config"
 
     Sideways is the axis a preview wants — a picture of a screen is wider than
     it is tall, and a line of type is nothing else — and it keeps the strip out
-    of the settings pane's own vertical scroll, which a stacked list of the same
-    previews would fight with for the wheel.
+    of the settings pane's own vertical scroll.
 
-    A Flickable only ever spends the wheel on an axis it can actually flick, so
-    this one, which cannot flick vertically, hands a plain wheel straight to the
-    pane behind it and leaves its own far end unreachable.  Hence `roll`: either
-    axis of the wheel becomes travel along this one, and a trackpad's sideways
-    swipe lands in the same place.
+    The wheel is deliberately not caught here.  A Flickable only ever spends the
+    wheel on an axis it can actually flick, and this one cannot flick
+    vertically, so a wheel over the strip passes through to the pane behind it
+    and scrolls the page — which is the only thing the wheel does anywhere in
+    the shell's panels.
 
-    The wheel is caught by a button-less MouseArea over the strip rather than
-    by a WheelHandler: a handler declared inside the list is adopted into the
-    list's scrolling content and never registered, and one on this wrapper is
-    never offered the event either.  Taking no buttons is what keeps the
-    previews underneath clickable.
+    The bar beneath the strip is what moves it instead.  A preview keeps the
+    press it is given, so that a click which drifts a few pixels is still a
+    click rather than a scroll — which leaves the previews themselves
+    undraggable, and a handle the only thing left to take hold of.  Callers give
+    `cellHeight`, the room a preview gets, and the strip stands taller by what
+    the bar needs under it.
 */
 Item {
     id: root
@@ -32,12 +32,11 @@ Item {
     property alias currentIndex: view.currentIndex
     /*! Whether there is anything off the edge to scroll to. */
     readonly property bool overflowing: view.contentWidth > view.width + 1
+    /*! How tall a preview stands. Delegates take their height from this rather
+        than from the strip, which is taller by the bar's footprint. */
+    property int cellHeight: 64
 
-    /*! Travel by a wheel's worth of rotation, in eighths of a degree. */
-    function roll(delta: real): void {
-        const reach = Math.max(0, view.contentWidth - view.width);
-        view.contentX = Math.max(0, Math.min(reach, view.contentX - delta));
-    }
+    implicitHeight: root.cellHeight + bar.footprint
 
     ListView {
         id: view
@@ -59,11 +58,10 @@ Item {
             view.positionViewAtIndex(view.currentIndex, ListView.Contain))
     }
 
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.NoButton
+    ThinScrollBar {
+        id: bar
 
-        onWheel: event => root.roll(event.angleDelta.y !== 0
-            ? event.angleDelta.y : event.angleDelta.x)
+        flickable: view
+        vertical: false
     }
 }

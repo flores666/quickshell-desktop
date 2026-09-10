@@ -52,7 +52,7 @@ Item {
 
         Item {
             width: parent.width
-            height: 40
+            height: Appearance.m.fieldHeight
 
             Rectangle {
                 anchors.fill: parent

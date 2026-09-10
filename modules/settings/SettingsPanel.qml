@@ -76,7 +76,8 @@ ShellOverlay {
             id: resetAll
             anchors.right: parent.right
             anchors.verticalCenter: heading.verticalCenter
-            anchors.rightMargin: Appearance.s.lg
+            // The same inset the heading and the pane below both use.
+            anchors.rightMargin: Appearance.s.xl
             text: qsTr("Reset all")
             icon: "refresh"
             // The colour, font and wallpaper choices are picked from a list
@@ -101,7 +102,9 @@ ShellOverlay {
             anchors.top: rule.bottom
             anchors.leftMargin: Appearance.s.md
             anchors.topMargin: Appearance.s.md
-            width: root.navWidth - Appearance.s.md
+            // Inset from the spine as well as from the card, or the selected
+            // row's fill runs under the divider.
+            width: root.navWidth - Appearance.s.md * 2
             spacing: Appearance.s.xxs
 
             Repeater {
@@ -144,7 +147,9 @@ ShellOverlay {
             Loader {
                 id: pane
 
-                width: scroller.width - Appearance.s.md
+                /*! Clear of the scrollbar, which floats over the pane's
+                    trailing edge rather than taking room in the layout. */
+                width: scroller.width - scrollbar.footprint
                 sourceComponent: switch (root.section) {
                     case "wallpaper": return wallpaperSection;
                     case "panel": return panelSection;
@@ -155,7 +160,7 @@ ShellOverlay {
             }
         }
 
-        ThinScrollBar { flickable: scroller }
+        ThinScrollBar { id: scrollbar; flickable: scroller }
     }
 
     Component { id: appearanceSection; AppearanceSection { width: pane.width } }
