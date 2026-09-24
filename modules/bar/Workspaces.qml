@@ -45,8 +45,10 @@ Item {
 
                 required property HyprlandWorkspace modelData
 
-                readonly property bool isActive: item.modelData.active
-                readonly property bool occupied: item.modelData.toplevels.values.length > 0
+                // Guarded: a workspace Hyprland has just destroyed goes null
+                // under its delegate for a frame before the delegate goes too.
+                readonly property bool isActive: item.modelData?.active ?? false
+                readonly property bool occupied: (item.modelData?.toplevels.values.length ?? 0) > 0
 
                 implicitWidth: item.isActive ? 26 : 18
                 implicitHeight: Appearance.m.barItemHeight
@@ -72,7 +74,7 @@ Item {
                     width: item.isActive ? 16 : 6
                     height: 6
                     radius: 3
-                    color: item.modelData.urgent ? Appearance.c.danger
+                    color: (item.modelData?.urgent ?? false) ? Appearance.c.danger
                         : item.isActive ? Appearance.c.accent
                         : item.occupied ? Appearance.c.textMuted
                         : Appearance.c.borderStrong
