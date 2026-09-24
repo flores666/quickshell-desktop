@@ -33,7 +33,12 @@ git checkout --quiet "$tag"
 # overview backdrop ends up being a stock wallpaper nobody chose. Not upstreamed, so
 # this is the step that breaks when the tag moves.
 patch="$script_dir/hyprexpo-real-wallpaper-bg.patch"
-git apply "$patch" || { echo "hyprexpo-real-wallpaper-bg.patch no longer applies to ${tag}" >&2; exit 1; }
+# Upstream moved its sources under src/ at v0.56.2+2 without touching the code the
+# patch edits, so follow the file rather than the path the patch was cut against.
+src_dir="$(dirname "$(git ls-files --full-name '*OverviewRender.cpp' | head -1)")"
+apply_args=()
+[[ "$src_dir" != "." ]] && apply_args=(--directory="$src_dir")
+git apply "${apply_args[@]}" "$patch" || { echo "hyprexpo-real-wallpaper-bg.patch no longer applies to ${tag}" >&2; exit 1; }
 
 make all
 install -Dm755 hyprexpo.so "$dest/hyprexpo.so"
