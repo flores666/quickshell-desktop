@@ -24,6 +24,8 @@ Singleton {
     readonly property string backgroundDark: adapter.backgroundDark
     readonly property string fontFamily: adapter.fontFamily
     readonly property string wallpaper: adapter.wallpaper
+    /*! The shell's corners follow Hyprland's window rounding; see Radii. */
+    readonly property bool roundnessFollowsWindows: adapter.roundnessFollowsWindows
 
     // ------------------------------------------------------------- overrides
     //
@@ -81,6 +83,10 @@ Singleton {
 
     function setDoNotDisturb(on: bool): void {
         adapter.doNotDisturb = on;
+    }
+
+    function setRoundnessFollowsWindows(on: bool): void {
+        adapter.roundnessFollowsWindows = on;
     }
 
     function setAccentColor(value: string): void {
@@ -151,6 +157,7 @@ Singleton {
 
         property string theme: "dark"
         property bool doNotDisturb: false
+        property bool roundnessFollowsWindows: false
         property list<string> pinnedApps: []
         /*! Application keys in the order the dock shows them. Keys that are
             neither pinned nor running are ignored, so it never needs pruning. */

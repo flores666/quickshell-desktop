@@ -33,7 +33,6 @@ ShellOverlay {
 
     overlayId: Overlay.settings
     placement: ShellOverlay.Placement.Centre
-    cardRadius: Appearance.r.xl
     cardWidth: Math.min(660, (root.screen ? root.screen.width : 1920) - Appearance.s.huge * 2)
     cardHeight: Math.min(520, (root.screen ? root.screen.height : 1080) - Appearance.s.huge * 3)
 

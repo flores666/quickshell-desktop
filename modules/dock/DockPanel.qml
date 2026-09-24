@@ -142,7 +142,7 @@ PanelWindow {
             ? Appearance.m.screenGap : -(root.dockHeight + Appearance.m.screenGap)
         width: layout.implicitWidth + Appearance.m.dockPadding * 2
         height: root.dockHeight
-        radius: Appearance.r.lg
+        radius: Appearance.r.panel
         elevation: 3
 
         Behavior on anchors.bottomMargin {

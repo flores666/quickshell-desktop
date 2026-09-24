@@ -105,7 +105,6 @@ PanelWindow {
         ? root.footprints()
         : Qt.binding(() => root.footprints())
     property int elevation: 3
-    property int cardRadius: Appearance.r.lg
     /*! What takes the keyboard when the popup opens. */
     property Item initialFocusItem: null
 
@@ -293,7 +292,8 @@ PanelWindow {
                 ? root.surfaceHeight - root.liveHeight : 0)
         width: root.cardWidth
         height: root.liveHeight
-        radius: root.cardRadius
+        // One radius for every panel; no popup picks its own.
+        radius: Appearance.r.panel
         elevation: root.elevation
         opacity: root.shown && root.settled ? 1 : 0
 

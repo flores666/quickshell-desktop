@@ -18,7 +18,6 @@ ShellOverlay {
 
     overlayId: Overlay.launcher
     placement: ShellOverlay.Placement.Centre
-    cardRadius: Appearance.r.xl
     cardWidth: Math.min(940, (root.screen ? root.screen.width : 1920) - Appearance.s.huge * 2)
     cardHeight: Math.min(600, (root.screen ? root.screen.height : 1080) - Appearance.s.huge * 3)
     initialFocusItem: search.input

@@ -55,7 +55,9 @@ PanelWindow {
         anchors.leftMargin: Appearance.m.barSideGap
         anchors.rightMargin: Appearance.m.barSideGap
         height: Appearance.m.barHeight
-        radius: Appearance.r.lg
+        // Capped at half the bar's height by the Rectangle, so short as it is
+        // the bar reads as a pill at the usual roundness.
+        radius: Appearance.r.panel
         // The panel stands clear of the screen edge, so it casts the shadow of
         // something raised off the desktop rather than of trim resting on it.
         elevation: 2

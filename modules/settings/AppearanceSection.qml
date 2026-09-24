@@ -58,8 +58,27 @@ Column {
         value: Appearance.m.border
     }
 
+    /*! Absent when Hyprland's window rounding cannot be read: there would be
+        nothing to follow. */
+    MenuRow {
+        width: root.width
+        visible: CompositorOptions.known("hyprRounding")
+        flush: true
+        title: qsTr("Match window corners")
+        subtitle: qsTr("Panels keep the same radius as Hyprland's windows")
+        onClicked: Settings.setRoundnessFollowsWindows(!Settings.roundnessFollowsWindows)
+
+        ToggleSwitch {
+            checked: Settings.roundnessFollowsWindows
+            onToggled: value => Settings.setRoundnessFollowsWindows(value)
+        }
+    }
+
+    // While the corners follow the windows this setting drives nothing, so it
+    // is not offered; window rounding is under Windows.
     SettingRow {
         width: root.width
+        visible: !Appearance.r.followsWindows
         key: "roundness"
         label: qsTr("Corner roundness")
         min: Tuning.spec.roundness.min
