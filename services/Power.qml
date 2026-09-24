@@ -38,7 +38,11 @@ Singleton {
     }
 
     readonly property string timeLabel: {
-        if (!root.hasBattery)
+        // Only while it is actually filling or draining: a full battery on AC
+        // still reports a time to empty, worked out from its trickle draw —
+        // weeks of it — which is no answer to anything.
+        const draining = root.state === UPowerDeviceState.Discharging;
+        if (!root.hasBattery || !(root.charging || draining))
             return "";
         const secs = root.charging ? root.battery.timeToFull : root.battery.timeToEmpty;
         if (secs <= 0)
