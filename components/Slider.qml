@@ -68,7 +68,9 @@ Item {
             width: Math.max(parent.height, root.knobSize / 2 + root.clamped * root.spanX)
             height: parent.height
             radius: height / 2
-            color: root.fillColor
+            // Disabled reads as off, not as a faded accent: the same grey a
+            // muted row uses.
+            color: root.enabled ? root.fillColor : Appearance.c.textFaint
         }
     }
 

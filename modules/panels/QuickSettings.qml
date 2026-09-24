@@ -160,15 +160,20 @@ ShellOverlay {
                 columnSpacing: Appearance.s.md
                 rowSpacing: Appearance.s.md
 
+                // Controls with nothing behind them are disabled, not removed,
+                // so this layout never shifts (the bar still hides them). A
+                // wired-only machine shows its wired tile in this slot instead.
                 QsTile {
                     width: (main.width - Appearance.s.md) / 2
-                    visible: Network.hasWifi
-                    icon: Network.icon
+                    visible: Network.hasWifi || !Network.hasWired
+                    enabled: Network.hasWifi
+                    icon: Network.hasWifi ? Network.icon : "wifi-off"
                     title: qsTr("Wi-Fi")
-                    status: Network.wifiEnabled ? Network.label : qsTr("Off")
+                    status: !Network.hasWifi ? qsTr("Unavailable")
+                        : Network.wifiEnabled ? Network.label : qsTr("Off")
                     active: Network.wifiEnabled
                     busy: Network.wifiConnecting
-                    hasPage: true
+                    hasPage: Network.hasWifi
                     toggleEnabled: Network.wifiHardwareEnabled
                     onToggled: Network.setWifiEnabled(!Network.wifiEnabled)
                     onPageRequested: root.page = "wifi"
@@ -186,13 +191,13 @@ ShellOverlay {
 
                 QsTile {
                     width: (main.width - Appearance.s.md) / 2
-                    visible: Bt.available
-                    icon: Bt.icon
+                    enabled: Bt.available
+                    icon: Bt.available ? Bt.icon : "bluetooth-off"
                     title: qsTr("Bluetooth")
-                    status: Bt.label
+                    status: Bt.available ? Bt.label : qsTr("Unavailable")
                     active: Bt.enabled
                     busy: Bt.busy
-                    hasPage: true
+                    hasPage: Bt.available
                     toggleEnabled: !Bt.blocked
                     onToggled: Bt.setEnabled(!Bt.enabled)
                     onPageRequested: root.page = "bluetooth"
@@ -225,7 +230,7 @@ ShellOverlay {
 
                 QsSliderRow {
                     width: parent.width
-                    visible: Audio.hasSink
+                    enabled: Audio.hasSink
                     icon: Audio.volumeIcon
                     value: Audio.volume
                     muted: Audio.muted
@@ -242,7 +247,7 @@ ShellOverlay {
 
                 QsSliderRow {
                     width: parent.width
-                    visible: Audio.hasSource
+                    enabled: Audio.hasSource
                     icon: Audio.micIcon
                     value: Audio.micVolume
                     muted: Audio.micMuted
@@ -255,7 +260,7 @@ ShellOverlay {
 
                 QsSliderRow {
                     width: parent.width
-                    visible: Brightness.available
+                    enabled: Brightness.available
                     icon: Brightness.icon
                     value: Brightness.value
                     onMoved: v => Brightness.set(v)
@@ -264,7 +269,7 @@ ShellOverlay {
 
             PowerProfileRow {
                 width: parent.width
-                visible: Power.hasProfiles
+                enabled: Power.hasProfiles
             }
 
             Divider { width: parent.width }
@@ -276,18 +281,19 @@ ShellOverlay {
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Appearance.s.sm
-                    visible: Power.hasBattery
 
                     Icon {
                         anchors.verticalCenter: parent.verticalCenter
-                        name: Power.icon
+                        name: Power.hasBattery ? Power.icon : "battery-missing"
                         size: Appearance.m.icon
-                        color: Power.critical ? Appearance.c.danger : Appearance.c.text
+                        color: !Power.hasBattery ? Appearance.c.textDisabled
+                            : Power.critical ? Appearance.c.danger : Appearance.c.text
                     }
 
                     Label {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Power.timeLabel !== ""
+                        text: !Power.hasBattery ? qsTr("No battery")
+                            : Power.timeLabel !== ""
                             ? qsTr("%1% · %2").arg(Math.round(Power.percentage)).arg(Power.timeLabel)
                             : qsTr("%1%").arg(Math.round(Power.percentage))
                         role: Label.Role.Small

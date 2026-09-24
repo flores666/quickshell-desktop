@@ -29,7 +29,7 @@ Item {
         enabled: root.toggleEnabled
         focusable: root.toggleEnabled
         hoverEnabled: root.toggleEnabled
-        iconColor: root.muted ? Appearance.c.textMuted : Appearance.c.text
+        iconColor: root.muted || !root.enabled ? Appearance.c.textMuted : Appearance.c.text
         onClicked: root.iconClicked()
     }
 
