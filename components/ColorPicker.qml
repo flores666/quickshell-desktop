@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Effects
 import "root:/config"
 import "root:/services"
 
@@ -16,6 +17,13 @@ import "root:/services"
     Emits moved() while dragging and committed() when the gesture ends, as
     Slider does, and like Slider takes no wheel. The arrow keys move the knob
     of whichever part has focus.
+
+    Neither part is a Rectangle with both a gradient and a radius. On Qt 6.11
+    such a rectangle does not take its parents' opacity — measured at 51%
+    alpha under a 30% parent — so the picker stayed at full strength while the
+    popup around it faded out; and two of them stacked left a light fringe
+    where their antialiased corners did not quite cover each other. The
+    gradients are square and one mask rounds them (RoundedFill).
 */
 Column {
     id: root
@@ -92,29 +100,42 @@ Column {
         event.accepted = true;
     }
 
-    Rectangle {
+    Item {
         id: plane
 
         width: root.width
         height: Appearance.m.pickerPlane
-        radius: Appearance.r.sm
         activeFocusOnTab: root.enabled
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: root.tint(root.sMin) }
-            GradientStop { position: 1; color: root.tint(root.sMin + root.sSpan) }
+
+        RoundedFill {
+            anchors.fill: parent
+            radius: Appearance.r.sm
+
+            Rectangle {
+                anchors.fill: parent
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0; color: root.tint(root.sMin) }
+                    GradientStop { position: 1; color: root.tint(root.sMin + root.sSpan) }
+                }
+            }
+
+            Rectangle {
+                // Darkens by 1 - value: the top edge is the band's brightest.
+                anchors.fill: parent
+                gradient: Gradient {
+                    GradientStop { position: 0; color: Qt.rgba(0, 0, 0, 1 - (root.vMin + root.vSpan)) }
+                    GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 1 - root.vMin) }
+                }
+            }
         }
 
         Rectangle {
-            // Darkens by 1 - value: the top edge is the band's brightest.
             anchors.fill: parent
-            radius: parent.radius
+            radius: Appearance.r.sm
+            color: "transparent"
             border.width: 1
             border.color: Appearance.c.border
-            gradient: Gradient {
-                GradientStop { position: 0; color: Qt.rgba(0, 0, 0, 1 - (root.vMin + root.vSpan)) }
-                GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 1 - root.vMin) }
-            }
         }
 
         PickerKnob {
@@ -145,22 +166,30 @@ Column {
         })
     }
 
-    Rectangle {
+    Item {
         id: strip
 
         width: root.width
         height: Appearance.m.pickerStrip
-        radius: height / 2
         activeFocusOnTab: root.enabled
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0 / 6; color: Qt.hsva(0 / 6, 1, 1, 1) }
-            GradientStop { position: 1 / 6; color: Qt.hsva(1 / 6, 1, 1, 1) }
-            GradientStop { position: 2 / 6; color: Qt.hsva(2 / 6, 1, 1, 1) }
-            GradientStop { position: 3 / 6; color: Qt.hsva(3 / 6, 1, 1, 1) }
-            GradientStop { position: 4 / 6; color: Qt.hsva(4 / 6, 1, 1, 1) }
-            GradientStop { position: 5 / 6; color: Qt.hsva(5 / 6, 1, 1, 1) }
-            GradientStop { position: 6 / 6; color: Qt.hsva(0, 1, 1, 1) }
+
+        RoundedFill {
+            anchors.fill: parent
+            radius: height / 2
+
+            Rectangle {
+                anchors.fill: parent
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0 / 6; color: Qt.hsva(0 / 6, 1, 1, 1) }
+                    GradientStop { position: 1 / 6; color: Qt.hsva(1 / 6, 1, 1, 1) }
+                    GradientStop { position: 2 / 6; color: Qt.hsva(2 / 6, 1, 1, 1) }
+                    GradientStop { position: 3 / 6; color: Qt.hsva(3 / 6, 1, 1, 1) }
+                    GradientStop { position: 4 / 6; color: Qt.hsva(4 / 6, 1, 1, 1) }
+                    GradientStop { position: 5 / 6; color: Qt.hsva(5 / 6, 1, 1, 1) }
+                    GradientStop { position: 6 / 6; color: Qt.hsva(0, 1, 1, 1) }
+                }
+            }
         }
 
         PickerKnob {
@@ -188,6 +217,34 @@ Column {
         Keys.onPressed: event => root.nudge(event, (dx, dy) => {
             root.hue = Math.max(0, Math.min(0.999, root.hue + (dx + dy) * root.step));
         })
+    }
+
+    /*! Its children, square, cut to a rounded rectangle by one mask. */
+    component RoundedFill: Item {
+        id: rounded
+
+        property real radius: 0
+        default property alias fills: body.data
+
+        Rectangle {
+            id: shape
+            anchors.fill: parent
+            radius: rounded.radius
+            visible: false
+            layer.enabled: true
+        }
+
+        Item {
+            id: body
+            anchors.fill: parent
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: shape
+                maskThresholdMin: 0.5
+                maskSpreadAtMin: 1.0
+            }
+        }
     }
 
     component PickerKnob: Rectangle {

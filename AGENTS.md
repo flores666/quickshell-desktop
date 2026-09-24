@@ -282,6 +282,12 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **Do not read churny properties in a model.** `Dock.items` used to read window
   titles; every keystroke in a terminal rebuilt the whole dock. Titles are now
   read per-item off the toplevel. This was worth 0.3% of idle CPU.
+- **A `Rectangle` with both a `gradient` and a `radius` ignores its parents'
+  opacity** (measured: 51% alpha under a 30% parent; a plain fill, or a
+  gradient with no radius, comes out at 30%). A popup's fade then leaves it at
+  full strength, and two of them stacked leave a light fringe at the corners.
+  Draw the gradient square and round it with a mask — `ColorPicker`'s
+  `RoundedFill`.
 - **A `Repeater` handed a new JS array rebuilds every delegate**, even the ones
   whose entries are unchanged: every toast faded in again and restarted its
   expiry on each new arrival. Services replace their arrays wholesale, so a

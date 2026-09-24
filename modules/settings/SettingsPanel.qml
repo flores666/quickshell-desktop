@@ -52,9 +52,9 @@ ShellOverlay {
         if (!root.shown)
             return;
         root.section = "appearance";
-        // The pane outlives being closed, so without this it reopens wherever
-        // it was left — which since Appearance grew a type section is halfway
-        // down a list the user came back to the top of.
+        // The scroller outlives being closed, so without this it reopens
+        // wherever it was left — which since Appearance grew a type section is
+        // halfway down a list the user came back to the top of.
         scroller.contentY = 0;
     }
 
@@ -151,6 +151,10 @@ ShellOverlay {
                 /*! Clear of the scrollbar, which floats over the pane's
                     trailing edge rather than taking room in the layout. */
                 width: scroller.width - scrollbar.footprint
+                // Built afresh for every visit and dropped once the surface is
+                // gone, so nothing a pane holds for the moment — a colour picker
+                // left open, a font filter half typed — is there next time.
+                active: root.rendered
                 sourceComponent: switch (root.section) {
                     case "wallpaper": return wallpaperSection;
                     case "panel": return panelSection;

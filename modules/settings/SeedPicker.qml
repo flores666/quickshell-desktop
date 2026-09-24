@@ -120,19 +120,38 @@ Column {
         }
     }
 
-    ColorPicker {
-        id: picker
+    Item {
+        // Opens and closes by growing and shrinking, on the clock a popup
+        // resizes on, rather than landing at full height in one frame. Clipped
+        // only while it moves: at rest a knob on the plane's edge hangs over it.
         width: root.width
-        visible: root.picking
-        value: root.current === "" ? root.defaultColor : root.current
-        saturationRange: root.range.saturation
-        valueRange: root.range.value
-        onMoved: value => root.chosen(value)
-        onCommitted: value => {
-            if (root.presets.indexOf(value) !== -1)
-                return;
-            Settings.rememberColor(value, root.made);
-            root.made = value;
+        height: root.picking ? picker.implicitHeight : 0
+        visible: height > 0
+        clip: height < picker.implicitHeight
+
+        Behavior on height {
+            NumberAnimation { duration: Appearance.t.resize; easing.type: Appearance.t.resizeEasing }
+        }
+
+        ColorPicker {
+            id: picker
+            width: parent.width
+            opacity: root.picking ? 1 : 0
+
+            Behavior on opacity {
+                NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.standardEasing }
+            }
+
+            value: root.current === "" ? root.defaultColor : root.current
+            saturationRange: root.range.saturation
+            valueRange: root.range.value
+            onMoved: value => root.chosen(value)
+            onCommitted: value => {
+                if (root.presets.indexOf(value) !== -1)
+                    return;
+                Settings.rememberColor(value, root.made);
+                root.made = value;
+            }
         }
     }
 }
