@@ -22,12 +22,12 @@ Column {
     MenuRow {
         width: root.width
         title: qsTr("Dark style")
+        flush: true
         subtitle: qsTr("Both themes are hand-tuned; the seeds below apply to each separately")
         icon: "night-light"
         onClicked: Settings.toggleTheme()
 
         ToggleSwitch {
-            anchors.verticalCenter: parent.verticalCenter
             checked: Appearance.dark
             onToggled: value => Settings.setTheme(value ? "dark" : "light")
         }

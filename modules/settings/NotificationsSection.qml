@@ -16,12 +16,12 @@ Column {
     MenuRow {
         width: root.width
         title: qsTr("Do Not Disturb")
+        flush: true
         subtitle: qsTr("Hold notifications in history without showing them")
         icon: "dnd"
         onClicked: Settings.setDoNotDisturb(!Settings.doNotDisturb)
 
         ToggleSwitch {
-            anchors.verticalCenter: parent.verticalCenter
             checked: Settings.doNotDisturb
             onToggled: value => Settings.setDoNotDisturb(value)
         }
