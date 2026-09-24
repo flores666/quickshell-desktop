@@ -20,7 +20,8 @@ Singleton {
     readonly property bool hasBattery: root.battery !== null
         && root.battery.ready && root.battery.isLaptopBattery && root.battery.isPresent
 
-    readonly property real percentage: root.hasBattery ? root.battery.percentage : 0
+    // Quickshell reports 0-1; everything downstream thinks in 0-100.
+    readonly property real percentage: root.hasBattery ? root.battery.percentage * 100 : 0
     readonly property int state: root.hasBattery ? root.battery.state : UPowerDeviceState.Unknown
     readonly property bool charging: root.state === UPowerDeviceState.Charging
         || root.state === UPowerDeviceState.PendingCharge

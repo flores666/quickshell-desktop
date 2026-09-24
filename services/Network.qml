@@ -87,11 +87,12 @@ Singleton {
         && (Networking.connectivity === NetworkConnectivity.Portal
             || Networking.connectivity === NetworkConnectivity.Limited)
 
+    /*! Quickshell reports signal strength as 0-1, not NetworkManager's 0-100. */
     function signalIcon(strength: real): string {
-        if (strength >= 80) return "wifi-excellent";
-        if (strength >= 55) return "wifi-good";
-        if (strength >= 30) return "wifi-ok";
-        if (strength >= 5) return "wifi-weak";
+        if (strength >= 0.80) return "wifi-excellent";
+        if (strength >= 0.55) return "wifi-good";
+        if (strength >= 0.30) return "wifi-ok";
+        if (strength >= 0.05) return "wifi-weak";
         return "wifi-none";
     }
 
