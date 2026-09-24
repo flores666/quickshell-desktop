@@ -210,9 +210,13 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **`Palette` collides with a QtQuick type.** The palette component is called
   `ColorScheme` for this reason. Watch for the same with `Icon`, `Label`,
   `Slider` if `QtQuick.Controls` is ever imported (it currently is not).
-- **`import QtCore` shadows the `Settings` singleton** with QtCore's own
-  `Settings` type, and every use of ours then fails to resolve. `Wallpaper`
-  needs `StandardPaths` from it, so it imports it qualified (`as Core`).
+- **A module import can shadow one of our singletons.** `import QtCore` brings
+  its own `Settings` type, and `import Quickshell.Networking` its own `Network`;
+  every use of ours in that file then goes to the imported type and fails —
+  the Wi-Fi page once did nothing at all for this reason. Import them
+  qualified (`QtCore as Core` in `Wallpaper`, `Quickshell.Networking as QsNet`
+  in `WifiPage`). `Network.qml` itself may import it bare: it never names
+  itself.
 - **A Flickable adopts anything declared inside it into its content item**, so a
   pointer handler written there is parented but never registered and silently
   never fires; a `WheelHandler` on a wrapper item around the list is not offered
@@ -236,16 +240,37 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **`NumberAnimation.finished` never fires inside a `Behavior`.** Never unmap a
   window or free a resource from it. Use a `Timer` whose `running` is a plain
   binding — a binding cannot silently fail to fire.
-- **A derived component's `on<Signal>` handler replaces the base's.** In a base
-  component like `ShellOverlay`, react to your own signals with
-  `Connections { target: root }`, not an `onFooChanged` handler, or a subclass
-  will silently displace it.
+- **A derived component's `on<Signal>` handler does not replace the base's**;
+  both run, base first. Verified on Qt 6.11.2 plain and under Quickshell 0.3.1
+  with a QML property on a `PanelWindow` root. (Earlier versions of this file
+  said otherwise and `ShellOverlay` carried a `Connections { target: root }`
+  workaround; there was never a measurement behind it.) Bindings, unlike
+  handlers, *are* replaced: a subclass assigning a property the base binds
+  wins.
 - **Quickshell singletons are lazy.** They initialise on first access, which is
   why `shell.qml` touches them all in `Component.onCompleted` — otherwise the
   bar renders one frame of empty placeholders.
 - **Do not read churny properties in a model.** `Dock.items` used to read window
   titles; every keystroke in a terminal rebuilt the whole dock. Titles are now
   read per-item off the toplevel. This was worth 0.3% of idle CPU.
+- **A `Repeater` handed a new JS array rebuilds every delegate**, even the ones
+  whose entries are unchanged: every toast faded in again and restarted its
+  expiry on each new arrival. Services replace their arrays wholesale, so a
+  view over one uses `ScriptModel { values: … }`, which diffs and keeps the
+  delegates of what is still listed.
+- **`ListView` cannot animate its first row leaving.** Removing row 0 moves
+  the view's origin rather than the rows below, so the leaving delegate is
+  culled on the first frame and nothing animates. Toasts are a `Column` with a
+  `move` transition and keep their own list of what is still drawn.
+- **Centring a child on a container that sizes itself from its children is a
+  binding loop** (`MenuRow`'s trailing slot is already centred). This was the
+  one "Binding loop detected" every start used to log.
+- **Quickshell gives battery charge and Wi-Fi signal as 0–1 fractions**, not
+  the 0–100 UPower and NetworkManager speak. `Power.percentage` converts once;
+  `Network.signalIcon` holds the thresholds as fractions.
+- **UPower reports a time to empty for a full battery on AC**, computed from
+  its trickle (≈30 days). `Power.timeLabel` answers only while charging or
+  discharging.
 - Use `required property` in every delegate; the codebase sets
   `pragma ComponentBehavior: Bound` everywhere.
 
@@ -269,6 +294,21 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   the bar. Toasts set `margins.top` explicitly for this reason.
 - **A layer surface's input region does not shrink its rendering.** Masking
   controls input only.
+- **Hyprland forgets every `hyprctl keyword` when it reloads its config.**
+  `CompositorOptions` (and `OverviewTheme`, for the overview's colours)
+  re-push on `configreloaded`. A keyword does not itself raise that event, so
+  this cannot loop. There is no keyword for "back to what the file said":
+  clearing an override asks Hyprland to reload, and the re-push restores the
+  rest. Per-device options (touchpad speed) can be set but not read back, which
+  is why that row says "As configured".
+- **`switchxkblayout` is not a dispatcher in 0.56**; it is a `hyprctl`
+  command. `Keyboard.cycle` runs `hyprctl switchxkblayout all next`.
+- **A `plugin =` path gets no tilde expansion** — it goes straight to dlopen.
+  `hyprctl plugin load` does expand `~`, which hides the fault when testing by
+  hand. Use `$HOME`, which the config parser expands.
+- **Only one bind may claim a global shortcut.** Two would open and close the
+  same popup on one press. Super+Space is the XKB layout toggle on this
+  machine (`grp:win_space_toggle`), which is why the launcher is Super+R.
 
 ### Testing
 
@@ -281,6 +321,11 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   that had drifted onto another workspace.
 - `pkill -f <pattern>` will match the shell running your own command line and
   kill your script. Use `pkill -x qs` or kill by PID.
+- **The shell under test is the user's live desktop.** Synthetic clicks and
+  keys land wherever the pointer and focus are; check with a screenshot that
+  the target is a shell surface before sending input to it. Restarting to read
+  a clean log means `kill <pid>` and relaunching detached (`setsid -f sh -c
+  "qs -c shell > log 2>&1"`) so the shell outlives your command.
 
 ### Icons
 

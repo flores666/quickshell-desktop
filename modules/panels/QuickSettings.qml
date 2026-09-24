@@ -1,8 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
-import Quickshell.Services.UPower
 import "root:/config"
 import "root:/components"
 import "root:/services"
@@ -15,8 +13,9 @@ import "root:/modules/settings"
 
     The front page carries the controls that get used constantly; anything that
     needs a list — networks, Bluetooth devices, audio outputs, power actions —
-    slides in as a sub-page rather than making the panel taller.  Controls for
-    hardware this machine does not have are simply absent.
+    slides in as a sub-page rather than making the panel taller. Controls for
+    hardware this machine does not have are disabled rather than removed, so the
+    layout is the same on every machine (see FrontPage).
 */
 ShellOverlay {
     id: root
@@ -25,7 +24,7 @@ ShellOverlay {
     cardWidth: Appearance.m.popoverWidth
     cardHeight: content.implicitHeight + Appearance.s.lg * 2
 
-    /*! "" is the front page; anything else names the sub-page component. */
+    /*! "" is the front page; anything else is a key of `pages`. */
     property string page: ""
     /*!
         The page actually on screen.
@@ -37,15 +36,16 @@ ShellOverlay {
     property string visiblePage: ""
     readonly property bool swapping: root.page !== root.visiblePage
 
-    readonly property string pageTitle: switch (root.visiblePage) {
-        case "wifi": return qsTr("Wi-Fi");
-        case "bluetooth": return qsTr("Bluetooth");
-        case "output": return qsTr("Output Device");
-        case "input": return qsTr("Input Device");
-        case "power": return qsTr("Power");
-        case "colors": return qsTr("Colours");
-        default: return "";
-    }
+    /*! Every sub-page, by the name `page` holds. */
+    readonly property var pages: ({
+        wifi: { title: qsTr("Wi-Fi"), component: wifiPage },
+        bluetooth: { title: qsTr("Bluetooth"), component: bluetoothPage },
+        output: { title: qsTr("Output Device"), component: outputPage },
+        input: { title: qsTr("Input Device"), component: inputPage },
+        power: { title: qsTr("Power"), component: powerPage },
+        colors: { title: qsTr("Colours"), component: colorsPage }
+    })
+    readonly property var current: root.pages[root.visiblePage] ?? null
 
     Timer {
         // Hands the card over to the incoming page. A Behavior animation never
@@ -97,7 +97,7 @@ ShellOverlay {
                 anchors.verticalCenter: parent.verticalCenter
                 x: back.width + Appearance.s.sm
                 width: parent.width - x
-                text: root.pageTitle
+                text: root.current?.title ?? ""
                 role: Label.Role.Subtitle
             }
         }
@@ -116,15 +116,7 @@ ShellOverlay {
                 NumberAnimation { duration: Appearance.t.fast }
             }
 
-            sourceComponent: switch (root.visiblePage) {
-                case "wifi": return wifiPage;
-                case "bluetooth": return bluetoothPage;
-                case "output": return outputPage;
-                case "input": return inputPage;
-                case "power": return powerPage;
-                case "colors": return colorsPage;
-                default: return null;
-            }
+            sourceComponent: root.current?.component ?? null
         }
 
         Component { id: wifiPage; WifiPage {} }
@@ -139,10 +131,9 @@ ShellOverlay {
 
         // ----------------------------------------------------- front page
 
-        Column {
+        FrontPage {
             id: main
             width: parent.width
-            spacing: Appearance.s.lg
             visible: opacity > 0
             opacity: !root.swapping && root.visiblePage === "" ? 1 : 0
             // Fades as one flattened image. Without this every child is faded
@@ -154,180 +145,7 @@ ShellOverlay {
                 NumberAnimation { duration: Appearance.t.fast }
             }
 
-            Grid {
-                width: parent.width
-                columns: 2
-                columnSpacing: Appearance.s.md
-                rowSpacing: Appearance.s.md
-
-                // Controls with nothing behind them are disabled, not removed,
-                // so this layout never shifts (the bar still hides them). A
-                // wired-only machine shows its wired tile in this slot instead.
-                QsTile {
-                    width: (main.width - Appearance.s.md) / 2
-                    visible: Network.hasWifi || !Network.hasWired
-                    enabled: Network.hasWifi
-                    icon: Network.hasWifi ? Network.icon : "wifi-off"
-                    title: qsTr("Wi-Fi")
-                    status: !Network.hasWifi ? qsTr("Unavailable")
-                        : Network.wifiEnabled ? Network.label : qsTr("Off")
-                    active: Network.wifiEnabled
-                    busy: Network.wifiConnecting
-                    hasPage: Network.hasWifi
-                    toggleEnabled: Network.wifiHardwareEnabled
-                    onToggled: Network.setWifiEnabled(!Network.wifiEnabled)
-                    onPageRequested: root.page = "wifi"
-                }
-
-                QsTile {
-                    width: (main.width - Appearance.s.md) / 2
-                    visible: !Network.hasWifi && Network.hasWired
-                    icon: Network.icon
-                    title: qsTr("Network")
-                    status: Network.label
-                    active: Network.wiredConnected
-                    toggleEnabled: false
-                }
-
-                QsTile {
-                    width: (main.width - Appearance.s.md) / 2
-                    enabled: Bt.available
-                    icon: Bt.available ? Bt.icon : "bluetooth-off"
-                    title: qsTr("Bluetooth")
-                    status: Bt.available ? Bt.label : qsTr("Unavailable")
-                    active: Bt.enabled
-                    busy: Bt.busy
-                    hasPage: Bt.available
-                    toggleEnabled: !Bt.blocked
-                    onToggled: Bt.setEnabled(!Bt.enabled)
-                    onPageRequested: root.page = "bluetooth"
-                }
-
-                QsTile {
-                    width: (main.width - Appearance.s.md) / 2
-                    icon: "dnd"
-                    title: qsTr("Do Not Disturb")
-                    status: Settings.doNotDisturb ? qsTr("On") : qsTr("Off")
-                    active: Settings.doNotDisturb
-                    onToggled: Settings.setDoNotDisturb(!Settings.doNotDisturb)
-                }
-
-                QsTile {
-                    width: (main.width - Appearance.s.md) / 2
-                    icon: Settings.effectiveDark ? "night-light" : "brightness"
-                    title: qsTr("Dark Style")
-                    status: Settings.effectiveDark ? qsTr("On") : qsTr("Off")
-                    active: Settings.effectiveDark
-                    hasPage: true
-                    onToggled: Settings.toggleTheme()
-                    onPageRequested: root.page = "colors"
-                }
-            }
-
-            Column {
-                width: parent.width
-                spacing: Appearance.s.sm
-
-                QsSliderRow {
-                    width: parent.width
-                    enabled: Audio.hasSink
-                    icon: Audio.volumeIcon
-                    value: Audio.volume
-                    muted: Audio.muted
-                    toggleEnabled: true
-                    hasPage: Audio.sinks.length > 1
-                    onMoved: v => {
-                        if (Audio.muted && v > 0)
-                            Audio.toggleMute();
-                        Audio.setVolume(v);
-                    }
-                    onIconClicked: Audio.toggleMute()
-                    onPageRequested: root.page = "output"
-                }
-
-                QsSliderRow {
-                    width: parent.width
-                    enabled: Audio.hasSource
-                    icon: Audio.micIcon
-                    value: Audio.micVolume
-                    muted: Audio.micMuted
-                    toggleEnabled: true
-                    hasPage: Audio.sources.length > 1
-                    onMoved: v => Audio.setMicVolume(v)
-                    onIconClicked: Audio.toggleMicMute()
-                    onPageRequested: root.page = "input"
-                }
-
-                QsSliderRow {
-                    width: parent.width
-                    enabled: Brightness.available
-                    icon: Brightness.icon
-                    value: Brightness.value
-                    onMoved: v => Brightness.set(v)
-                }
-            }
-
-            PowerProfileRow {
-                width: parent.width
-                enabled: Power.hasProfiles
-            }
-
-            Divider { width: parent.width }
-
-            Item {
-                width: parent.width
-                height: 34
-
-                Row {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: Appearance.s.sm
-
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: Power.hasBattery ? Power.icon : "battery-missing"
-                        size: Appearance.m.icon
-                        color: !Power.hasBattery ? Appearance.c.textDisabled
-                            : Power.critical ? Appearance.c.danger : Appearance.c.text
-                    }
-
-                    Label {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: !Power.hasBattery ? qsTr("No battery")
-                            : Power.timeLabel !== ""
-                            ? qsTr("%1% · %2").arg(Math.round(Power.percentage)).arg(Power.timeLabel)
-                            : qsTr("%1%").arg(Math.round(Power.percentage))
-                        role: Label.Role.Small
-                        muted: true
-                    }
-                }
-
-                Row {
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: Appearance.s.xs
-
-                    IconButton {
-                        icon: "settings"
-                        onClicked: {
-                            Overlay.close();
-                            Overlay.openUnanchored(Overlay.settings);
-                        }
-                    }
-
-                    IconButton {
-                        icon: "lock"
-                        onClicked: {
-                            Overlay.close();
-                            Session.lock();
-                        }
-                    }
-
-                    IconButton {
-                        icon: "shutdown"
-                        onClicked: root.page = "power"
-                    }
-                }
-            }
+            onPageRequested: page => root.page = page
         }
     }
 }
