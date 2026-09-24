@@ -100,6 +100,12 @@ Item {
             InputMode.keyboardUsed();
             root.clicked(null);
             event.accepted = true;
+        } else if (event.key === Qt.Key_Menu
+                || (event.key === Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))) {
+            // The keyboard's right click, so nothing is reachable by pointer alone.
+            InputMode.keyboardUsed();
+            root.rightClicked(null);
+            event.accepted = true;
         }
     }
 

@@ -71,6 +71,25 @@ Singleton {
     readonly property string background: root.dark ? Settings.backgroundDark : Settings.backgroundLight
     readonly property bool hasBackground: root.background !== ""
 
+    /*!
+        How far a picked seed may go, in HSV saturation and value. The derived
+        family and the hand-tuned text colours only stay legible over a
+        background near the theme's own, so a background is held to a narrow
+        band; an accent only has to stay a colour, neither grey nor black.
+    */
+    function seedRange(seed: string): var {
+        if (seed === "accent")
+            return { saturation: [0.2, 1], value: [0.35, 1] };
+        return root.dark
+            ? { saturation: [0, 0.4], value: [0.04, 0.2] }
+            : { saturation: [0, 0.15], value: [0.9, 1] };
+    }
+
+    function inSeedRange(c: color, range: var): bool {
+        const within = (x, span) => x >= span[0] - 0.005 && x <= span[1] + 0.005;
+        return within(c.hsvSaturation, range.saturation) && within(c.hsvValue, range.value);
+    }
+
     function accentFor(tuned: color): color {
         return root.hasAccent ? root.accentSeed : tuned;
     }

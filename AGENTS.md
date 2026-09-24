@@ -61,8 +61,12 @@ compositor do the right thing". Use the real session:
 4. **Every widget's interaction states come from `Clickable`.** Do not
    re-implement hover/press/selected/disabled/focus.
 5. **Degrade, never fake.** If hardware or a service is absent, the control is
-   absent. No placeholder rows, no disabled buttons that would do nothing, no
-   mock data.
+   absent. No placeholder rows, no mock data. The one exception is quick
+   settings' front page (`panels/qs/FrontPage`), whose tiles and sliders keep
+   their places and go *disabled* — "Unavailable", "No battery" — so that the
+   layout is the same on every machine and does not shift as devices come and
+   go. Disabling is `Clickable`'s own state; nothing else gets a disabled
+   stand-in, and the bar still shows only what is there.
 6. **The wheel only ever scrolls.** No control changes a value or a selection
    from it, so a wheel anywhere inside a panel reaches the surface that
    scrolls. Do not add an `onWheel` to a widget; the two on the bar
@@ -79,8 +83,15 @@ services/            one singleton per source of system state
 components/          reusable widgets, all built on Clickable
 modules/             the surfaces themselves
   bar/ dock/ panels/ launcher/ settings/ notifications/ osd/ lock/
-  common/            shared surface chrome (ShellOverlay), IPC, overview theming
+  panels/qs/         quick settings' pages: FrontPage, the sub-pages it opens,
+                     and their tiles and rows
+  settings/          one *Section per tab, on SettingRow / SettingToggle rows;
+                     SeedPicker is one colour seed: presets, history, picker
+  common/            shared surface chrome (ShellOverlay, OverlayCard), IPC,
+                     overview theming
 tools/               generators and the lint wrapper; not loaded at runtime
+hyprland.conf        sourced by the user's own config: the plugin, the shell's
+                     global binds, the bindn dismissal binds
 ```
 
 The dependency rule is one-way: `modules/` → `components/` → `config/`, and
@@ -121,14 +132,27 @@ a colour seed, so an untouched shell renders exactly what was tuned. The layout
 overrides and their legal ranges live in one table, `config/Tuning.qml`, which
 is what both the clamp and the settings panel's sliders read — a knob cannot
 drift from its own guard rail. Timings are not design tokens and stay with the
-service that acts on them (`Notifs.defaultTimeout`, `Dock.hideDelay`).
+service that acts on them (`Notifs.defaultTimeout`, `Dock.hideDelay`). Hyprland
+options (`hyprGapsIn`, `hyprBlur`, …) are overrides too, with the same
+arrangement in `CompositorOptions.spec`: Hyprland's name for each, its range,
+and how the integer maps onto it (a 0–1 float is a percentage, a −1..1
+sensitivity is 0–200 with 100 neutral). `hyprland.conf` stays the source of
+every default and is never rewritten.
 
 **Seed** — a preference chosen from a list rather than measured: the accent and
 background colours the rest of a palette family is derived from, the font
 family, the wallpaper. Every one is a string whose empty value means "unset", so
 an untouched shell looks exactly as it was tuned, and every one carries its own
 way back inside its own control — which is why *Reset all* leaves them alone and
-is only ever about the numbers.
+is only ever about the numbers. The same goes for the two on/off preferences,
+Do Not Disturb and *Match window corners* (`roundnessFollowsWindows`).
+
+A colour seed can also come from the picker, which is held to
+`Appearance.seedRange`: the derived family and the hand-tuned text colours only
+stay legible over a background near the theme's own. Picked colours go into one
+shared history (`recentColors`, newest first, capped; `pinnedColors`, kept).
+Each seed's row shows only those inside its own range, which is what keeps
+accents and backgrounds apart — so the ranges must not overlap.
 
 **Placement** — where a popup attaches: `BelowBar`, `AboveDock`, `Centre`.
 
@@ -146,25 +170,26 @@ contents.
 
 | Service | Owns | Key surface |
 |---|---|---|
-| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `s` `r` `m` `t` `font`, `shadowFor(level)` |
-| `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border` |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `accentColor`, `background{Light,Dark}`, `fontFamily`, `wallpaper`, `pin/unpin`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `setOverride/isOverridden/resetOverrides` |
+| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
+| `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`; `r.panel` is **the** radius of the bar, the dock and every popup card — nothing picks its own. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `setOverride/isOverridden/resetOverrides` |
+| `CompositorOptions` | the Hyprland options the settings panel changes, pushed with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad` |
 | `Overlay` | which popup is open, on which screen, and outside-click dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `setPointerOver`, `dismissOnOutsideClick` |
 | `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
 | `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink`, `volume`, `muted`, `micInUse`, `volumeIcon`, `sinks`, `setVolume`, `toggleMute`, `setSink` |
-| `Network` | NetworkManager state and the Wi-Fi list | `available`, `icon`, `label`, `wifiNetworks`, `activeWifi`, `vpnActive`, `connect`, `setScanning`, `passwordRequested` |
+| `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `vpnActive`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `setScanning`, `passwordRequested`, `failure` |
 | `Bt` | BlueZ adapter and devices | `available`, `enabled`, `listed`, `icon`, `label`, `setEnabled`, `toggleConnection` |
 | `Power` | UPower battery and power-profiles-daemon | `hasBattery`, `percentage`, `icon`, `timeLabel`, `hasProfiles`, `profile`, `setProfile` |
 | `Brightness` | the sysfs backlight | `available`, `value`, `set`, `step` |
 | `Players` | MPRIS, with one sticky "current" player | `hasPlayer`, `playing`, `title`, `artist`, `summary`, `playPause`, `seekTo`, `formatTime` |
 | `Notifs` | the notification server, toast queue and history | `history`, `count`, `popups`, `remove`, `clearAll`, `plainBody`, `relativeLabel`, `timeoutFor` |
-| `Keyboard` | the active XKB layout | `available`, `code` (e.g. `EN`), `cycle` |
+| `Keyboard` | the active XKB layout | `available`, `code` (e.g. `EN`), `cycle` (every keyboard at once) |
 | `Osd` | the transient volume/mic/brightness indicator | `shown`, `kind`, `value`, `icon`, `text` |
 | `Screenshot` | screen capture through grim/slurp | `capture`, `captureRegion` |
 | `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current`, `set` |
-| `Fonts` | the font families Qt found at startup | `families`, `available`, `search` |
+| `Fonts` | the font families Qt found, and applying the chosen one to applications — the GTK interface font and a fontconfig file the shell owns (`conf.d/50-quickshell-font.conf`); *Default* restores the GTK font it first replaced | `families`, `available`, `chosen`, `search` |
 | `Session` | lock, suspend, logout, reboot, shutdown | `lock` (raises `lockRequested`), `suspend`, `logout`, … |
 | `Time` | one clock for the whole shell | `now`, `time`, `dateShort`, `dateLong` |
 | `InputMode` | whether the user is currently navigating by keyboard | `keyboard`, `pointerUsed`, `keyboardUsed` |
@@ -177,19 +202,23 @@ implemented.
 
 | Component | Purpose |
 |---|---|
-| `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation. Everything clickable derives from it |
+| `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation (Space/Enter click; Menu or Shift+F10 right-click). Everything clickable derives from it |
 | `Surface` | an opaque rounded panel with a border and a `Shadow` |
 | `Shadow` | one gaussian-blurred silhouette via `MultiEffect`; `level` 1–3 |
 | `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
 | `AppIcon` | an application icon from the XDG theme, with fallbacks |
 | `Label` | text with the type scale applied; use instead of bare `Text` |
-| `IconButton`, `TextButton`, `ToggleSwitch`, `Slider`, `MenuRow`, `SearchField`, `Spinner`, `Divider`, `ThinScrollBar`, `Tooltip` | the rest of the kit |
+| `ColorPicker` | an HSV plane and hue strip, optionally held to a saturation/value band; `moved`/`committed` like `Slider`, arrow keys, no wheel |
+| `Filmstrip` | a sideways-scrolling row of choices wider than its room: wallpaper previews, font samples |
+| `MenuRow` | a popover list row; `flush` drops the inset and wash so it sits among a settings pane's sliders |
+| `IconButton`, `TextButton` (`compact` for in-row actions), `ToggleSwitch`, `Slider`, `SearchField`, `Spinner`, `Divider`, `ThinScrollBar`, `Tooltip` | the rest of the kit |
 
 ## Module chrome (`modules/common/`)
 
 | File | Purpose |
 |---|---|
-| `ShellOverlay` | the base every popup derives from: sizing, placement, masking, fade, Escape, outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself |
+| `ShellOverlay` | the base every popup derives from: the surface, placement, sizing, masking, the map/settle/unmap lifecycle and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself |
+| `OverlayCard` | the card inside it: the entry slide, the fade (as one flattened layer), clipping, hover reporting to `Overlay`, and Escape |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
 | `OverviewTheme` | pushes the shell's colours into the hyprexpo plugin so the overview matches the theme |
 | `MenuItemRow` | one row of a popup menu |

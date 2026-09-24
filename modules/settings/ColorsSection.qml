@@ -8,9 +8,9 @@ import "root:/services"
 /*!
     Accent and background colour for the shell itself.
 
-    Curated seeds rather than a picker: the rest of the palette is derived from
-    whichever seed is chosen, so the two themes stay coherent. Anything not
-    offered here can still be set by hand in settings.json.
+    Curated seeds first, and a picker for anything else. The rest of the
+    palette is derived from whichever seed is chosen, so the picker is held to
+    the range over which the derivation stays legible (Appearance.seedRange).
 */
 Column {
     id: root
@@ -25,65 +25,31 @@ Column {
         "", "#191817", "#141414", "#17181c", "#151a19", "#1b1720", "#1a1a1a"
     ]
 
-    readonly property var backgrounds: Appearance.dark ? root.darkBackgrounds : root.lightBackgrounds
-    readonly property string currentBackground: Appearance.dark
-        ? Settings.backgroundDark : Settings.backgroundLight
-
     spacing: Appearance.s.lg
 
-    Label {
-        text: qsTr("Accent")
-        role: Label.Role.Small
-        muted: true
-    }
-
-    Grid {
+    SeedPicker {
         width: root.width
-        columns: 9
-        spacing: Appearance.s.md
-
-        Repeater {
-            model: root.accents
-
-            Swatch {
-                required property string modelData
-
-                color: this.modelData === "" ? Appearance.c.accent : this.modelData
-                isDefault: this.modelData === ""
-                selected: Settings.accentColor === this.modelData
-                onClicked: Settings.setAccentColor(this.modelData)
-            }
-        }
+        title: qsTr("Accent")
+        seed: "accent"
+        presets: root.accents
+        current: Settings.accentColor
+        defaultColor: Appearance.c.accent
+        onChosen: value => Settings.setAccentColor(value)
     }
 
-    Label {
-        text: Appearance.dark ? qsTr("Dark background") : qsTr("Light background")
-        role: Label.Role.Small
-        muted: true
-    }
-
-    Grid {
+    SeedPicker {
         width: root.width
-        columns: 9
-        spacing: Appearance.s.md
-
-        Repeater {
-            model: root.backgrounds
-
-            Swatch {
-                required property string modelData
-
-                color: this.modelData === "" ? Appearance.c.base : this.modelData
-                isDefault: this.modelData === ""
-                selected: root.currentBackground === this.modelData
-                onClicked: Settings.setBackgroundColor(this.modelData)
-            }
-        }
+        title: Appearance.dark ? qsTr("Dark background") : qsTr("Light background")
+        seed: "background"
+        presets: Appearance.dark ? root.darkBackgrounds : root.lightBackgrounds
+        current: Appearance.dark ? Settings.backgroundDark : Settings.backgroundLight
+        defaultColor: Appearance.c.base
+        onChosen: value => Settings.setBackgroundColor(value)
     }
 
     Label {
         width: root.width
-        text: qsTr("Only this shell is affected; system and application themes are left alone.")
+        text: qsTr("Only this shell is affected; system and application themes are left alone. Right-click a colour you made to pin it.")
         role: Label.Role.Caption
         faint: true
         wrapMode: Text.Wrap

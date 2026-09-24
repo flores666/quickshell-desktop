@@ -48,6 +48,14 @@ QtObject {
         password wells cannot drift apart. */
     readonly property int fieldHeight: 32
 
+    /*! A colour swatch, and the pin badge a pinned one wears. */
+    readonly property int swatch: 28
+    readonly property int swatchBadge: 14
+    /*! The colour picker: its saturation-value plane, hue strip and knobs. */
+    readonly property int pickerPlane: 112
+    readonly property int pickerStrip: 14
+    readonly property int pickerKnob: 16
+
     readonly property int iconSm: 14
     readonly property int icon: 16
     readonly property int iconLg: 20

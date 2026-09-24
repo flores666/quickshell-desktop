@@ -22,6 +22,13 @@ Singleton {
     readonly property string accentColor: adapter.accentColor
     readonly property string backgroundLight: adapter.backgroundLight
     readonly property string backgroundDark: adapter.backgroundDark
+    /*! Colours made in the picker, newest first, and the ones pinned to stay.
+        One pair for every seed: each row offers only those that fall inside
+        its own range (Appearance.seedRange), which keeps them apart. */
+    readonly property var recentColors: adapter.recentColors
+    readonly property var pinnedColors: adapter.pinnedColors
+    /*! How many unpinned colours are remembered, across all the seeds. */
+    readonly property int recentColorLimit: 24
     readonly property string fontFamily: adapter.fontFamily
     /*! The GTK interface font as it was before the shell first set it, so that
         going back to Default can give it back; empty while the shell has not. */
@@ -104,6 +111,35 @@ Singleton {
             adapter.backgroundDark = value;
     }
 
+    /*! Puts a picked colour at the front of the recent ones, in place of
+        `replacing` if that is given: one visit to the picker is one colour, not
+        every stop along the way. A pinned colour keeps its place. */
+    function rememberColor(value: string, replacing: string): void {
+        if (value === "" || root.isColorPinned(value))
+            return;
+        const gone = [value, replacing ?? ""];
+        adapter.recentColors = [value].concat(adapter.recentColors.filter(x => !gone.includes(x)))
+            .slice(0, root.recentColorLimit);
+    }
+
+    function isColorPinned(value: string): bool {
+        return adapter.pinnedColors.indexOf(value) !== -1;
+    }
+
+    /*! Pinning takes a colour out of the recent ones so it never ages out;
+        unpinning returns it to the front of them. */
+    function togglePinnedColor(value: string): void {
+        if (value === "")
+            return;
+        if (root.isColorPinned(value)) {
+            adapter.pinnedColors = adapter.pinnedColors.filter(x => x !== value);
+            root.rememberColor(value, "");
+        } else {
+            adapter.recentColors = adapter.recentColors.filter(x => x !== value);
+            adapter.pinnedColors = adapter.pinnedColors.concat([value]);
+        }
+    }
+
     /*! Empty means the shell's own face. Any installed family is accepted. */
     function setFontFamily(value: string): void {
         adapter.fontFamily = value;
@@ -173,6 +209,8 @@ Singleton {
         property string accentColor: ""
         property string backgroundLight: ""
         property string backgroundDark: ""
+        property list<string> recentColors: []
+        property list<string> pinnedColors: []
         /*! Empty means the built-in font family. */
         property string fontFamily: ""
         property string systemFontBefore: ""
