@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import "root:/config"
 import "root:/components"
 import "root:/services"
@@ -55,7 +56,8 @@ Item {
         anchors.bottom: parent.bottom
         clip: true
         spacing: Appearance.s.md
-        model: Notifs.history
+        // Diffed, so a new arrival inserts a row instead of rebuilding them all.
+        model: ScriptModel { values: Notifs.history }
         boundsBehavior: Flickable.StopAtBounds
         cacheBuffer: 0
 

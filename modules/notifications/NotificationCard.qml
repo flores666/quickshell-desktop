@@ -133,7 +133,9 @@ Surface {
                     id: actionButton
                     required property NotificationAction modelData
 
-                    text: actionButton.modelData.text
+                    // The action is freed with its notification a moment
+                    // before the Repeater drops this delegate.
+                    text: actionButton.modelData?.text ?? ""
                     implicitHeight: 28
 
                     onClicked: Notifs.invoke(root.notification, actionButton.modelData)
