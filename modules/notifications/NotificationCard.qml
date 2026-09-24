@@ -67,7 +67,8 @@ Surface {
             AppIcon {
                 id: icon
                 y: 0
-                source: root.notification?.image !== "" ? root.notification.image
+                // The card outlives its notification while it fades out.
+                source: (root.notification?.image ?? "") !== "" ? root.notification.image
                     : (root.notification?.appIcon ?? "")
                 fallbackIcon: root.critical ? "warning" : "bell"
                 size: 28
