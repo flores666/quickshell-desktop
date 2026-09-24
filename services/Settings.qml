@@ -44,11 +44,31 @@ Singleton {
     readonly property int fontScale: adapter.fontScale
     readonly property int notificationTimeout: adapter.notificationTimeout
     readonly property int dockHideDelay: adapter.dockHideDelay
+    // Hyprland options; ranges and encoding in CompositorOptions.spec.
+    readonly property int hyprGapsIn: adapter.hyprGapsIn
+    readonly property int hyprGapsOut: adapter.hyprGapsOut
+    readonly property int hyprBorder: adapter.hyprBorder
+    readonly property int hyprRounding: adapter.hyprRounding
+    readonly property int hyprBlur: adapter.hyprBlur
+    readonly property int hyprAnimations: adapter.hyprAnimations
+    readonly property int hyprActiveOpacity: adapter.hyprActiveOpacity
+    readonly property int hyprInactiveOpacity: adapter.hyprInactiveOpacity
+    readonly property int hyprMouseSpeed: adapter.hyprMouseSpeed
+    readonly property int hyprMouseAccel: adapter.hyprMouseAccel
+    readonly property int hyprMouseScroll: adapter.hyprMouseScroll
+    readonly property int hyprTouchpadScroll: adapter.hyprTouchpadScroll
+    readonly property int hyprTouchpadSpeed: adapter.hyprTouchpadSpeed
+    readonly property int hyprNaturalScroll: adapter.hyprNaturalScroll
+    readonly property int hyprTapToClick: adapter.hyprTapToClick
 
     /*! Every key `setOverride` accepts, and everything `resetOverrides` clears. */
     readonly property var overrideKeys: [
         "barHeight", "barGap", "barSideGap", "dockIcon", "screenGap",
-        "border", "roundness", "fontScale", "notificationTimeout", "dockHideDelay"
+        "border", "roundness", "fontScale", "notificationTimeout", "dockHideDelay",
+        "hyprGapsIn", "hyprGapsOut", "hyprBorder", "hyprRounding", "hyprBlur",
+        "hyprAnimations", "hyprActiveOpacity", "hyprInactiveOpacity", "hyprMouseSpeed",
+        "hyprMouseAccel", "hyprTouchpadSpeed", "hyprNaturalScroll", "hyprTapToClick",
+        "hyprMouseScroll", "hyprTouchpadScroll"
     ]
 
     function setTheme(name: string): void {
@@ -155,6 +175,22 @@ Singleton {
         property int fontScale: -1
         property int notificationTimeout: -1
         property int dockHideDelay: -1
+        /*! Hyprland overrides, pushed as keywords by CompositorOptions. */
+        property int hyprGapsIn: -1
+        property int hyprGapsOut: -1
+        property int hyprBorder: -1
+        property int hyprRounding: -1
+        property int hyprBlur: -1
+        property int hyprAnimations: -1
+        property int hyprActiveOpacity: -1
+        property int hyprInactiveOpacity: -1
+        property int hyprMouseSpeed: -1
+        property int hyprMouseAccel: -1
+        property int hyprMouseScroll: -1
+        property int hyprTouchpadScroll: -1
+        property int hyprTouchpadSpeed: -1
+        property int hyprNaturalScroll: -1
+        property int hyprTapToClick: -1
     }
 
     FileView {

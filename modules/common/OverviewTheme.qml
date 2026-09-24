@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import "root:/config"
 
 /*!
@@ -51,4 +52,13 @@ QtObject {
     onBackgroundChanged: root.apply.restart()
     onAccentChanged: root.apply.restart()
     onBorderChanged: root.apply.restart()
+
+    // A config reload drops every keyword — the shell's own resets trigger one.
+    readonly property Connections reloads: Connections {
+        target: Hyprland
+        function onRawEvent(event: HyprlandEvent): void {
+            if (event.name === "configreloaded")
+                root.apply.restart();
+        }
+    }
 }

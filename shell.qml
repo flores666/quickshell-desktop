@@ -31,7 +31,9 @@ ShellRoot {
               Compositor.workspaces.length, Settings.ready, Osd.armed, Keyboard.available,
               // Not for the sake of a first paint: this is what puts the
               // remembered wallpaper back up after the daemon restarted.
-              Wallpaper.available];
+              Wallpaper.available,
+              // Likewise: this is what re-applies the Hyprland overrides.
+              CompositorOptions.hasTouchpad];
     }
 
     Variants {

@@ -27,6 +27,9 @@ Item {
     /*! What the setting resolves to right now, override or default. */
     required property int value
     property string suffix: qsTr("px")
+    /*! False when the owner cannot report the current value — a Hyprland
+        device option is write-only — so the row says so instead of a number. */
+    property bool known: true
     /*! Whole steps: an integer knob is what keeps a live drag from asking the
         compositor to relayout on every frame of it. */
     property int step: 1
@@ -60,7 +63,8 @@ Item {
         anchors.right: reset.visible ? reset.left : parent.right
         anchors.rightMargin: reset.visible ? Appearance.s.xs : 0
         anchors.verticalCenter: text.verticalCenter
-        text: root.suffix === "" ? root.value : qsTr("%1 %2").arg(root.value).arg(root.suffix)
+        text: !root.known ? qsTr("As configured")
+            : root.suffix === "" ? root.value : qsTr("%1 %2").arg(root.value).arg(root.suffix)
         role: Label.Role.Small
         muted: !root.overridden
     }
