@@ -46,7 +46,14 @@ Singleton {
     }
 
     function cycle(): void {
-        Hyprland.dispatch("switchxkblayout current next");
+        switcher.running = true;
+    }
+
+    Process {
+        id: switcher
+        // A hyprctl command in 0.56, no longer a dispatcher. `all` so every
+        // keyboard moves together, as the Alt+Shift / Super+Space toggle does.
+        command: ["hyprctl", "switchxkblayout", "all", "next"]
     }
 
     Process {
