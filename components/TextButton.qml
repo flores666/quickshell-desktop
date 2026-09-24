@@ -12,6 +12,8 @@ Clickable {
     property string text
     property string icon: ""
     property int kind: TextButton.Kind.Normal
+    /*! A secondary action inside a list row: shorter, tighter, smaller type. */
+    property bool compact: false
 
     readonly property color fill: switch (root.kind) {
         case TextButton.Kind.Accent: return Appearance.c.accent;
@@ -21,8 +23,8 @@ Clickable {
     readonly property color ink: root.kind === TextButton.Kind.Normal
         ? Appearance.c.text : Appearance.c.accentText
 
-    implicitWidth: row.implicitWidth + Appearance.s.xl * 2
-    implicitHeight: 34
+    implicitWidth: row.implicitWidth + (root.compact ? Appearance.s.lg : Appearance.s.xl) * 2
+    implicitHeight: root.compact ? 28 : 34
     radius: Appearance.r.sm
     background: root.fill
 
@@ -42,6 +44,7 @@ Clickable {
         Label {
             anchors.verticalCenter: parent.verticalCenter
             text: root.text
+            role: root.compact ? Label.Role.Small : Label.Role.Body
             color: root.ink
             font.weight: Font.Medium
         }

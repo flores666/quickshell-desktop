@@ -136,15 +136,41 @@ Singleton {
     function connect(network: WifiNetwork): void {
         if (!network)
             return;
+        root.failure = "";
+        root.attempt = network;
         if (network.known || network.security === WifiSecurityType.Open)
             network.connect();
         else
-            root.passwordRequested(network);
+            root.passwordRequested(network, "");
     }
 
     function connectWithPassword(network: WifiNetwork, psk: string): void {
-        if (network)
-            network.connectWithPsk(psk);
+        if (!network)
+            return;
+        root.failure = "";
+        root.attempt = network;
+        network.connectWithPsk(psk);
+    }
+
+    /*!
+        Replace a saved network's password.
+
+        Quickshell cannot edit a saved profile in place, so the profile is
+        forgotten and the network joined afresh with the new password — which
+        goes over D-Bus, never onto a command line. The join waits for the
+        forget to land (`known` turning false); joining first would just reuse
+        the old profile.
+    */
+    function changePassword(network: WifiNetwork, psk: string): void {
+        if (!network)
+            return;
+        if (!network.known) {
+            root.connectWithPassword(network, psk);
+            return;
+        }
+        root.repassing = network;
+        root.repassPsk = psk;
+        network.forget();
     }
 
     function disconnect(network: Network): void {
@@ -157,5 +183,47 @@ Singleton {
             network.forget();
     }
 
-    signal passwordRequested(WifiNetwork network)
+    /*! Why the last join failed, for the Wi-Fi page; empty when it did not. */
+    property string failure: ""
+
+    /*! The network most recently asked to join, watched for failure. */
+    property WifiNetwork attempt: null
+    property WifiNetwork repassing: null
+    property string repassPsk: ""
+
+    Connections {
+        target: root.repassing
+        function onKnownChanged(): void {
+            const network = root.repassing;
+            if (!network || network.known)
+                return;
+            const psk = root.repassPsk;
+            root.repassing = null;
+            root.repassPsk = "";
+            root.connectWithPassword(network, psk);
+        }
+    }
+
+    Connections {
+        target: root.attempt
+        function onConnectionFailed(reason: int): void {
+            const network = root.attempt;
+            if (!network)
+                return;
+            // A secured network that turned us away for want of the right
+            // secret is asked about again rather than left failing silently:
+            // the saved password may be stale, or the one typed mistyped.
+            const secretProblem = reason === ConnectionFailReason.NoSecrets
+                || reason === ConnectionFailReason.WifiClientFailed
+                || reason === ConnectionFailReason.WifiAuthTimeout;
+            if (secretProblem && network.security !== WifiSecurityType.Open) {
+                root.passwordRequested(network, qsTr("That password did not work."));
+                return;
+            }
+            root.failure = qsTr("Could not connect to “%1”.").arg(network.name);
+        }
+    }
+
+    /*! `reason` is empty for a first ask, or says why the last try failed. */
+    signal passwordRequested(WifiNetwork network, string reason)
 }

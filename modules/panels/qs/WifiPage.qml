@@ -1,13 +1,16 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell.Networking
+// Qualified: Quickshell.Networking has its own `Network` type, which would
+// shadow the Network service everywhere in this file.
+import Quickshell.Networking as QsNet
 import "root:/config"
 import "root:/components"
 import "root:/services"
 
 /*!
-    Wi-Fi networks in range.
+    Wi-Fi networks in range: join one, leave it, and for a saved one change
+    its password or forget it.
 
     Scanning is switched on only while this page is on screen, so the radio is
     not kept busy by a panel nobody is looking at.
@@ -15,112 +18,50 @@ import "root:/services"
 Item {
     id: root
 
+    /*! The network the password prompt is for; null while it is not shown. */
+    property QsNet.WifiNetwork pending: null
+    property bool changing: false
+    /*! The saved network whose actions are open, by name. */
+    property string expanded: ""
 
-    /*! Set when a network needs a passphrase we do not already have. */
-    property WifiNetwork pending: null
+    function ask(network: QsNet.WifiNetwork, changing: bool, reason: string): void {
+        root.pending = network;
+        root.changing = changing;
+        prompt.reason = reason;
+        prompt.open();
+    }
 
     implicitHeight: root.pending
         ? prompt.implicitHeight
-        : Math.min(340, header.height + list.contentHeight + Appearance.s.md)
+        : Math.min(340, header.height + failure.height + list.contentHeight + Appearance.s.md)
 
     Component.onCompleted: Network.setScanning(true)
     Component.onDestruction: Network.setScanning(false)
 
     Connections {
         target: Network
-        function onPasswordRequested(network: WifiNetwork): void {
-            root.pending = network;
-            psk.text = "";
-            Qt.callLater(() => psk.forceActiveFocus());
+        function onPasswordRequested(network: QsNet.WifiNetwork, reason: string): void {
+            root.ask(network, false, reason);
         }
     }
 
-    Column {
+    WifiPasswordPrompt {
         id: prompt
 
         width: parent.width
         visible: root.pending !== null
-        spacing: Appearance.s.lg
+        networkName: root.pending?.name ?? ""
+        changing: root.changing
 
-        Label {
-            width: parent.width
-            text: qsTr("Enter the password for “%1”").arg(root.pending?.name ?? "")
-            role: Label.Role.Small
-            muted: true
-            wrapMode: Text.Wrap
+        onCancelled: root.pending = null
+        onAccepted: psk => {
+            if (root.changing)
+                Network.changePassword(root.pending, psk);
+            else
+                Network.connectWithPassword(root.pending, psk);
+            root.pending = null;
+            root.expanded = "";
         }
-
-        Item {
-            width: parent.width
-            height: Appearance.m.fieldHeight
-
-            Rectangle {
-                anchors.fill: parent
-                radius: Appearance.r.sm
-                color: Appearance.c.sunken
-                border.width: 1
-                border.color: psk.activeFocus ? Appearance.c.accent : Appearance.c.border
-            }
-
-            TextInput {
-                id: psk
-
-                anchors.fill: parent
-                anchors.leftMargin: Appearance.s.lg
-                anchors.rightMargin: Appearance.s.lg
-                verticalAlignment: TextInput.AlignVCenter
-                echoMode: reveal.selected ? TextInput.Normal : TextInput.Password
-                passwordCharacter: "•"
-                color: Appearance.c.text
-                font.family: Appearance.fontFamily
-                font.pixelSize: Appearance.font.body
-                selectionColor: Appearance.c.accent
-                selectedTextColor: Appearance.c.accentText
-                clip: true
-                renderType: Text.NativeRendering
-                onAccepted: root.confirm()
-            }
-        }
-
-        Row {
-            width: parent.width
-            spacing: Appearance.s.md
-
-            IconButton {
-                id: reveal
-                icon: reveal.selected ? "conceal" : "reveal"
-                size: 34
-                selected: false
-                onClicked: reveal.selected = !reveal.selected
-            }
-
-            Item {
-                width: parent.width - reveal.width - cancel.width - connect.width - parent.spacing * 3
-                height: 1
-            }
-
-            TextButton {
-                id: cancel
-                text: qsTr("Cancel")
-                onClicked: root.pending = null
-            }
-
-            TextButton {
-                id: connect
-                text: qsTr("Connect")
-                kind: TextButton.Kind.Accent
-                enabled: psk.text.length >= 8
-                onClicked: root.confirm()
-            }
-        }
-    }
-
-    function confirm(): void {
-        if (!root.pending || psk.text.length < 8)
-            return;
-        Network.connectWithPassword(root.pending, psk.text);
-        root.pending = null;
-        psk.text = "";
     }
 
     Row {
@@ -147,10 +88,22 @@ Item {
         }
     }
 
+    Label {
+        id: failure
+        anchors.top: header.bottom
+        width: parent.width
+        height: visible ? implicitHeight + Appearance.s.sm : 0
+        visible: root.pending === null && Network.failure !== ""
+        text: Network.failure
+        role: Label.Role.Small
+        color: Appearance.c.danger
+        wrapMode: Text.Wrap
+    }
+
     ListView {
         id: list
 
-        anchors.top: header.bottom
+        anchors.top: failure.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -160,32 +113,95 @@ Item {
         spacing: 1
         boundsBehavior: Flickable.StopAtBounds
 
-        delegate: MenuRow {
-            id: netRow
-            required property WifiNetwork modelData
+        delegate: Column {
+            id: net
+            required property QsNet.WifiNetwork modelData
 
-            width: list.width
-            icon: Network.signalIcon(netRow.modelData.signalStrength)
-            iconColor: netRow.modelData.connected ? Appearance.c.accent : Appearance.c.text
-            title: netRow.modelData.name
-            subtitle: netRow.modelData.connected ? qsTr("Connected")
-                : netRow.modelData.stateChanging ? qsTr("Connecting…")
-                : netRow.modelData.known ? qsTr("Saved") : ""
-            selected: netRow.modelData.connected
+            readonly property bool secured: net.modelData.security !== QsNet.WifiSecurityType.Open
+            readonly property bool open: root.expanded === net.modelData.name && net.modelData.known
+            property bool confirmingForget: false
 
-            onClicked: {
-                if (netRow.modelData.connected)
-                    Network.disconnect(netRow.modelData);
-                else
-                    Network.connect(netRow.modelData);
+            // Clear of the scrollbar, which floats over the list's trailing
+            // edge, so a row's highlight never runs underneath it.
+            width: list.width - (scrollbar.overflowing ? scrollbar.footprint : 0)
+            onOpenChanged: net.confirmingForget = false
+
+            MenuRow {
+                width: parent.width
+                icon: Network.signalIcon(net.modelData.signalStrength)
+                iconColor: net.modelData.connected ? Appearance.c.accent : Appearance.c.text
+                title: net.modelData.name
+                subtitle: net.modelData.connected ? qsTr("Connected")
+                    : net.modelData.stateChanging ? qsTr("Connecting…")
+                    : net.modelData.known ? qsTr("Saved") : ""
+                selected: net.modelData.connected
+
+                onClicked: {
+                    if (net.modelData.connected)
+                        Network.disconnect(net.modelData);
+                    else
+                        Network.connect(net.modelData);
+                }
+
+                Row {
+                    spacing: Appearance.s.xs
+
+                    Icon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: net.secured && !net.modelData.connected
+                        name: "wifi-locked"
+                        size: Appearance.m.iconSm
+                        color: Appearance.c.textFaint
+                    }
+
+                    IconButton {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: net.modelData.known
+                        icon: "more"
+                        iconSize: Appearance.m.iconSm
+                        size: 28
+                        selected: net.open
+                        onClicked: root.expanded = net.open ? "" : net.modelData.name
+                    }
+                }
             }
 
-            Icon {
-                visible: netRow.modelData.security !== WifiSecurityType.Open
-                    && !netRow.modelData.connected
-                name: "wifi-locked"
-                size: Appearance.m.iconSm
-                color: Appearance.c.textFaint
+            // Set off from the row above and the network below, and lined up
+            // with the row's icon.
+            Item {
+                visible: net.open
+                width: parent.width
+                height: visible ? actions.implicitHeight + Appearance.s.sm + Appearance.s.md : 0
+
+                Row {
+                    id: actions
+                    x: Appearance.s.lg
+                    y: Appearance.s.sm
+                    spacing: Appearance.s.sm
+
+                    TextButton {
+                        visible: net.secured
+                        compact: true
+                        text: qsTr("Change password")
+                        onClicked: root.ask(net.modelData, true, "")
+                    }
+
+                    // Forgetting throws the saved password away, so it takes a
+                    // second click to mean it.
+                    TextButton {
+                        compact: true
+                        text: net.confirmingForget ? qsTr("Forget “%1”?").arg(net.modelData.name) : qsTr("Forget")
+                        kind: TextButton.Kind.Danger
+                        onClicked: {
+                            if (!net.confirmingForget) {
+                                net.confirmingForget = true;
+                                return;
+                            }
+                            Network.forget(net.modelData);
+                            root.expanded = "";
+                        }
+                    }
+                }
             }
         }
     }
@@ -197,5 +213,5 @@ Item {
         muted: true
     }
 
-    ThinScrollBar { flickable: list; visible: root.pending === null && overflowing }
+    ThinScrollBar { id: scrollbar; flickable: list; visible: root.pending === null && overflowing }
 }
