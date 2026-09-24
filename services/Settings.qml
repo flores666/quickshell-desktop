@@ -23,6 +23,9 @@ Singleton {
     readonly property string backgroundLight: adapter.backgroundLight
     readonly property string backgroundDark: adapter.backgroundDark
     readonly property string fontFamily: adapter.fontFamily
+    /*! The GTK interface font as it was before the shell first set it, so that
+        going back to Default can give it back; empty while the shell has not. */
+    readonly property string systemFontBefore: adapter.systemFontBefore
     readonly property string wallpaper: adapter.wallpaper
     /*! The shell's corners follow Hyprland's window rounding; see Radii. */
     readonly property bool roundnessFollowsWindows: adapter.roundnessFollowsWindows
@@ -106,6 +109,10 @@ Singleton {
         adapter.fontFamily = value;
     }
 
+    function setSystemFontBefore(value: string): void {
+        adapter.systemFontBefore = value;
+    }
+
     /*! The picture the wallpaper is set from, as an absolute path. */
     function setWallpaper(path: string): void {
         adapter.wallpaper = path;
@@ -168,6 +175,7 @@ Singleton {
         property string backgroundDark: ""
         /*! Empty means the built-in font family. */
         property string fontFamily: ""
+        property string systemFontBefore: ""
         /*! Absolute path; empty means the shell has never set the wallpaper and
             leaves whatever the wallpaper daemon was configured with alone. */
         property string wallpaper: ""

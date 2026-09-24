@@ -114,7 +114,7 @@ Column {
 
     Label {
         width: root.width
-        text: qsTr("A font installed while the shell is running appears the next time it starts.")
+        text: qsTr("Applications use it too; ones already open pick it up when restarted. A font installed while the shell is running appears the next time it starts.")
         role: Label.Role.Caption
         faint: true
         wrapMode: Text.Wrap
