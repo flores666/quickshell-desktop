@@ -23,6 +23,14 @@ PanelWindow {
     id: root
 
     required property ShellScreen modelData
+    /*!
+        This window's entry in Overlay's pointer regions. Taken once, while
+        the screen exists: by the time the window is destroyed its screen may
+        already be gone, and the entry built from it then could not be cleared.
+    */
+    property string pointerKey: ""
+
+    Component.onCompleted: root.pointerKey = "dock:" + root.modelData.name
 
     readonly property HyprlandMonitor monitor: Compositor.monitorFor(root.modelData)
     readonly property bool suppressed: Compositor.isFullscreenOn(root.monitor)
@@ -81,7 +89,7 @@ PanelWindow {
     }
 
     onPointerNearChanged: {
-        Overlay.setPointerOver("dock:" + root.modelData.name, root.pointerNear);
+        Overlay.setPointerOver(root.pointerKey, root.pointerNear);
         if (root.pointerNear) {
             hideTimer.stop();
             root.revealed = true;
@@ -92,7 +100,7 @@ PanelWindow {
 
     onHeldChanged: if (!root.held && !root.pointerNear) hideTimer.restart()
 
-    Component.onDestruction: Overlay.setPointerOver("dock:" + root.modelData.name, false)
+    Component.onDestruction: Overlay.setPointerOver(root.pointerKey, false)
 
     Timer {
         id: hideTimer

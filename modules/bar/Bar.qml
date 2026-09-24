@@ -25,6 +25,14 @@ PanelWindow {
     id: root
 
     required property ShellScreen modelData
+    /*!
+        This window's entry in Overlay's pointer regions. Taken once, while
+        the screen exists: by the time the window is destroyed its screen may
+        already be gone, and the entry built from it then could not be cleared.
+    */
+    property string pointerKey: ""
+
+    Component.onCompleted: root.pointerKey = "bar:" + root.modelData.name
 
     readonly property HyprlandMonitor monitor: Compositor.monitorFor(root.modelData)
     readonly property bool suppressed: Compositor.isFullscreenOn(root.monitor)
@@ -43,7 +51,7 @@ PanelWindow {
     /*! The gap around the panel is paint, not surface: clicks go through it. */
     mask: Region { item: panel }
 
-    Component.onDestruction: Overlay.setPointerOver("bar:" + root.modelData.name, false)
+    Component.onDestruction: Overlay.setPointerOver(root.pointerKey, false)
 
     Surface {
         id: panel
@@ -64,7 +72,7 @@ PanelWindow {
 
         HoverHandler {
             id: pointer
-            onHoveredChanged: Overlay.setPointerOver("bar:" + root.modelData.name, pointer.hovered)
+            onHoveredChanged: Overlay.setPointerOver(root.pointerKey, pointer.hovered)
         }
 
         BarGroup {
