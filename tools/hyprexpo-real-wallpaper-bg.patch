@@ -1,5 +1,5 @@
 diff --git a/OverviewRender.cpp b/OverviewRender.cpp
-index e73c8f6..1b482df 100644
+index e73c8f6..c902c55 100644
 --- a/OverviewRender.cpp
 +++ b/OverviewRender.cpp
 @@ -15,6 +15,9 @@
@@ -12,7 +12,7 @@ index e73c8f6..1b482df 100644
  #include <hyprland/src/state/WorkspaceState.hpp>
  #undef private
  #undef protected
-@@ -270,11 +273,38 @@ void COverview::fullRender() {
+@@ -270,11 +273,51 @@ void COverview::fullRender() {
      const auto SHAPE   = currentGridShape();
  
      clearWithColor(BG_COLOR.stripA());
@@ -49,8 +49,21 @@ index e73c8f6..1b482df 100644
 +            drewWallpaper = true;
 +        }
 +
-+        if (drewWallpaper)
-+            Render::GL::g_pHyprOpenGL->renderRect(backgroundBox, CHyprColor{0x00000066}, {});
++        // Frost the wallpaper so the tiles read as the foreground. This is Hyprland's own
++        // blur of what has been drawn so far, but at a backdrop strength: the user's
++        // decoration:blur is tuned for glass behind windows and barely softens a
++        // wallpaper, so it is raised for this one call and put straight back.
++        if (drewWallpaper) {
++            static CConfigValue<Config::INTEGER> PBLURSIZE("decoration:blur:size");
++            static CConfigValue<Config::INTEGER> PBLURPASSES("decoration:blur:passes");
++            const auto                           SAVEDSIZE   = *PBLURSIZE;
++            const auto                           SAVEDPASSES = *PBLURPASSES;
++            *PBLURSIZE.ptr()                                 = 8;
++            *PBLURPASSES.ptr()                               = 4;
++            Render::GL::g_pHyprOpenGL->renderRect(backgroundBox, CHyprColor{0x00000066}, {.damage = &backgroundDamage, .blur = true});
++            *PBLURSIZE.ptr()   = SAVEDSIZE;
++            *PBLURPASSES.ptr() = SAVEDPASSES;
++        }
      }
  
      static auto* const* PTILEROUND  = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:tile_rounding")->getDataStaticPtr();

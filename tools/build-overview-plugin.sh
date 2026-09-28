@@ -30,8 +30,9 @@ git checkout --quiet "$tag"
 
 # hyprexpo's wallpaper_bg draws MON->m_background, which is Hyprland's built-in
 # wall*.png asset rather than the background layer surface hyprpaper paints, so the
-# overview backdrop ends up being a stock wallpaper nobody chose. Not upstreamed, so
-# this is the step that breaks when the tag moves.
+# overview backdrop ends up being a stock wallpaper nobody chose. The patch draws the
+# real one instead, blurred. Not upstreamed, so this is the step that breaks when the
+# tag moves.
 patch="$script_dir/hyprexpo-real-wallpaper-bg.patch"
 # Upstream moved its sources under src/ at v0.56.2+2 without touching the code the
 # patch edits, so follow the file rather than the path the patch was cut against.
