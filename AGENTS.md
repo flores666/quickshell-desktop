@@ -30,9 +30,12 @@ qmldirs. Expect a residue of unavoidable warnings — types Quickshell registers
 from C++ (`PanelWindow`, `GlobalShortcut`, enum types) and `QObject*`-typed
 properties like `Loader.item`. Everything else must be clean.
 
-To check the runtime log, start the shell with stdout captured and grep out the
-`INFO` lines plus the two environmental warnings (`sni.watcher`, `bluez` — this
-machine has no Bluetooth adapter). A healthy start prints nothing else.
+In the session the shell is the user unit `quickshell.service` (see
+`hyprland.conf`: capped at 1.5 GB with no swap, restarted on failure). To check
+the runtime log, `systemctl --user restart quickshell`, then read
+`journalctl --user -u quickshell -o cat` and grep out the `INFO` lines plus the
+two environmental warnings (`sni.watcher`, `bluez` — this machine has no
+Bluetooth adapter). A healthy start prints nothing else.
 
 ### Verifying behaviour, not just compilation
 
@@ -363,9 +366,15 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   kill your script. Use `pkill -x qs` or kill by PID.
 - **The shell under test is the user's live desktop.** Synthetic clicks and
   keys land wherever the pointer and focus are; check with a screenshot that
-  the target is a shell surface before sending input to it. Restarting to read
-  a clean log means `kill <pid>` and relaunching detached (`setsid -f sh -c
-  "qs -c shell > log 2>&1"`) so the shell outlives your command.
+  the target is a shell surface before sending input to it. Restart it with
+  `systemctl --user restart quickshell`, not by relaunching `qs` by hand: a
+  shell started outside the unit has no memory cap.
+- **A hung shell cannot be attached to.** `ptrace_scope` is 1, so `gdb -p` and
+  `eu-stack` get nothing. `systemctl --user kill -s ABRT quickshell` instead:
+  Quickshell's crash handler writes a report with the main thread's stack and
+  the log tail to `~/.cache/quickshell/crashes/`, and re-execs the shell in
+  place, still inside the unit.
+  Do that *before* the cap kills it — an OOM kill leaves no stack.
 
 ### Icons
 
