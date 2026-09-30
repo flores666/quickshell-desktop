@@ -101,6 +101,21 @@ Singleton {
             Hyprland.dispatch(`movetoworkspacesilent ${id},address:0x${toplevel.address}`);
     }
 
+    /*!
+        Start a program through Hyprland rather than as a child of the shell.
+
+        Hyprland's `misc:initial_workspace_tracking` then opens its window on
+        the workspace it was launched from, even if you have moved on by the
+        time it maps; a process the shell spawns itself opens wherever you are.
+    */
+    function exec(command: var, workingDirectory: string): void {
+        if (!command || command.length === 0)
+            return;
+        const quote = s => `'${String(s).replace(/'/g, "'\\''")}'`;
+        const run = "exec " + command.map(quote).join(" ");
+        Hyprland.dispatch("exec " + (workingDirectory ? `cd ${quote(workingDirectory)} && ${run}` : run));
+    }
+
     function switchToWorkspace(id: int): void {
         Hyprland.dispatch(`workspace ${id}`);
     }

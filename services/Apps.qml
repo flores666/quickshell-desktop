@@ -61,14 +61,14 @@ Singleton {
         if (!entry)
             return;
         root.recordUse(entry.id);
-        entry.execute();
+        Compositor.exec(entry.command, entry.workingDirectory);
     }
 
     function launchAction(entry: var, action: var): void {
         if (!action)
             return;
         root.recordUse(entry?.id ?? "");
-        action.execute();
+        Compositor.exec(action.command, entry?.workingDirectory ?? "");
     }
 
     // ---------------------------------------------------------------- search

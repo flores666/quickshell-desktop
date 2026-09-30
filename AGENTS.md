@@ -175,7 +175,7 @@ contents.
 | `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, pushed with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad` |
 | `Overlay` | which popup is open, on which screen, and outside-click dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `setPointerOver`, `dismissOnOutsideClick` |
-| `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
+| `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
 | `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink`, `volume`, `muted`, `micInUse`, `volumeIcon`, `sinks`, `setVolume`, `toggleMute`, `setSink` |
@@ -336,6 +336,11 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   clearing an override asks Hyprland to reload, and the re-push restores the
   rest. Per-device options (touchpad speed) can be set but not read back, which
   is why that row says "As configured".
+- **Applications are launched with Hyprland's `exec` dispatcher**
+  (`Compositor.exec`), never `DesktopEntry.execute()`. Hyprland's
+  `misc:initial_workspace_tracking` only follows processes it spawned itself:
+  one the shell spawns opens on whatever workspace is focused when its window
+  maps, so launching on 3 and switching to 5 put it on 5.
 - **`switchxkblayout` is not a dispatcher in 0.56**; it is a `hyprctl`
   command. `Keyboard.cycle` runs `hyprctl switchxkblayout all next`.
 - **A `plugin =` path gets no tilde expansion** — it goes straight to dlopen.
