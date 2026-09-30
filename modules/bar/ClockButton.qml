@@ -7,9 +7,8 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    The centre of the bar: the clock, with a compact now-playing chip beside it
-    whenever a player is actually playing something.  Opens the date menu, which
-    holds the calendar, notifications and full media controls.
+    The centre of the bar: the date and clock.  Opens the date menu, which holds
+    the calendar, notifications and the media controls.
 */
 BarButton {
     id: root
@@ -22,31 +21,6 @@ BarButton {
     onClicked: {
         Overlay.anchorX = root.windowCenterX();
         Overlay.toggle(Overlay.dateMenu, root.screen);
-    }
-
-    Icon {
-        anchors.verticalCenter: parent.verticalCenter
-        visible: Players.playing
-        name: "play"
-        size: Appearance.m.iconSm
-        color: Appearance.c.accent
-    }
-
-    Label {
-        anchors.verticalCenter: parent.verticalCenter
-        visible: Players.playing && text !== ""
-        text: Players.summary
-        role: Label.Role.Small
-        muted: true
-        width: Math.min(implicitWidth, 200)
-    }
-
-    Rectangle {
-        anchors.verticalCenter: parent.verticalCenter
-        visible: Players.playing
-        width: 1
-        height: 12
-        color: Appearance.c.border
     }
 
     Label {

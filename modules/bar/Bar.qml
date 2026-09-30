@@ -9,7 +9,7 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    The top panel: workspaces on the left, clock and media in the centre, status
+    The top panel: workspaces on the left, the clock in the centre, status
     and the quick-settings button on the right.
 
     One panel standing just off the top edge.  The controls at its ends sit in

@@ -44,13 +44,6 @@ Singleton {
     readonly property real length: root.hasPlayer && root.current.lengthSupported
         ? root.current.length : 0
 
-    /*! A one-line "Artist — Title", or just the title, or "" when idle. */
-    readonly property string summary: {
-        if (!root.active || root.title === "")
-            return "";
-        return root.artist !== "" ? `${root.artist} — ${root.title}` : root.title;
-    }
-
     function pick(): void {
         const list = root.players;
         if (list.length === 0) {
