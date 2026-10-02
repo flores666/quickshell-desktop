@@ -12,6 +12,9 @@ Column {
 
     spacing: Appearance.s.lg
 
+    // The pane is built afresh on every visit, so this is every time it shows.
+    Component.onCompleted: Wallpaper.rescan()
+
     Filmstrip {
         id: strip
 

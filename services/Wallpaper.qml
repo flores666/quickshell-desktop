@@ -48,6 +48,18 @@ Singleton {
         Settings.setWallpaper(path);
     }
 
+    /*!
+        Read the folder afresh. The model's watcher is on the directory itself,
+        so a folder that is replaced (deleted and made again, as a file manager
+        moving pictures in can do) or that only appears after startup is never
+        seen: the list stays as it was. Called whenever the list is about to be
+        looked at, which is cheaper than watching the parent for it.
+    */
+    function rescan(): void {
+        pictures.folder = "";
+        pictures.folder = root.folder;
+    }
+
     /*! hyprpaper names its outputs the way Wayland does, which is what a screen
         is called here too. */
     function push(path: string): void {
