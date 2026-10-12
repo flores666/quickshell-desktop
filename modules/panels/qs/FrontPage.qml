@@ -35,9 +35,10 @@ Column {
             icon: Network.hasWifi ? Network.icon : "wifi-off"
             title: qsTr("Wi-Fi")
             status: !Network.hasWifi ? qsTr("Unavailable")
+                : Network.restarting ? qsTr("Restarting…")
                 : Network.wifiEnabled ? Network.label : qsTr("Off")
-            active: Network.wifiEnabled
-            busy: Network.wifiConnecting
+            active: Network.wifiEnabled || Network.restarting
+            busy: Network.wifiConnecting || Network.restarting
             hasPage: Network.hasWifi
             toggleEnabled: Network.wifiHardwareEnabled
             onToggled: Network.setWifiEnabled(!Network.wifiEnabled)

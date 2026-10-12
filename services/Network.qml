@@ -127,6 +127,38 @@ Singleton {
             Networking.wifiEnabled = on;
     }
 
+    /*! From a restart's radio-off until the radio is switched back on. */
+    property bool restarting: false
+
+    /*!
+        Turn the radio off and on again, NetworkManager's own reset for an
+        adapter that has wedged; it rejoins what it was on by itself. The radio
+        goes back on once NetworkManager reports the device down (Unknown is
+        how Quickshell renders its "unavailable"), not straight away, so the
+        off has really taken the adapter down before it comes back.
+    */
+    function restartWifi(): void {
+        if (!root.wifiEnabled || root.restarting)
+            return;
+        root.restarting = true;
+        Networking.wifiEnabled = false;
+        root.resumeRestart();
+    }
+
+    function resumeRestart(): void {
+        if (!root.restarting || (root.wifi && root.wifi.state !== ConnectionState.Unknown))
+            return;
+        root.restarting = false;
+        Networking.wifiEnabled = true;
+    }
+
+    onWifiChanged: root.resumeRestart()
+
+    Connections {
+        target: root.restarting ? root.wifi : null
+        function onStateChanged(): void { root.resumeRestart(); }
+    }
+
     /*! Scanning costs power and airtime, so only the Wi-Fi list turns it on. */
     function setScanning(on: bool): void {
         if (root.wifi)

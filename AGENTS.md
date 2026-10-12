@@ -182,7 +182,7 @@ contents.
 | `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink`, `volume`, `muted`, `micInUse`, `volumeIcon`, `sinks`, `setVolume`, `toggleMute`, `setSink` |
-| `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `vpnActive`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `setScanning`, `passwordRequested`, `failure` |
+| `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `vpnActive`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `setScanning`, `restartWifi`, `restarting`, `passwordRequested`, `failure` |
 | `Bt` | BlueZ adapter and devices | `available`, `enabled`, `listed`, `icon`, `label`, `setEnabled`, `toggleConnection` |
 | `Power` | UPower battery and power-profiles-daemon | `hasBattery`, `percentage`, `icon`, `timeLabel`, `hasProfiles`, `profile`, `setProfile` |
 | `Brightness` | the sysfs backlight | `available`, `value`, `set`, `step` |
@@ -306,6 +306,10 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **Quickshell gives battery charge and Wi-Fi signal as 0–1 fractions**, not
   the 0–100 UPower and NetworkManager speak. `Power.percentage` converts once;
   `Network.signalIcon` holds the thresholds as fractions.
+- **Quickshell 0.3.1's `Networking` never recovers from NetworkManager
+  restarting**: the devices go and are not registered again, so Wi-Fi reads
+  "Unavailable" while it works. It is a process-wide C++ singleton, so no QML
+  reload rebuilds it; 0.3.2 watches the service and fixes it.
 - **UPower reports a time to empty for a full battery on AC**, computed from
   its trickle (≈30 days). `Power.timeLabel` answers only while charging or
   discharging.

@@ -74,16 +74,37 @@ Item {
         Label {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - toggle.width - parent.spacing
-            text: Network.wifiEnabled ? qsTr("Available networks") : qsTr("Wi-Fi is off")
+                - (spinner.visible ? spinner.width + parent.spacing : 0)
+                - (restart.visible ? restart.width + parent.spacing : 0)
+            text: Network.restarting ? qsTr("Restarting Wi-Fi…")
+                : Network.wifiEnabled ? qsTr("Available networks") : qsTr("Wi-Fi is off")
             role: Label.Role.Small
             muted: true
+        }
+
+        Spinner {
+            id: spinner
+            anchors.verticalCenter: parent.verticalCenter
+            visible: Network.restarting
+            size: Appearance.m.iconSm
+        }
+
+        // For an adapter that has stopped finding or holding networks: the
+        // radio off and on again, which NetworkManager does without privilege.
+        TextButton {
+            id: restart
+            anchors.verticalCenter: parent.verticalCenter
+            visible: Network.wifiEnabled && !Network.restarting
+            compact: true
+            text: qsTr("Restart")
+            onClicked: Network.restartWifi()
         }
 
         ToggleSwitch {
             id: toggle
             anchors.verticalCenter: parent.verticalCenter
-            checked: Network.wifiEnabled
-            enabled: Network.wifiHardwareEnabled
+            checked: Network.wifiEnabled || Network.restarting
+            enabled: Network.wifiHardwareEnabled && !Network.restarting
             onToggled: v => Network.setWifiEnabled(v)
         }
     }
