@@ -19,7 +19,6 @@ MenuRow {
     flush: true
 
     readonly property bool checked: CompositorOptions.value(root.key) === 1
-    readonly property bool overridden: Settings.isOverridden(root.key)
 
     onClicked: CompositorOptions.set(root.key, root.checked ? 0 : 1)
 
@@ -28,14 +27,9 @@ MenuRow {
     Row {
         spacing: Appearance.s.xs
 
-        IconButton {
+        ResetButton {
             anchors.verticalCenter: parent.verticalCenter
-            visible: root.overridden
-            icon: "refresh"
-            iconSize: Appearance.m.iconSm
-            size: 22
-            iconColor: Appearance.c.textMuted
-            onClicked: Settings.setOverride(root.key, -1)
+            key: root.key
         }
 
         ToggleSwitch {

@@ -47,16 +47,11 @@ Item {
         role: Label.Role.Small
     }
 
-    IconButton {
+    ResetButton {
         id: reset
         anchors.right: parent.right
         anchors.verticalCenter: text.verticalCenter
-        visible: root.overridden
-        icon: "refresh"
-        iconSize: Appearance.m.iconSm
-        size: 22
-        iconColor: Appearance.c.textMuted
-        onClicked: Settings.setOverride(root.key, -1)
+        key: root.key
     }
 
     Label {
