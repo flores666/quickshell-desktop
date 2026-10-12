@@ -185,11 +185,11 @@ contents.
 | `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `vpnActive`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `setScanning`, `restartWifi`, `restarting`, `passwordRequested`, `failure` |
 | `Bt` | BlueZ adapter and devices | `available`, `enabled`, `listed`, `icon`, `label`, `setEnabled`, `toggleConnection` |
 | `Power` | UPower battery and power-profiles-daemon | `hasBattery`, `percentage`, `icon`, `timeLabel`, `hasProfiles`, `profile`, `setProfile` |
-| `Brightness` | the sysfs backlight | `available`, `value`, `set`, `step` |
+| `Brightness` | the backlight: read and watched in sysfs, written through logind | `available` (once read), `value`, `set`, `step` |
 | `Players` | MPRIS, with one sticky "current" player | `hasPlayer`, `playing`, `title`, `artist`, `playPause`, `seekTo`, `formatTime` |
 | `Notifs` | the notification server, toast queue and history | `history`, `count`, `popups`, `remove`, `clearAll`, `plainBody`, `relativeLabel`, `timeoutFor` |
 | `Keyboard` | the active XKB layout | `available`, `code` (e.g. `EN`), `cycle` (every keyboard at once) |
-| `Osd` | the transient volume/mic/brightness indicator | `shown`, `kind`, `value`, `icon`, `text` |
+| `Osd` | the transient volume/mic/brightness indicator, listening to each source only once it holds a true reading | `shown`, `kind`, `value`, `icon`, `text`, `holdTime` |
 | `Screenshot` | screen capture through grim/slurp | `capture`, `captureRegion` |
 | `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current`, `set` |
 | `Fonts` | the font families Qt found, and applying the chosen one to applications — the GTK interface font and a fontconfig file the shell owns (`conf.d/50-quickshell-font.conf`); *Default* restores the GTK font it first replaced | `families`, `available`, `chosen`, `search` |
@@ -306,6 +306,9 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **Quickshell gives battery charge and Wi-Fi signal as 0–1 fractions**, not
   the 0–100 UPower and NetworkManager speak. `Power.percentage` converts once;
   `Network.signalIcon` holds the thresholds as fractions.
+- **A `PwNode`'s volume is not real until the node is `ready`** (bound). What
+  it reports while binding is its state, not a change: `Audio.hasSink` waits
+  for it, and that is what keeps the OSD from flashing at login.
 - **Quickshell 0.3.1's `Networking` never recovers from NetworkManager
   restarting**: the devices go and are not registered again, so Wi-Fi reads
   "Unavailable" while it works. It is a process-wide C++ singleton, so no QML

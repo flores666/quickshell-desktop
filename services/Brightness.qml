@@ -17,7 +17,12 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    property bool available: false
+    /*! Only once the level has been read: before that there is nothing true
+        to show, and a first reading is not a change to announce. */
+    readonly property bool available: root.loaded && root.maxRaw > 0 && !root.refused
+    property bool loaded: false
+    /*! logind turned a write down; the slider would do nothing. */
+    property bool refused: false
     property int maxRaw: 0
     property int raw: 0
     /*! A target not yet handed to logind; the file is stale until it has been. */
@@ -64,35 +69,29 @@ Singleton {
         Paths are assigned here rather than bound, so no read is ever issued
         against the empty path a binding would produce before discovery.
     */
-    function attach(device: string): void {
-        const dir = `/sys/class/backlight/${device}`;
-        maxFile.path = `${dir}/max_brightness`;
-        reader.path = `${dir}/brightness`;
+    function attach(device: string, max: int): void {
+        root.maxRaw = max;
         writer.device = device;
-        root.available = true;
+        reader.path = `/sys/class/backlight/${device}/brightness`;
     }
 
     Process {
-        // One shot at startup: pick the first backlight. Nothing polls
-        // afterwards; the kernel notifies us of changes through the watch below.
+        // One shot at startup: the first backlight and its maximum, which
+        // never changes. Nothing polls afterwards; the kernel notifies us of
+        // changes through the watch below.
         running: true
         command: ["sh", "-c",
             "for d in /sys/class/backlight/*/; do "
-            + "[ -r \"$d/brightness\" ] && { basename \"$d\"; exit 0; }; done; exit 1"]
+            + "[ -r \"$d/brightness\" ] && { echo \"$(basename \"$d\") $(cat \"$d/max_brightness\")\"; exit 0; }; "
+            + "done; exit 1"]
 
         stdout: StdioCollector {
             onStreamFinished: {
-                const device = this.text.trim();
-                if (device !== "")
-                    root.attach(device);
+                const [device, max] = this.text.trim().split(" ");
+                if (device && parseInt(max, 10) > 0)
+                    root.attach(device, parseInt(max, 10));
             }
         }
-    }
-
-    FileView {
-        id: maxFile
-        printErrors: false
-        onLoaded: root.maxRaw = parseInt(maxFile.text().trim(), 10) || 0
     }
 
     FileView {
@@ -100,8 +99,11 @@ Singleton {
         watchChanges: true
         printErrors: false
         // A read racing our own write would drag the value back mid-drag.
-        onLoaded: if (!root.dirty && !writer.running)
-            root.raw = parseInt(reader.text().trim(), 10) || 0
+        onLoaded: {
+            if (!root.dirty && !writer.running)
+                root.raw = parseInt(reader.text().trim(), 10) || 0;
+            root.loaded = true;
+        }
         onFileChanged: reader.reload()
     }
 
@@ -117,7 +119,7 @@ Singleton {
 
         onExited: code => {
             if (code !== 0)
-                root.available = false;
+                root.refused = true;
         }
         onRunningChanged: if (!writer.running)
             root.flush()

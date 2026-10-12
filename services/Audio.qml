@@ -19,8 +19,12 @@ Singleton {
     readonly property PwNode sink: Pipewire.defaultAudioSink
     readonly property PwNode source: Pipewire.defaultAudioSource
 
-    readonly property bool hasSink: root.ready && root.sink !== null && root.sink.audio !== null
-    readonly property bool hasSource: root.ready && root.source !== null && root.source.audio !== null
+    // Until a node is bound its volume "may be missing or incorrect", and the
+    // values it then reports are its state, not a change to announce.
+    readonly property bool hasSink: root.ready && root.sink !== null && root.sink.ready
+        && root.sink.audio !== null
+    readonly property bool hasSource: root.ready && root.source !== null && root.source.ready
+        && root.source.audio !== null
 
     readonly property real volume: root.hasSink ? root.sink.audio.volume : 0
     readonly property bool muted: root.hasSink ? root.sink.audio.muted : true
@@ -30,12 +34,16 @@ Singleton {
     /*! True while some application is actually capturing from the default source. */
     readonly property bool micInUse: sourceLinks.linkGroups.length > 0
 
-    readonly property string volumeIcon: !root.hasSink || root.muted ? "volume-muted"
-        : root.volume < 0.01 ? "volume-muted"
-        : root.volume <= 0.34 ? "volume-low"
-        : root.volume <= 0.7 ? "volume-medium"
-        : root.volume <= 1.0 ? "volume-high"
-        : "volume-over"
+    readonly property string volumeIcon: root.hasSink ? root.volumeIconFor(root.volume, root.muted)
+        : "volume-muted"
+
+    function volumeIconFor(volume: real, muted: bool): string {
+        if (muted || volume < 0.01) return "volume-muted";
+        if (volume <= 0.34) return "volume-low";
+        if (volume <= 0.7) return "volume-medium";
+        if (volume <= 1.0) return "volume-high";
+        return "volume-over";
+    }
 
     readonly property string micIcon: root.micMuted ? "mic-muted" : "mic"
 

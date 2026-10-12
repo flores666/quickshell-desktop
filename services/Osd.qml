@@ -21,13 +21,13 @@ Singleton {
     property string text: ""
     property bool shown: false
 
-    /*! Suppresses the burst of change signals during startup. */
-    property bool armed: false
+    /*! How long the indicator stays up after the last change. */
+    readonly property int holdTime: 1600
 
     readonly property bool suppressed: Overlay.isOpen(Overlay.quickSettings)
 
     function show(kind: string, value: real, icon: string, text: string): void {
-        if (!root.armed || root.suppressed)
+        if (root.suppressed)
             return;
         root.kind = kind;
         root.value = value;
@@ -44,46 +44,41 @@ Singleton {
 
     Timer {
         id: hideTimer
-        interval: 1600
+        interval: root.holdTime
         onTriggered: root.shown = false
     }
 
-    Timer {
-        // Long enough for PipeWire and the backlight to report their initial
-        // values without any of it flashing an OSD at login.
-        running: true
-        interval: 2500
-        onTriggered: root.armed = true
+    // Each source is listened to only once it holds a true reading, so what
+    // it reports while it comes up (at login, or a new default device) is
+    // never announced, and nothing has to guess how long that takes. The
+    // values are read off the node itself: the derived ones on Audio may not
+    // have caught up with this very signal yet.
+    Connections {
+        target: Audio.hasSink ? Audio.sink.audio : null
+
+        function onVolumesChanged(): void { root.showVolume(); }
+        function onMutedChanged(): void { root.showVolume(); }
+    }
+
+    function showVolume(): void {
+        const audio = Audio.sink.audio;
+        root.show("volume", audio.muted ? 0 : audio.volume,
+            Audio.volumeIconFor(audio.volume, audio.muted),
+            audio.muted ? qsTr("Muted") : Math.round(audio.volume * 100) + "%");
     }
 
     Connections {
-        target: Audio
-        enabled: Audio.hasSink
-
-        function onVolumeChanged(): void {
-            root.show("volume", Audio.volume, Audio.volumeIcon,
-                Math.round(Audio.volume * 100) + "%");
-        }
+        target: Audio.hasSource ? Audio.source.audio : null
 
         function onMutedChanged(): void {
-            root.show("volume", Audio.muted ? 0 : Audio.volume, Audio.volumeIcon,
-                Audio.muted ? qsTr("Muted") : Math.round(Audio.volume * 100) + "%");
+            const audio = Audio.source.audio;
+            root.show("mic", audio.muted ? 0 : audio.volume, audio.muted ? "mic-muted" : "mic",
+                audio.muted ? qsTr("Mic Muted") : qsTr("Mic On"));
         }
     }
 
     Connections {
-        target: Audio
-        enabled: Audio.hasSource
-
-        function onMicMutedChanged(): void {
-            root.show("mic", Audio.micMuted ? 0 : Audio.micVolume, Audio.micIcon,
-                Audio.micMuted ? qsTr("Mic Muted") : qsTr("Mic On"));
-        }
-    }
-
-    Connections {
-        target: Brightness
-        enabled: Brightness.available
+        target: Brightness.available ? Brightness : null
 
         function onValueChanged(): void {
             root.show("brightness", Brightness.value, Brightness.icon,
