@@ -9,9 +9,9 @@ import "root:/services"
 /*!
     Full media controls for the current MPRIS player.
 
-    The position readout is the one thing MPRIS will not push, so the seek bar
-    polls — but only while this card is actually on screen and the player is
-    actually playing.
+    MPRIS pushes a jump in position (a seek, a new track) but not the clock
+    running on, so the seek bar has the player re-announce it once a second —
+    only while this card is actually on screen and the player actually playing.
 */
 Surface {
     id: root
@@ -19,8 +19,12 @@ Surface {
     property bool tracking: false
 
     readonly property bool hasLength: Players.length > 0
+    readonly property real position: root.hasLength && Players.hasPlayer
+        ? Math.min(1, Players.current.position / Players.length) : 0
+    /*! Where a drag has the knob, held until the seek lands. */
     property real scrubValue: 0
     property bool scrubbing: false
+    readonly property real shownValue: root.scrubbing ? root.scrubValue : root.position
 
     visible: Players.active
     implicitHeight: Players.active ? layout.implicitHeight + Appearance.s.lg * 2 : 0
@@ -30,15 +34,13 @@ Surface {
     bordered: false
 
     Timer {
-        // MPRIS does not signal position changes, so the seek bar is the one
-        // place the shell polls — and only while it is visible and playing.
-        running: root.visible && root.tracking && root.hasLength
+        // The one place the shell polls: Quickshell's own advice for a
+        // position that moves without a signal. Reading `position` is always
+        // current; this only tells the bindings to read it again.
+        running: root.visible && root.tracking && root.hasLength && Players.playing
         interval: 1000
-        // One read when the card appears; repeating only while it is moving.
-        repeat: Players.playing
-        triggeredOnStart: true
-        onTriggered: if (!root.scrubbing && Players.hasPlayer)
-            root.scrubValue = Players.current.position / Players.length
+        repeat: true
+        onTriggered: Players.current.positionChanged()
     }
 
     Row {
@@ -105,15 +107,16 @@ Surface {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width
                     implicitHeight: 18
-                    value: root.scrubValue
+                    value: root.shownValue
                     interactive: Players.canSeek
                     onMoved: v => {
                         root.scrubbing = true;
                         root.scrubValue = v;
                     }
                     onCommitted: v => {
-                        root.scrubbing = false;
+                        // Seek first, so the knob never shows the old place.
                         Players.seekTo(v);
+                        root.scrubbing = false;
                     }
                 }
             }
@@ -153,7 +156,7 @@ Surface {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.hasLength
-                    text: Players.formatTime(root.scrubValue * Players.length)
+                    text: Players.formatTime(root.shownValue * Players.length)
                         + " / " + Players.formatTime(Players.length)
                     role: Label.Role.Caption
                     faint: true
