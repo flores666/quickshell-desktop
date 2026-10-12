@@ -35,8 +35,18 @@ QtObject {
     readonly property int md: Math.round(12 * root.scale)
     readonly property int lg: Math.round(16 * root.scale)
     readonly property int xl: Math.round(20 * root.scale)
-    /*! Every panel: bar, dock and each popup's card, so they all agree. */
+    /*! Every card: each popup's, each toast's, so they all agree. */
     readonly property int panel: Math.round(root.panelBase * root.scale)
+
+    /*!
+        The radius of a capsule: the bar, the dock, the OSD, and the controls
+        that sit in them. Fully round at the tuned roundness and above, and
+        squarer below it in the same proportion as every other radius, so the
+        roundness setting still reaches the chrome that is round by design.
+    */
+    function capsule(height: real): int {
+        return Math.round(height / 2 * Math.min(1, root.scale));
+    }
     /*! A pill: half of whatever it is on, however round everything else is. */
     readonly property int full: 999
 }

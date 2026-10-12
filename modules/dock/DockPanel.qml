@@ -9,8 +9,8 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    The bottom dock: an overview button, pinned applications and every open
-    window, then the application grid.
+    The bottom dock: a glass capsule holding an overview button, pinned
+    applications and every open window, then the application grid.
 
     It hides itself when it is not being used and slides back when the pointer
     reaches the bottom edge. The reveal trigger is a few pixels tall, invisible,
@@ -150,7 +150,7 @@ PanelWindow {
             ? Appearance.m.screenGap : -(root.dockHeight + Appearance.m.screenGap)
         width: layout.implicitWidth + Appearance.m.dockPadding * 2
         height: root.dockHeight
-        radius: Appearance.r.panel
+        radius: Appearance.r.capsule(root.dockHeight)
         elevation: 3
 
         Behavior on anchors.bottomMargin {

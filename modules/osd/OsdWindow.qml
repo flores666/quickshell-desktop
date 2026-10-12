@@ -52,9 +52,9 @@ PanelWindow {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Appearance.m.dockFootprint + Appearance.s.lg
-        width: 260
-        height: 48
-        radius: Appearance.r.full
+        width: 280
+        height: 52
+        radius: Appearance.r.capsule(pill.height)
         elevation: 3
         opacity: root.shown ? 1 : 0
         y: root.shown ? 0 : 8
@@ -69,7 +69,7 @@ PanelWindow {
         Icon {
             id: glyph
             anchors.verticalCenter: parent.verticalCenter
-            x: Appearance.s.lg
+            x: Appearance.s.xl
             name: Osd.icon
             size: Appearance.m.iconLg
         }
@@ -78,9 +78,9 @@ PanelWindow {
             id: track
             anchors.verticalCenter: parent.verticalCenter
             x: glyph.x + glyph.width + Appearance.s.lg
-            width: pill.width - x - value.width - Appearance.s.lg * 2
-            height: 6
-            radius: 3
+            width: value.x - x - Appearance.s.lg
+            height: 8
+            radius: height / 2
             color: Appearance.c.sunken
 
             Rectangle {
@@ -98,12 +98,12 @@ PanelWindow {
         Label {
             id: value
             anchors.verticalCenter: parent.verticalCenter
-            x: pill.width - width - Appearance.s.lg
+            x: pill.width - width - Appearance.s.xl
             width: 44
             horizontalAlignment: Text.AlignRight
             text: Osd.text
-            role: Label.Role.Small
-            muted: true
+            font.weight: Font.Medium
+            font.features: ({ "tnum": 1 })
         }
     }
 }

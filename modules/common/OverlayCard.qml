@@ -72,12 +72,12 @@ Surface {
         // without this it spills over the edge onto the desktop.
         clip: true
         // Fades as one flattened image. An opacity on the card is applied to
-        // every descendant separately, so a control drawn from opaque shapes
-        // painted over each other shows through itself: a quick-settings tile
-        // that has a detail page is a body, a chevron and a rectangle bridging
-        // the seam between them, and each one it overlaps adds its colour
-        // again. Measured on the closing fade, with the tile at accent: the
-        // seam read 60% brighter than the tile around it.
+        // every descendant separately, so a control drawn from shapes painted
+        // over each other shows through itself: a quick-settings tile is a
+        // fill with a disc and a chevron on it, and each shape it overlaps adds
+        // its colour again. Measured on the closing fade, when the tile was
+        // built from three overlapping pieces: the seam read 60% brighter than
+        // the tile around it.
         layer.enabled: card.opacity < 1
     }
 

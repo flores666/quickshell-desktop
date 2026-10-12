@@ -10,12 +10,12 @@ import "root:/services"
 Column {
     id: root
 
-    spacing: Appearance.s.lg
+    spacing: Appearance.s.xl
 
     component HyprRow: SettingRow {
         readonly property var limits: CompositorOptions.spec[this.key]
 
-        width: root.width
+        width: parent.width
         min: this.limits.min
         max: this.limits.max
         suffix: qsTr("%")
@@ -25,45 +25,36 @@ Column {
         value: this.known ? CompositorOptions.value(this.key) : 100
     }
 
-    Label {
-        text: qsTr("Mouse")
-        role: Label.Role.Small
-        muted: true
-    }
-
-    HyprRow { key: "hyprMouseSpeed"; label: qsTr("Speed") }
-    SettingToggle {
+    SettingGroup {
         width: root.width
-        key: "hyprMouseAccel"
-        title: qsTr("Acceleration")
-        subtitle: qsTr("Faster movements travel further")
-    }
-    HyprRow { key: "hyprMouseScroll"; label: qsTr("Scroll speed") }
+        title: qsTr("Mouse")
 
-    Label {
-        width: root.width
-        text: qsTr("Applies to every pointer without its own device block in hyprland.conf.")
-        role: Label.Role.Caption
-        faint: true
-        wrapMode: Text.Wrap
-    }
-
-    Divider { width: root.width; visible: CompositorOptions.hasTouchpad }
-
-    Column {
-        width: root.width
-        visible: CompositorOptions.hasTouchpad
-        spacing: Appearance.s.lg
+        HyprRow { key: "hyprMouseSpeed"; label: qsTr("Speed") }
+        SettingToggle {
+            width: parent.width
+            key: "hyprMouseAccel"
+            title: qsTr("Acceleration")
+            subtitle: qsTr("Faster movements travel further")
+        }
+        HyprRow { key: "hyprMouseScroll"; label: qsTr("Scroll speed") }
 
         Label {
-            text: qsTr("Touchpad")
-            role: Label.Role.Small
-            muted: true
+            width: parent.width
+            text: qsTr("Applies to every pointer without its own device block in hyprland.conf.")
+            role: Label.Role.Caption
+            faint: true
+            wrapMode: Text.Wrap
         }
+    }
+
+    SettingGroup {
+        width: root.width
+        visible: CompositorOptions.hasTouchpad
+        title: qsTr("Touchpad")
 
         HyprRow { key: "hyprTouchpadSpeed"; label: qsTr("Speed") }
         HyprRow { key: "hyprTouchpadScroll"; label: qsTr("Scroll speed") }
-        SettingToggle { width: root.width; key: "hyprNaturalScroll"; title: qsTr("Natural scrolling"); subtitle: qsTr("Content moves with your fingers") }
-        SettingToggle { width: root.width; key: "hyprTapToClick"; title: qsTr("Tap to click") }
+        SettingToggle { width: parent.width; key: "hyprNaturalScroll"; title: qsTr("Natural scrolling"); subtitle: qsTr("Content moves with your fingers") }
+        SettingToggle { width: parent.width; key: "hyprTapToClick"; title: qsTr("Tap to click") }
     }
 }

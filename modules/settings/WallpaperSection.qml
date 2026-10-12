@@ -6,20 +6,42 @@ import "root:/config"
 import "root:/components"
 import "root:/services"
 
-/*! The pictures in the wallpaper folder, and which of them is up. */
+/*! The pictures in the wallpaper folder, and which of them is up: the one up
+    shown large, every one of them in a strip beneath it. */
 Column {
     id: root
 
-    spacing: Appearance.s.lg
+    spacing: Appearance.s.md
 
     // The pane is built afresh on every visit, so this is every time it shows.
     Component.onCompleted: Wallpaper.rescan()
+
+    ClippingRectangle {
+        width: root.width
+        height: Math.round(root.width * 9 / 16)
+        visible: Wallpaper.current !== ""
+        radius: Appearance.r.lg
+        color: Appearance.c.sunken
+        border.width: Appearance.m.border
+        border.color: Appearance.c.border
+
+        Image {
+            anchors.fill: parent
+            source: Wallpaper.current !== "" ? "file://" + Wallpaper.current : ""
+            fillMode: Image.PreserveAspectCrop
+            // Twice the pane, as for the thumbnails: sharp on a scaled screen,
+            // and no 4K decode for a picture this size.
+            sourceSize.width: root.width * 2
+            asynchronous: true
+            cache: true
+        }
+    }
 
     Filmstrip {
         id: strip
 
         width: root.width
-        cellHeight: 84
+        cellHeight: 72
         visible: Wallpaper.available
         model: Wallpaper.items
         currentIndex: Math.max(0, Wallpaper.items.indexOf(Wallpaper.current))
@@ -29,7 +51,7 @@ Column {
 
             required property string modelData
 
-            implicitWidth: 132
+            implicitWidth: 120
             height: strip.cellHeight
             radius: Appearance.r.md
             focusable: false
@@ -60,7 +82,7 @@ Column {
                     fillMode: Image.PreserveAspectCrop
                     // Twice the tile, so it stays sharp on a scaled screen and
                     // no further: these are thumbnails of 4K photographs.
-                    sourceSize.width: 264
+                    sourceSize.width: 240
                     asynchronous: true
                     cache: true
                 }

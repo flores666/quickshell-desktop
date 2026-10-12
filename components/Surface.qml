@@ -4,13 +4,19 @@ import QtQuick
 import "root:/config"
 
 /*!
-    An opaque rounded panel: the base of every bar, dock, popover and card.
-    Always fully opaque — the design system has no translucent surfaces.
+    A glass panel: the base of every bar, dock, popover and card.
+
+    The surface colour at the theme's glass opacity, edged with a hairline and
+    lifted by a Shadow. What shows through is blurred by the compositor, which
+    blurs a shell surface wherever it is more than half opaque (see the layer
+    rule in hyprland.conf) — so the shadow around a panel stays crisp paint and
+    only the panel itself frosts. A card resting on another surface passes one
+    of the washes (`raised`) as its colour instead, and is glass by inheritance.
 */
 Item {
     id: root
 
-    property color color: Appearance.c.surface
+    property color color: Appearance.c.chrome
     property int radius: Appearance.r.md
     property int elevation: 2
     property bool bordered: true

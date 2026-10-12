@@ -28,8 +28,8 @@ Surface {
     signal dismissed
 
     implicitHeight: layout.implicitHeight + Appearance.s.lg * 2
-    color: root.standalone ? Appearance.c.surface : Appearance.c.raised
-    radius: Appearance.r.md
+    color: root.standalone ? Appearance.c.chrome : Appearance.c.raised
+    radius: root.standalone ? Appearance.r.lg : Appearance.r.md
     elevation: root.standalone ? 3 : 0
     bordered: root.standalone
 
@@ -66,16 +66,19 @@ Surface {
 
             AppIcon {
                 id: icon
-                y: 0
                 // The card outlives its notification while it fades out.
                 source: (root.notification?.image ?? "") !== "" ? root.notification.image
                     : (root.notification?.appIcon ?? "")
                 fallbackIcon: root.critical ? "warning" : "bell"
-                size: 28
+                size: root.standalone ? 32 : 28
             }
 
+            // Centred on the icon when it is the shorter of the two, as a
+            // one-line toast is; a longer one hangs from the top beside it.
             Column {
                 id: headline
+
+                anchors.verticalCenter: parent.verticalCenter
                 x: icon.width + Appearance.s.lg
                 width: parent.width - x - closeButton.width - Appearance.s.sm
                 spacing: 1
@@ -106,14 +109,16 @@ Surface {
                     role: Label.Role.Small
                     muted: true
                     wrapMode: Text.Wrap
-                    maximumLineCount: root.standalone ? 3 : 6
+                    // A toast is a glance: two lines, and the rest is in the
+                    // notification centre.
+                    maximumLineCount: root.standalone ? 2 : 6
                 }
             }
 
             IconButton {
                 id: closeButton
                 anchors.right: parent.right
-                y: -Appearance.s.xs
+                anchors.verticalCenter: icon.verticalCenter
                 icon: "close"
                 size: 24
                 iconSize: Appearance.m.iconSm

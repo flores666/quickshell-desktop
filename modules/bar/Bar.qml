@@ -12,9 +12,9 @@ import "root:/services"
     The top panel: workspaces on the left, the clock in the centre, status
     and the quick-settings button on the right.
 
-    One panel standing just off the top edge.  The controls at its ends sit in
-    shallow wells that group them; the clock sits on the panel itself, which is
-    what keeps the middle of the bar quiet.  The window is taller than the panel
+    One glass capsule standing just off the top edge, its three groups laid
+    straight onto it: no wells and no rules between them, only the space that
+    keeps them apart.  The window is taller than the panel
     — it holds the gap above and room for the shadow to fall below — but only
     the panel is reserved from the screen, and only the panel takes input.
 
@@ -63,9 +63,7 @@ PanelWindow {
         anchors.leftMargin: Appearance.m.barSideGap
         anchors.rightMargin: Appearance.m.barSideGap
         height: Appearance.m.barHeight
-        // Capped at half the bar's height by the Rectangle, so short as it is
-        // the bar reads as a pill at the usual roundness.
-        radius: Appearance.r.panel
+        radius: Appearance.r.capsule(Appearance.m.barHeight)
         // The panel stands clear of the screen edge, so it casts the shadow of
         // something raised off the desktop rather than of trim resting on it.
         elevation: 2
@@ -77,7 +75,7 @@ PanelWindow {
 
         BarGroup {
             anchors.left: parent.left
-            anchors.leftMargin: Appearance.s.sm
+            anchors.leftMargin: Appearance.s.xs
             anchors.verticalCenter: parent.verticalCenter
 
             Workspaces {
@@ -86,9 +84,6 @@ PanelWindow {
             }
         }
 
-        // On the panel itself, with no well behind it: the centre of the bar
-        // carries the one thing that is always there, and grouping it would
-        // only draw a box around a thing that is not part of a set.
         ClockButton {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
@@ -97,7 +92,7 @@ PanelWindow {
 
         BarGroup {
             anchors.right: parent.right
-            anchors.rightMargin: Appearance.s.sm
+            anchors.rightMargin: Appearance.s.xs
             anchors.verticalCenter: parent.verticalCenter
 
             Tray {

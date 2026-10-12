@@ -24,7 +24,7 @@ FocusScope {
 
     Rectangle {
         anchors.fill: parent
-        radius: Appearance.r.sm
+        radius: Appearance.r.md
         color: Appearance.c.sunken
         border.width: 1
         border.color: input.activeFocus ? Appearance.c.accent : Appearance.c.border

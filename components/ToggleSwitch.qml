@@ -48,7 +48,7 @@ Clickable {
             width: 20
             height: 20
             radius: height / 2
-            color: root.checked ? Appearance.c.accentText : Appearance.c.surface
+            color: Appearance.c.knob
 
             Behavior on x {
                 NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.emphasizedEasing }

@@ -15,7 +15,7 @@ Clickable {
 
     implicitWidth: content.implicitWidth + root.padding * 2
     implicitHeight: Appearance.m.barItemHeight
-    radius: Appearance.r.sm
+    radius: Appearance.r.capsule(Appearance.m.barItemHeight)
     focusable: false
 
     /*! Horizontal centre of this button in its window's coordinates. */

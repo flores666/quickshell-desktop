@@ -115,6 +115,17 @@ ICONS = {
     "phone": "phone",
     "printer": "printer",
     "window": "window-new",
+    # application categories, for the launcher
+    "cat-development": "utilities-terminal",
+    "cat-internet": "web-browser",
+    "cat-office": "x-office-document",
+    "cat-graphics": "applications-graphics",
+    "cat-multimedia": "applications-multimedia",
+    "cat-games": "applications-games",
+    "cat-education": "applications-science",
+    "cat-system": "applications-system",
+    "cat-settings": "preferences-system",
+    "cat-utilities": "applications-utilities",
 }
 
 # battery levels are generated programmatically

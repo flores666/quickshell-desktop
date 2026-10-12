@@ -88,8 +88,10 @@ modules/             the surfaces themselves
   bar/ dock/ panels/ launcher/ settings/ notifications/ osd/ lock/
   panels/qs/         quick settings' pages: FrontPage, the sub-pages it opens,
                      and their tiles and rows
-  settings/          one *Section per tab, on SettingRow / SettingToggle rows;
-                     SeedPicker is one colour seed: presets, history, picker
+  settings/          one *Section per tab, its rows (SettingRow /
+                     SettingToggle) on SettingGroup cards; ThemeCard previews a
+                     theme; SeedPicker is one colour seed: presets, history,
+                     picker
   common/            shared surface chrome (ShellOverlay, OverlayCard), IPC,
                      overview theming
 tools/               generators and the lint wrapper; not loaded at runtime
@@ -128,6 +130,17 @@ masked to the card alone.
 
 **Token** — a named design value in `config/`. `Appearance.c.accent`,
 `Appearance.s.lg`, `Appearance.t.fast` and so on.
+
+**Glass** — how every floating surface is drawn. `Surface` lays `c.chrome`
+(the opaque `c.surface` at `c.glass` opacity) over a blur Hyprland draws
+behind any shell surface wherever it is more than half opaque (the
+`shell-glass` layer rule). Shadows stay below that threshold, so the frost
+stops at a panel's edge. `raised`, `sunken`, `border` and `borderStrong` are
+translucent washes, not colours: they take on the glass, the seeds and the
+wallpaper beneath them, which is what lets one set serve any palette. Use
+`c.surface` only where something must be opaque (a knob is `c.knob`); never
+`Qt.alpha` a token by hand to make glass. The lock screen is the one opaque
+surface.
 
 **Override** — a token or timing the user has changed, in `settings.json`. Every
 one is an integer whose negative value means "unset", the way `""` means it for
@@ -174,8 +187,8 @@ contents.
 
 | Service | Owns | Key surface |
 |---|---|---|
-| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
-| `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`; `r.panel` is **the** radius of the bar, the dock and every popup card — nothing picks its own. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
+| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
+| `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
 | `Overlay` | which popup is open, on which screen, and outside-click dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `setPointerOver`, `dismissOnOutsideClick` |
@@ -207,7 +220,7 @@ implemented.
 | Component | Purpose |
 |---|---|
 | `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation (Space/Enter click; Menu or Shift+F10 right-click). Everything clickable derives from it |
-| `Surface` | an opaque rounded panel with a border and a `Shadow` |
+| `Surface` | a glass panel: `c.chrome` (the surface at `c.glass` opacity), a hairline and a `Shadow`; the compositor blurs what is behind it |
 | `Shadow` | one gaussian-blurred silhouette via `MultiEffect`; `level` 1–3 |
 | `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
 | `AppIcon` | an application icon from the XDG theme, with fallbacks |
@@ -348,6 +361,19 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   the file said": clearing an override asks Hyprland to reload, and the
   re-push restores the rest. Per-device options (touchpad speed) can be set
   but not read back, which is why that row says "As configured".
+- **A `layerrule[name] { … }` block needs `match:namespace`.** The bracketed
+  name only names the rule; a rule with no match applies to nothing, silently
+  (`canMatch()` in the 0.56.2 source). The namespace is a regex that must match
+  the *whole* namespace (`RE2::FullMatch`), so `shell-.*`, not `^shell-`.
+  `hyprland.conf`'s first two rules once sat without one.
+- **Layer blur follows the surface's alpha** (`ignore_alpha`). A popup's
+  surface spans the screen but is mostly transparent, and only its card is
+  blurred behind. Hyprland's blur strength is global (`decoration:blur`), and
+  this machine's is light, which is why `c.glass` is high.
+- **A colour with alpha stringifies as `#aarrggbb`.** Anything handing a
+  token to Hyprland builds `rgba(rrggbbaa)` from the channels
+  (`OverviewTheme.rgba`); slicing the string would give the overview white
+  borders.
 - **`hyprctl keyword` answers `ok` for a plugin option that does not exist.**
   The overview's border weight went to `border_size` (this fork's is
   `border_width`) and never took effect. Read a new one back with

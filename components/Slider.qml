@@ -81,9 +81,9 @@ Item {
         height: root.knobSize
         anchors.verticalCenter: parent.verticalCenter
         radius: height / 2
-        color: Appearance.c.surface
+        color: Appearance.c.knob
         border.width: 1
-        border.color: Appearance.c.borderStrong
+        border.color: Appearance.c.border
         scale: drag.pressed ? 1.12 : hover.hovered ? 1.06 : 1
 
         Behavior on scale {

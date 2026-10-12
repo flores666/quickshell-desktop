@@ -20,17 +20,20 @@ import "root:/services"
 Binding {
     id: root
 
-    /*! Hyprland wants rgb(rrggbb), QML gives #rrggbb. */
-    function rgb(value: color): string {
-        return `rgb(${String(value).replace("#", "").slice(-6)})`;
+    /*! Hyprland wants rgba(rrggbbaa). Built from the channels rather than
+        from the colour's string, which QML writes as #aarrggbb once there is
+        any alpha in it — and the hairline tokens are translucent washes. */
+    function rgba(value: color): string {
+        const hex = channel => Math.round(channel * 255).toString(16).padStart(2, "0");
+        return `rgba(${hex(value.r)}${hex(value.g)}${hex(value.b)}${hex(value.a)})`;
     }
 
     target: CompositorOptions
     property: "derived"
     value: ({
-        "plugin:hyprexpo:bg_col": root.rgb(Appearance.c.base),
-        "plugin:hyprexpo:border_color": root.rgb(Appearance.c.borderStrong),
-        "plugin:hyprexpo:border_color_focus": root.rgb(Appearance.c.accent),
+        "plugin:hyprexpo:bg_col": root.rgba(Appearance.c.base),
+        "plugin:hyprexpo:border_color": root.rgba(Appearance.c.borderStrong),
+        "plugin:hyprexpo:border_color_focus": root.rgba(Appearance.c.accent),
         "plugin:hyprexpo:border_width": String(Appearance.m.focusRing),
         // A workspace tile is a card like any other, so it takes the one
         // panel radius, which follows the roundness setting or the windows.

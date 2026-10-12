@@ -10,37 +10,41 @@ import "root:/services"
 Column {
     id: root
 
-    spacing: Appearance.s.lg
+    spacing: Appearance.s.md
 
-    SettingRow {
+    SettingGroup {
         width: root.width
-        key: "dockIcon"
-        label: qsTr("Icon size")
-        min: Tuning.spec.dockIcon.min
-        max: Tuning.spec.dockIcon.max
-        value: Appearance.m.dockIcon
-    }
 
-    SettingRow {
-        width: root.width
-        key: "screenGap"
-        label: qsTr("Gap from the edge")
-        min: Tuning.spec.screenGap.min
-        max: Tuning.spec.screenGap.max
-        value: Appearance.m.screenGap
-    }
+        SettingRow {
+            width: parent.width
+            key: "dockIcon"
+            label: qsTr("Icon size")
+            min: Tuning.spec.dockIcon.min
+            max: Tuning.spec.dockIcon.max
+            value: Appearance.m.dockIcon
+        }
 
-    /*! A timing rather than a size, so the range is the one Dock clamps to
-        rather than anything in Tuning. */
-    SettingRow {
-        width: root.width
-        key: "dockHideDelay"
-        label: qsTr("Hide delay")
-        min: Dock.hideDelayRange.min
-        max: Dock.hideDelayRange.max
-        step: 100
-        value: Dock.hideDelay
-        suffix: qsTr("ms")
+        SettingRow {
+            width: parent.width
+            key: "screenGap"
+            label: qsTr("Gap from the edge")
+            min: Tuning.spec.screenGap.min
+            max: Tuning.spec.screenGap.max
+            value: Appearance.m.screenGap
+        }
+
+        /*! A timing rather than a size, so the range is the one Dock clamps to
+            rather than anything in Tuning. */
+        SettingRow {
+            width: parent.width
+            key: "dockHideDelay"
+            label: qsTr("Hide delay")
+            min: Dock.hideDelayRange.min
+            max: Dock.hideDelayRange.max
+            step: 100
+            value: Dock.hideDelay
+            suffix: qsTr("ms")
+        }
     }
 
     Label {

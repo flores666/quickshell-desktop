@@ -6,7 +6,11 @@ import "root:/components"
 
 /*!
     A quick-settings tile: an icon, a title, a status line, and — when the
-    feature has a detail page — a separate chevron target that opens it.
+    feature has a detail page — a chevron button inside it that opens it.
+
+    Engaged reads as the tile taking on the accent: a tint across the whole
+    tile and the accent itself in the icon's disc, with the text left in the
+    ordinary ink so it stays legible on any accent the user picks.
 */
 Item {
     id: root
@@ -23,28 +27,35 @@ Item {
     signal pageRequested
 
     implicitWidth: 168
-    implicitHeight: 56
+    implicitHeight: 58
 
     Clickable {
         id: main
         anchors.fill: parent
-        anchors.rightMargin: root.hasPage ? 34 : 0
-        radius: Appearance.r.md
+        radius: Appearance.r.lg
         // A read-only tile still reads at full strength; it just does not react.
         hoverEnabled: root.toggleEnabled
         pressEnabled: root.toggleEnabled
         focusable: root.toggleEnabled
-        background: root.active ? Appearance.c.accent : Appearance.c.raised
+        background: root.active ? Appearance.c.accentSoft : Appearance.c.raised
         onClicked: if (root.toggleEnabled) root.toggled()
+
+        Behavior on background {
+            ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+        }
 
         Rectangle {
             id: bubble
-            x: Appearance.s.md
+            x: Appearance.s.md + Appearance.s.xxs
             anchors.verticalCenter: parent.verticalCenter
-            width: 32
-            height: 32
-            radius: 16
-            color: root.active ? Qt.alpha(Appearance.c.accentText, 0.16) : Appearance.c.sunken
+            width: 34
+            height: 34
+            radius: height / 2
+            color: root.active ? Appearance.c.accent : Appearance.c.sunken
+
+            Behavior on color {
+                ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+            }
 
             Icon {
                 anchors.centerIn: parent
@@ -65,7 +76,7 @@ Item {
         Column {
             anchors.verticalCenter: parent.verticalCenter
             x: bubble.x + bubble.width + Appearance.s.md
-            width: main.width - x - Appearance.s.md
+            width: (root.hasPage ? chevron.x : main.width) - x - Appearance.s.sm
             spacing: 0
 
             Label {
@@ -73,7 +84,6 @@ Item {
                 text: root.title
                 role: Label.Role.Small
                 font.weight: Font.DemiBold
-                color: root.active ? Appearance.c.accentText : Appearance.c.text
             }
 
             Label {
@@ -81,39 +91,23 @@ Item {
                 visible: root.status !== ""
                 text: root.status
                 role: Label.Role.Caption
-                color: root.active ? Qt.alpha(Appearance.c.accentText, 0.8) : Appearance.c.textMuted
+                muted: true
             }
         }
     }
 
-    // The chevron is its own target so opening the detail page never toggles
-    // the feature by accident.
-    Clickable {
+    // Its own target, above the tile's, so opening the detail page never
+    // toggles the feature by accident.
+    IconButton {
+        id: chevron
         anchors.right: parent.right
+        anchors.rightMargin: Appearance.s.sm
         anchors.verticalCenter: parent.verticalCenter
-        width: 34
-        height: parent.height
         visible: root.hasPage
-        radius: Appearance.r.md
-        background: root.active ? Appearance.c.accent : Appearance.c.raised
+        icon: "chevron-right"
+        iconSize: Appearance.m.iconSm
+        size: 28
+        iconColor: Appearance.c.textMuted
         onClicked: root.pageRequested()
-
-        Icon {
-            anchors.centerIn: parent
-            name: "chevron-right"
-            size: Appearance.m.iconSm
-            color: root.active ? Appearance.c.accentText : Appearance.c.textMuted
-        }
-    }
-
-    // Hide the seam where the two rounded targets meet.
-    Rectangle {
-        visible: root.hasPage
-        anchors.verticalCenter: parent.verticalCenter
-        x: parent.width - 34 - Appearance.r.md
-        width: Appearance.r.md * 2
-        height: parent.height
-        color: root.active ? Appearance.c.accent : Appearance.c.raised
-        z: -1
     }
 }

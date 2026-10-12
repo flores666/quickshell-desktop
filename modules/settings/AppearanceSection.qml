@@ -17,74 +17,97 @@ import "root:/services"
 Column {
     id: root
 
-    spacing: Appearance.s.lg
+    spacing: Appearance.s.xl
 
-    MenuRow {
+    SettingGroup {
         width: root.width
-        title: qsTr("Dark style")
-        flush: true
-        subtitle: qsTr("Both themes are hand-tuned; the seeds below apply to each separately")
-        icon: "night-light"
-        onClicked: Settings.toggleTheme()
+        title: qsTr("Theme")
 
-        ToggleSwitch {
-            checked: Appearance.dark
-            onToggled: value => Settings.setTheme(value ? "dark" : "light")
+        Row {
+            width: parent.width
+            spacing: Appearance.s.md
+
+            ThemeCard {
+                width: (parent.width - parent.spacing) / 2
+                scheme: Appearance.day
+                title: qsTr("Light")
+                selected: !Appearance.dark
+                onClicked: Settings.setTheme("light")
+            }
+
+            ThemeCard {
+                width: (parent.width - parent.spacing) / 2
+                scheme: Appearance.night
+                title: qsTr("Dark")
+                selected: Appearance.dark
+                onClicked: Settings.setTheme("dark")
+            }
+        }
+
+        Label {
+            width: parent.width
+            text: qsTr("Both themes are hand-tuned; the colours below apply to each separately.")
+            role: Label.Role.Caption
+            faint: true
+            wrapMode: Text.Wrap
         }
     }
 
-    Divider { width: root.width }
+    SettingGroup {
+        width: root.width
+        title: qsTr("Colours")
 
-    ColorsSection { width: root.width }
-
-    Divider { width: root.width }
-
-    FontSection { width: root.width }
-
-    Divider { width: root.width }
-
-    Label {
-        text: qsTr("Surfaces")
-        role: Label.Role.Small
-        muted: true
+        ColorsSection { width: parent.width }
     }
 
-    SettingRow {
+    SettingGroup {
         width: root.width
-        key: "border"
-        label: qsTr("Border")
-        min: Tuning.spec.border.min
-        max: Tuning.spec.border.max
-        value: Appearance.m.border
+        title: qsTr("Type")
+
+        FontSection { width: parent.width }
     }
 
-    /*! Absent when Hyprland's window rounding cannot be read: there would be
-        nothing to follow. */
-    MenuRow {
+    SettingGroup {
         width: root.width
-        visible: CompositorOptions.known("hyprRounding")
-        flush: true
-        title: qsTr("Match window corners")
-        subtitle: qsTr("Panels keep the same radius as Hyprland's windows")
-        onClicked: Settings.setRoundnessFollowsWindows(!Settings.roundnessFollowsWindows)
+        title: qsTr("Surfaces")
 
-        ToggleSwitch {
-            checked: Settings.roundnessFollowsWindows
-            onToggled: value => Settings.setRoundnessFollowsWindows(value)
+        SettingRow {
+            width: parent.width
+            key: "border"
+            label: qsTr("Border")
+            min: Tuning.spec.border.min
+            max: Tuning.spec.border.max
+            value: Appearance.m.border
         }
-    }
 
-    // While the corners follow the windows this setting drives nothing, so it
-    // is not offered; window rounding is under Windows.
-    SettingRow {
-        width: root.width
-        visible: !Appearance.r.followsWindows
-        key: "roundness"
-        label: qsTr("Corner roundness")
-        min: Tuning.spec.roundness.min
-        max: Tuning.spec.roundness.max
-        value: Tuning.pick("roundness")
-        suffix: qsTr("%")
-        step: 5
+        /*! Absent when Hyprland's window rounding cannot be read: there would be
+            nothing to follow. */
+        MenuRow {
+            width: parent.width
+            visible: CompositorOptions.known("hyprRounding")
+            flush: true
+            title: qsTr("Match window corners")
+            subtitle: qsTr("Panels keep the same radius as Hyprland's windows")
+            onClicked: Settings.setRoundnessFollowsWindows(!Settings.roundnessFollowsWindows)
+
+            ToggleSwitch {
+                checked: Settings.roundnessFollowsWindows
+                onToggled: value => Settings.setRoundnessFollowsWindows(value)
+            }
+        }
+
+        // While the corners follow the windows this setting drives nothing, so it
+        // is not offered; window rounding is under Windows.
+        SettingRow {
+            width: parent.width
+            visible: !Appearance.r.followsWindows
+            key: "roundness"
+            label: qsTr("Corner roundness")
+            min: Tuning.spec.roundness.min
+            max: Tuning.spec.roundness.max
+            value: Tuning.pick("roundness")
+            suffix: qsTr("%")
+            step: 5
+        }
     }
 }

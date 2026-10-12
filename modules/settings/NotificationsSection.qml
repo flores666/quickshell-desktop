@@ -11,31 +11,35 @@ import "root:/services"
 Column {
     id: root
 
-    spacing: Appearance.s.lg
+    spacing: Appearance.s.md
 
-    MenuRow {
+    SettingGroup {
         width: root.width
-        title: qsTr("Do Not Disturb")
-        flush: true
-        subtitle: qsTr("Hold notifications in history without showing them")
-        icon: "dnd"
-        onClicked: Settings.setDoNotDisturb(!Settings.doNotDisturb)
 
-        ToggleSwitch {
-            checked: Settings.doNotDisturb
-            onToggled: value => Settings.setDoNotDisturb(value)
+        MenuRow {
+            width: parent.width
+            title: qsTr("Do Not Disturb")
+            flush: true
+            subtitle: qsTr("Hold notifications in history without showing them")
+            icon: "dnd"
+            onClicked: Settings.setDoNotDisturb(!Settings.doNotDisturb)
+
+            ToggleSwitch {
+                checked: Settings.doNotDisturb
+                onToggled: value => Settings.setDoNotDisturb(value)
+            }
         }
-    }
 
-    SettingRow {
-        width: root.width
-        key: "notificationTimeout"
-        label: qsTr("Dwell")
-        min: Notifs.timeoutRange.min
-        max: Notifs.timeoutRange.max
-        step: 500
-        value: Notifs.defaultTimeout
-        suffix: qsTr("ms")
+        SettingRow {
+            width: parent.width
+            key: "notificationTimeout"
+            label: qsTr("Dwell")
+            min: Notifs.timeoutRange.min
+            max: Notifs.timeoutRange.max
+            step: 500
+            value: Notifs.defaultTimeout
+            suffix: qsTr("ms")
+        }
     }
 
     Label {

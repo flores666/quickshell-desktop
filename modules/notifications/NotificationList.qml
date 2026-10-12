@@ -15,7 +15,7 @@ Item {
     Item {
         id: header
         width: parent.width
-        height: 30
+        height: 32
 
         Label {
             anchors.verticalCenter: parent.verticalCenter
@@ -29,6 +29,7 @@ Item {
             spacing: Appearance.s.xs
 
             IconButton {
+                anchors.verticalCenter: parent.verticalCenter
                 icon: "dnd"
                 size: 28
                 iconSize: Appearance.m.iconSm
@@ -36,10 +37,11 @@ Item {
                 onClicked: Settings.setDoNotDisturb(!Settings.doNotDisturb)
             }
 
-            IconButton {
+            TextButton {
+                anchors.verticalCenter: parent.verticalCenter
+                compact: true
+                text: qsTr("Clear all")
                 icon: "trash"
-                size: 28
-                iconSize: Appearance.m.iconSm
                 enabled: Notifs.count > 0
                 onClicked: Notifs.clearAll()
             }

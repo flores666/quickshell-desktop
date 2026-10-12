@@ -6,7 +6,10 @@ import "root:/config"
 import "root:/components"
 import "root:/services"
 
-/*! A three-way segmented control for the power-profiles-daemon profile. */
+/*!
+    The power-profiles-daemon profile, as a row of choices: one button per
+    profile, the one in force wearing the accent the way an engaged tile does.
+*/
 Item {
     id: root
 
@@ -15,17 +18,11 @@ Item {
         : [PowerProfile.PowerSaver, PowerProfile.Balanced]
 
     implicitWidth: 300
-    implicitHeight: 34
-
-    Rectangle {
-        anchors.fill: parent
-        radius: Appearance.r.sm
-        color: Appearance.c.sunken
-    }
+    implicitHeight: 36
 
     Row {
         anchors.fill: parent
-        anchors.margins: 3
+        spacing: Appearance.s.sm
 
         Repeater {
             model: root.options
@@ -36,11 +33,15 @@ Item {
 
                 readonly property bool current: Power.profile === seg.modelData
 
-                width: (root.width - 6) / root.options.length
+                width: (root.width - Appearance.s.sm * (root.options.length - 1)) / root.options.length
                 height: parent.height
-                radius: Appearance.r.xs
-                background: seg.current ? Appearance.c.surface : "transparent"
+                radius: Appearance.r.md
+                background: seg.current ? Appearance.c.accentSoft : Appearance.c.raised
                 onClicked: Power.setProfile(seg.modelData)
+
+                Behavior on background {
+                    ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+                }
 
                 Row {
                     anchors.centerIn: parent
@@ -58,6 +59,7 @@ Item {
                         text: Power.profileLabel(seg.modelData)
                         role: Label.Role.Caption
                         color: seg.current ? Appearance.c.text : Appearance.c.textMuted
+                        font.weight: seg.current ? Font.DemiBold : Font.Normal
                     }
                 }
             }

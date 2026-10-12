@@ -10,41 +10,37 @@ import "root:/services"
 Column {
     id: root
 
-    spacing: Appearance.s.lg
+    spacing: Appearance.s.xl
 
     component HyprRow: SettingRow {
         readonly property var limits: CompositorOptions.spec[this.key]
 
-        width: root.width
+        width: parent.width
         min: this.limits.min
         max: this.limits.max
         known: CompositorOptions.known(this.key)
         value: this.known ? CompositorOptions.value(this.key) : this.min
     }
 
-    Label {
-        text: qsTr("Layout")
-        role: Label.Role.Small
-        muted: true
+    SettingGroup {
+        width: root.width
+        title: qsTr("Layout")
+
+        HyprRow { key: "hyprGapsIn"; label: qsTr("Gap around each window") }
+        HyprRow { key: "hyprGapsOut"; label: qsTr("Gap from the screen edge") }
+        HyprRow { key: "hyprBorder"; label: qsTr("Border") }
+        HyprRow { key: "hyprRounding"; label: qsTr("Corner radius") }
     }
 
-    HyprRow { key: "hyprGapsIn"; label: qsTr("Gap around each window") }
-    HyprRow { key: "hyprGapsOut"; label: qsTr("Gap from the screen edge") }
-    HyprRow { key: "hyprBorder"; label: qsTr("Border") }
-    HyprRow { key: "hyprRounding"; label: qsTr("Corner radius") }
+    SettingGroup {
+        width: root.width
+        title: qsTr("Effects")
 
-    Divider { width: root.width }
-
-    Label {
-        text: qsTr("Effects")
-        role: Label.Role.Small
-        muted: true
+        SettingToggle { width: parent.width; key: "hyprBlur"; title: qsTr("Blur") }
+        SettingToggle { width: parent.width; key: "hyprAnimations"; title: qsTr("Animations") }
+        HyprRow { key: "hyprActiveOpacity"; label: qsTr("Focused window opacity"); suffix: qsTr("%") }
+        HyprRow { key: "hyprInactiveOpacity"; label: qsTr("Other windows' opacity"); suffix: qsTr("%") }
     }
-
-    SettingToggle { width: root.width; key: "hyprBlur"; title: qsTr("Blur") }
-    SettingToggle { width: root.width; key: "hyprAnimations"; title: qsTr("Animations") }
-    HyprRow { key: "hyprActiveOpacity"; label: qsTr("Focused window opacity"); suffix: qsTr("%") }
-    HyprRow { key: "hyprInactiveOpacity"; label: qsTr("Other windows' opacity"); suffix: qsTr("%") }
 
     Label {
         width: root.width

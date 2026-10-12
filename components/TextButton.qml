@@ -31,13 +31,13 @@ Clickable {
     Row {
         id: row
         anchors.centerIn: parent
-        spacing: Appearance.s.md
+        spacing: root.compact ? Appearance.s.sm : Appearance.s.md
 
         Icon {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.icon !== ""
             name: root.icon
-            size: Appearance.m.icon
+            size: root.compact ? Appearance.m.iconSm : Appearance.m.icon
             color: root.ink
         }
 

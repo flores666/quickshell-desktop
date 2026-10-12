@@ -8,33 +8,37 @@ import "root:/components"
 Column {
     id: root
 
-    spacing: Appearance.s.lg
+    spacing: Appearance.s.md
 
-    SettingRow {
+    SettingGroup {
         width: root.width
-        key: "barHeight"
-        label: qsTr("Height")
-        min: Tuning.spec.barHeight.min
-        max: Tuning.spec.barHeight.max
-        value: Appearance.m.barHeight
-    }
 
-    SettingRow {
-        width: root.width
-        key: "barGap"
-        label: qsTr("Gap above")
-        min: Tuning.spec.barGap.min
-        max: Tuning.spec.barGap.max
-        value: Appearance.m.barGap
-    }
+        SettingRow {
+            width: parent.width
+            key: "barHeight"
+            label: qsTr("Height")
+            min: Tuning.spec.barHeight.min
+            max: Tuning.spec.barHeight.max
+            value: Appearance.m.barHeight
+        }
 
-    SettingRow {
-        width: root.width
-        key: "barSideGap"
-        label: qsTr("Gap at the sides")
-        min: Tuning.spec.barSideGap.min
-        max: Tuning.spec.barSideGap.max
-        value: Appearance.m.barSideGap
+        SettingRow {
+            width: parent.width
+            key: "barGap"
+            label: qsTr("Gap above")
+            min: Tuning.spec.barGap.min
+            max: Tuning.spec.barGap.max
+            value: Appearance.m.barGap
+        }
+
+        SettingRow {
+            width: parent.width
+            key: "barSideGap"
+            label: qsTr("Gap at the sides")
+            min: Tuning.spec.barSideGap.min
+            max: Tuning.spec.barSideGap.max
+            value: Appearance.m.barSideGap
+        }
     }
 
     Label {

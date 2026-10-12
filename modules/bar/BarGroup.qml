@@ -4,24 +4,20 @@ import QtQuick
 import "root:/config"
 
 /*!
-    One of the bar's three areas: a shallow rounded well the controls sit in.
+    One of the bar's end groups: the controls that belong together, in a row.
 
-    The bar is one panel; these are what divide it into left, centre and right
-    without a rule drawn anywhere. A single step of lift off the panel is all
-    that marks them, which is what keeps them reading as parts of the bar rather
-    than as widgets floating on top of it.
+    Nothing is drawn behind it. The bar is a slim capsule, and a well inside it
+    would only be a second, smaller capsule; the gap between the groups is what
+    divides it, and each control's own hover wash — a capsule concentric with
+    the bar's ends — is what shows its extent.
 */
-Rectangle {
+Item {
     id: root
 
     default property alias content: row.data
 
-    implicitWidth: row.implicitWidth + Appearance.s.xxs * 2
+    implicitWidth: row.implicitWidth
     implicitHeight: Appearance.m.barItemHeight
-    // One step in from the panel's corner, by the same inset that separates
-    // them, so the two curves stay concentric.
-    radius: Appearance.r.md
-    color: Appearance.c.raised
 
     Row {
         id: row

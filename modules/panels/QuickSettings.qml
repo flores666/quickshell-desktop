@@ -137,8 +137,8 @@ ShellOverlay {
             visible: opacity > 0
             opacity: !root.swapping && root.visiblePage === "" ? 1 : 0
             // Fades as one flattened image. Without this every child is faded
-            // separately, and the tiles — which are opaque shapes painted over
-            // each other — show through themselves as bright accent blocks.
+            // separately, and the tiles — shapes painted over each other —
+            // show through themselves as bright accent blocks.
             layer.enabled: opacity < 1
 
             Behavior on opacity {

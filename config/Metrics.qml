@@ -8,10 +8,11 @@ QtObject {
     id: root
 
     readonly property int barHeight: Tuning.pick("barHeight")
-    /*! One spacing step (s.md) shorter than the panel, so a well is inset by
-        half that per side — which is exactly r.lg - r.md, and is what keeps the
-        well's corner and the panel's concentric. Both halves of that rule have
-        to move together, so this is derived rather than set. */
+    /*! One spacing step (s.md) shorter than the panel, so a control is inset by
+        half that per side — and since both are capsules, that inset is also
+        the difference between their radii, which is what keeps a control's
+        hover wash concentric with the bar's ends. Derived rather than set, so
+        the two cannot drift apart. */
     readonly property int barItemHeight: root.barHeight - 8
     /*! The gap above the bar. Tighter than the one beside it by default:
         vertical room is taken from every window on the screen, and horizontal
@@ -50,6 +51,8 @@ QtObject {
     /*! How tall a text field stands. Named once so the search fields and the
         password wells cannot drift apart. */
     readonly property int fieldHeight: 32
+    /*! A row of a sidebar: the launcher's categories, the settings sections. */
+    readonly property int navRowHeight: 36
 
     /*! A colour swatch, and the pin badge a pinned one wears. */
     readonly property int swatch: 28

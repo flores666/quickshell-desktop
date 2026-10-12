@@ -20,6 +20,38 @@ Singleton {
         .filter(e => e && !e.noDisplay && e.name !== "")
         .sort((a, b) => a.name.localeCompare(b.name))
 
+    /*!
+        The launcher's categories: the freedesktop main categories, folded into
+        the groups a person browses by. Only the groups something is filed
+        under are listed, and an application filed under several is in each.
+    */
+    readonly property var categoryGroups: [
+        { key: "development", title: qsTr("Development"), icon: "cat-development", match: ["Development"] },
+        { key: "internet", title: qsTr("Internet"), icon: "cat-internet", match: ["Network"] },
+        { key: "office", title: qsTr("Office"), icon: "cat-office", match: ["Office"] },
+        { key: "graphics", title: qsTr("Graphics"), icon: "cat-graphics", match: ["Graphics"] },
+        { key: "multimedia", title: qsTr("Multimedia"), icon: "cat-multimedia", match: ["AudioVideo", "Audio", "Video"] },
+        { key: "games", title: qsTr("Games"), icon: "cat-games", match: ["Game"] },
+        { key: "education", title: qsTr("Education"), icon: "cat-education", match: ["Education", "Science"] },
+        { key: "system", title: qsTr("System"), icon: "cat-system", match: ["System"] },
+        { key: "settings", title: qsTr("Settings"), icon: "cat-settings", match: ["Settings"] },
+        { key: "utilities", title: qsTr("Accessories"), icon: "cat-utilities", match: ["Utility"] }
+    ]
+    readonly property var categories: root.categoryGroups
+        .filter(group => root.all.some(e => root.filedUnder(e, group)))
+
+    function filedUnder(entry: var, group: var): bool {
+        return (entry?.categories ?? []).some(c => group.match.includes(c));
+    }
+
+    /*! Whether an entry is in the category keyed `key`; "" is every application. */
+    function inCategory(entry: var, key: string): bool {
+        if (key === "")
+            return true;
+        const group = root.categoryGroups.find(g => g.key === key);
+        return group !== undefined && root.filedUnder(entry, group);
+    }
+
     function byId(id: string): var {
         if (!id)
             return null;

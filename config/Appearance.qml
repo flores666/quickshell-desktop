@@ -9,9 +9,11 @@ import "root:/services"
     The single source of truth for every colour, size, duration and font in the
     shell.  Nothing else is allowed to hardcode a colour or a magic pixel value.
 
-    The palette is warm-neutral rather than the usual blue-grey, and both
-    variants are fully opaque: no blur, no glass, no translucent surfaces.  Only
-    modal scrims and transient state layers use alpha, deliberately.
+    The palette is warm-neutral rather than the usual blue-grey.  Floating
+    chrome is glass: the surface colour at `c.glass` opacity over a blur the
+    compositor draws, with fills and hairlines as translucent washes on top, so
+    every token reads the same over whatever the seeds and the wallpaper make.
+    Only the lock screen, which nothing shows through, is opaque.
 */
 Singleton {
     id: root
@@ -20,32 +22,33 @@ Singleton {
     readonly property ColorScheme c: root.dark ? root.night : root.day
 
     readonly property ColorScheme day: ColorScheme {
-        base: root.hasBackground ? root.background : "#faf9f5"
-        surface: root.hasBackground ? root.lift(root.background, 0.029) : "#ffffff"
-        raised: root.hasBackground ? root.lift(root.background, -0.037) : "#f2f0ea"
-        sunken: root.hasBackground ? root.lift(root.background, -0.077) : "#eae7de"
-        border: root.hasBackground ? root.lift(root.background, -0.116) : "#e2ded2"
-        borderStrong: root.hasBackground ? root.lift(root.background, -0.212) : "#cdc7b6"
+        base: root.lightSeed !== "" ? root.lightSeed : "#faf9f5"
+        surface: root.lightSeed !== "" ? root.lift(root.lightSeed, 0.029) : "#ffffff"
 
         accent: root.accentFor("#c15f3c")
         accentText: root.accentInkFor("#ffffff")
+        accentSoft: Qt.alpha(root.accentFor("#c15f3c"), 0.16)
     }
 
     readonly property ColorScheme night: ColorScheme {
-        base: root.hasBackground ? root.background : "#191817"
-        surface: root.hasBackground ? root.lift(root.background, 0.039) : "#232221"
-        raised: root.hasBackground ? root.lift(root.background, 0.077) : "#2d2c2a"
-        sunken: root.hasBackground ? root.lift(root.background, -0.020) : "#141312"
-        border: root.hasBackground ? root.lift(root.background, 0.122) : "#393735"
-        borderStrong: root.hasBackground ? root.lift(root.background, 0.210) : "#514e4a"
+        base: root.darkSeed !== "" ? root.darkSeed : "#191817"
+        surface: root.darkSeed !== "" ? root.lift(root.darkSeed, 0.039) : "#232221"
+        glass: 0.88
+
+        raised: "#17ffffff"
+        sunken: "#38000000"
+        border: "#1fffffff"
+        borderStrong: "#3dffffff"
 
         text: "#f2f0ea"
         textMuted: "#a5a199"
         textFaint: "#7c7871"
         textDisabled: "#5e5b56"
+        knob: "#f2f0ea"
 
         accent: root.accentFor("#d97757")
         accentText: root.accentInkFor("#231409")
+        accentSoft: Qt.alpha(root.accentFor("#d97757"), 0.3)
 
         success: "#6bbf83"
         warning: "#d7a13f"
@@ -60,16 +63,18 @@ Singleton {
 
     // ---------------------------------------------------------- user colours
     //
-    // Two seeds are user-settable: the accent, and the background the neutral
-    // family is built from. When a seed is unset the hand-tuned tokens are used
-    // verbatim, so the default appearance is exactly what it was; when one is
-    // set, the rest of the family is derived from it by the same lightness steps
-    // that separate the tuned values, which keeps both themes coherent.
+    // Two seeds are user-settable: the accent, and the background each theme's
+    // neutral family is built from. When a seed is unset the hand-tuned tokens
+    // are used verbatim, so an untouched shell renders exactly what was tuned;
+    // when one is set, the surface is derived from it by the same lightness step
+    // that separates the tuned values, and the washes take on the rest.
+    // Each theme reads its own seed, so either can be drawn while the other is
+    // up — the settings panel previews both.
 
     readonly property string accentSeed: Settings.accentColor
     readonly property bool hasAccent: root.accentSeed !== ""
-    readonly property string background: root.dark ? Settings.backgroundDark : Settings.backgroundLight
-    readonly property bool hasBackground: root.background !== ""
+    readonly property string lightSeed: Settings.backgroundLight
+    readonly property string darkSeed: Settings.backgroundDark
 
     /*!
         How far a picked seed may go, in HSV saturation and value. The derived
