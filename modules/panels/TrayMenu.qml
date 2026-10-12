@@ -70,7 +70,7 @@ ShellOverlay {
                 required property var modelData
 
                 width: column.width
-                sourceComponent: entryLoader.modelData.isSeparator ? separator : item
+                sourceComponent: entryLoader.modelData?.isSeparator ? separator : item
 
                 Component {
                     id: separator
@@ -86,15 +86,21 @@ ShellOverlay {
                 Component {
                     id: item
                     MenuItemRow {
+                        // The application owns its menu's entries and destroys
+                        // them as it pleases — when the menu closes, when it
+                        // rebuilds it, when it quits — and a row's bindings
+                        // run once more against the null before the row goes.
                         readonly property var entry: entryLoader.modelData
 
-                        label: entry.text
-                        enabled: entry.enabled
-                        submenu: entry.hasChildren
-                        checkable: entry.buttonType !== QsMenuButtonType.None
-                        checked: entry.checkState === Qt.Checked
+                        label: entry?.text ?? ""
+                        enabled: entry?.enabled ?? false
+                        submenu: entry?.hasChildren ?? false
+                        checkable: (entry?.buttonType ?? QsMenuButtonType.None) !== QsMenuButtonType.None
+                        checked: entry?.checkState === Qt.Checked
 
                         onClicked: {
+                            if (!entry)
+                                return;
                             if (entry.hasChildren) {
                                 root.descend(entry);
                             } else {
