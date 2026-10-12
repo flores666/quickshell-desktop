@@ -28,6 +28,14 @@ Item {
             return "";
         if (s.startsWith("/"))
             return "file://" + s;
+        // Quickshell hands theme names on as image://icon/ URLs too (a
+        // notification's image-path hint, a tray icon), and its provider
+        // draws a magenta checkerboard for one the theme lacks instead of
+        // failing. A plain one is checked like a bare name; a ?path= or
+        // ?fallback= query is its own way out and is left to it.
+        const themed = "image://icon/";
+        if (s.startsWith(themed) && s.indexOf("?") === -1)
+            return Quickshell.iconPath(s.slice(themed.length), true);
         if (s.indexOf("://") !== -1)
             return s;
         return Quickshell.iconPath(s, true);
