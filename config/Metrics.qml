@@ -39,6 +39,9 @@ QtObject {
     readonly property int border: Tuning.pick("border")
 
     readonly property int screenGap: Tuning.pick("screenGap")
+    /*! The keyboard focus ring, and the overview's tile borders, which are how
+        it marks focus: never the hairline above, which may be zero. */
+    readonly property int focusRing: 2
     /*! The gap a popup keeps from the panel it opens off — the bar above it or
         the dock below it. Named once so no popup can drift from the others. */
     readonly property int popupGap: 8

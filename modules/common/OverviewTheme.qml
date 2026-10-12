@@ -1,64 +1,39 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
-import Quickshell.Io
-import Quickshell.Hyprland
 import "root:/config"
+import "root:/services"
 
 /*!
-    Keeps the hyprexpo overview in the shell's colours.
+    Keeps the hyprexpo overview in the shell's colours and shape.
 
-    The overview is drawn by the compositor, so its palette lives in Hyprland's
-    config rather than in the design system. Rather than let the two drift, the
-    shell pushes the three colours and the border weight that matter whenever
-    the theme, the accent or the border setting changes — a handful of times a
-    day, not on a timer.
+    The overview is drawn by the compositor, so its look lives in Hyprland's
+    options rather than in the design system. Rather than let the two drift,
+    the options that matter are derived from the tokens here and handed to
+    CompositorOptions, which pushes whatever changed and all of them again
+    after every config reload — loading the plugin raises one too, so they
+    land even when the shell is up before the plugin is.
 
     Everything else about the overview (grid shape, gestures) is static and
     belongs in hyprland.conf.
 */
-QtObject {
+Binding {
     id: root
 
-    readonly property color background: Appearance.c.base
-    readonly property color accent: Appearance.c.accent
-    readonly property color border: Appearance.c.borderStrong
-    /*! The plugin draws its own tile borders; keep them the shell's weight. */
-    readonly property int borderSize: Appearance.m.border
-
-    /*! Hyprland wants rrggbb, QML gives #rrggbb. */
+    /*! Hyprland wants rgb(rrggbb), QML gives #rrggbb. */
     function rgb(value: color): string {
         return `rgb(${String(value).replace("#", "").slice(-6)})`;
     }
 
-    readonly property Process push: Process {
-        command: ["hyprctl", "--batch",
-            `keyword plugin:hyprexpo:bg_col ${root.rgb(root.background)}`
-            + ` ; keyword plugin:hyprexpo:border_color_focus ${root.rgb(root.accent)}`
-            + ` ; keyword plugin:hyprexpo:border_color ${root.rgb(root.border)}`
-            + ` ; keyword plugin:hyprexpo:border_size ${root.borderSize}`]
-    }
-
-    readonly property Timer apply: Timer {
-        // Coalesces the three colour changes a theme switch produces into one
-        // call, and waits for the plugin to be up at login.
-        interval: 400
-        running: true
-        onTriggered: root.push.running = true
-    }
-
-    onBorderSizeChanged: root.apply.restart()
-    onBackgroundChanged: root.apply.restart()
-    onAccentChanged: root.apply.restart()
-    onBorderChanged: root.apply.restart()
-
-    // A config reload drops every keyword — the shell's own resets trigger one.
-    readonly property Connections reloads: Connections {
-        target: Hyprland
-        function onRawEvent(event: HyprlandEvent): void {
-            if (event.name === "configreloaded")
-                root.apply.restart();
-        }
-    }
+    target: CompositorOptions
+    property: "derived"
+    value: ({
+        "plugin:hyprexpo:bg_col": root.rgb(Appearance.c.base),
+        "plugin:hyprexpo:border_color": root.rgb(Appearance.c.borderStrong),
+        "plugin:hyprexpo:border_color_focus": root.rgb(Appearance.c.accent),
+        "plugin:hyprexpo:border_width": String(Appearance.m.focusRing),
+        // A workspace tile is a card like any other, so it takes the one
+        // panel radius, which follows the roundness setting or the windows.
+        "plugin:hyprexpo:tile_rounding": String(Appearance.r.panel)
+    })
 }

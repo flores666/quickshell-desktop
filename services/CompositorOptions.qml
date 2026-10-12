@@ -9,6 +9,10 @@ import Quickshell.Hyprland
 /*!
     The Hyprland options the settings panel lets the user change: window gaps,
     borders and rounding, the effects, and how the mouse and touchpad feel.
+    And the one way the shell pushes any option into Hyprland: `derived` takes
+    the ones that follow the design system instead of a user override (the
+    overview's colours and shape, from modules/common/OverviewTheme — a service
+    cannot read config/), and they ride the same pushes and re-pushes.
 
     hyprland.conf stays the source of every default.  A user change is an
     override in Settings like any other, and the shell pushes it with
@@ -104,8 +108,15 @@ Singleton {
 
     // --------------------------------------------------------------- pushing
 
-    /*! Overrides as last pushed; cleared whenever Hyprland reloads. */
+    /*! Option name to the value Hyprland should hold, as hyprctl spells it. */
+    property var derived: ({})
+    // One push for the several colours a theme switch changes in one go.
+    onDerivedChanged: Qt.callLater(root.sync)
+
+    /*! Overrides and derived options as last pushed; cleared whenever Hyprland
+        reloads. */
     property var applied: ({})
+    property var appliedDerived: ({})
     property var pending: []
     property bool reloadWanted: false
 
@@ -129,6 +140,10 @@ Singleton {
             }
         }
         root.applied = next;
+        for (const option in root.derived)
+            if (root.appliedDerived[option] !== root.derived[option])
+                root.pending.push(`keyword ${option} ${root.derived[option]}`);
+        root.appliedDerived = root.derived;
         root.flush();
     }
 
@@ -159,6 +174,7 @@ Singleton {
 
     function refresh(): void {
         root.applied = {};
+        root.appliedDerived = {};
         const reads = root.keys.filter(k => root.spec[k].option !== "")
             .map(k => `getoption ${root.spec[k].option}`);
         probe.command = ["sh", "-c",

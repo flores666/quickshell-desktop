@@ -176,7 +176,7 @@ contents.
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`; `r.panel` is **the** radius of the bar, the dock and every popup card — nothing picks its own. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `setOverride/isOverridden/resetOverrides` |
-| `CompositorOptions` | the Hyprland options the settings panel changes, pushed with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad` |
+| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
 | `Overlay` | which popup is open, on which screen, and outside-click dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `setPointerOver`, `dismissOnOutsideClick` |
 | `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
 | `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
@@ -333,12 +333,17 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **A layer surface's input region does not shrink its rendering.** Masking
   controls input only.
 - **Hyprland forgets every `hyprctl keyword` when it reloads its config.**
-  `CompositorOptions` (and `OverviewTheme`, for the overview's colours)
-  re-push on `configreloaded`. A keyword does not itself raise that event, so
-  this cannot loop. There is no keyword for "back to what the file said":
-  clearing an override asks Hyprland to reload, and the re-push restores the
-  rest. Per-device options (touchpad speed) can be set but not read back, which
-  is why that row says "As configured".
+  `CompositorOptions` re-pushes everything, the overview's options included,
+  on `configreloaded`. A keyword does not itself raise that event, so this
+  cannot loop. Loading a plugin raises it too, which is how options pushed
+  before the plugin was up still land. There is no keyword for "back to what
+  the file said": clearing an override asks Hyprland to reload, and the
+  re-push restores the rest. Per-device options (touchpad speed) can be set
+  but not read back, which is why that row says "As configured".
+- **`hyprctl keyword` answers `ok` for a plugin option that does not exist.**
+  The overview's border weight went to `border_size` (this fork's is
+  `border_width`) and never took effect. Read a new one back with
+  `hyprctl getoption`.
 - **Applications are launched with Hyprland's `exec` dispatcher**
   (`Compositor.exec`), never `DesktopEntry.execute()`. Hyprland's
   `misc:initial_workspace_tracking` only follows processes it spawned itself:

@@ -112,10 +112,10 @@ Item {
     // Focus ring, drawn outside the shape so it never crops the content.
     Rectangle {
         anchors.fill: parent
-        anchors.margins: -2
-        radius: root.radius > 0 ? root.radius + 2 : 0
+        anchors.margins: -Appearance.m.focusRing
+        radius: root.radius > 0 ? root.radius + Appearance.m.focusRing : 0
         color: "transparent"
-        border.width: 2
+        border.width: Appearance.m.focusRing
         border.color: Appearance.c.accent
         visible: root.focusVisible
     }
