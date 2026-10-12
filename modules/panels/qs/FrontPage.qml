@@ -102,11 +102,7 @@ Column {
             muted: Audio.muted
             toggleEnabled: true
             hasPage: Audio.sinks.length > 1
-            onMoved: v => {
-                if (Audio.muted && v > 0)
-                    Audio.toggleMute();
-                Audio.setVolume(v);
-            }
+            onMoved: v => Audio.setVolume(v)
             onIconClicked: Audio.toggleMute()
             onPageRequested: root.pageRequested("output")
         }

@@ -79,18 +79,24 @@ Singleton {
             : node.nickname !== "" ? node.nickname : node.name;
     }
 
+    /*! Asking for a level you can hear unmutes: that is what a drag means. */
     function setVolume(v: real): void {
         if (!root.hasSink)
             return;
-        root.sink.audio.volume = Math.max(0, Math.min(1, v));
+        const level = Math.max(0, Math.min(1, v));
+        if (root.muted && level > 0)
+            root.sink.audio.muted = false;
+        root.sink.audio.volume = level;
     }
 
+    /*! A volume key: up unmutes, down only lowers what unmuting comes back to. */
     function stepVolume(delta: real): void {
         if (!root.hasSink)
             return;
-        if (root.muted && delta > 0)
-            root.sink.audio.muted = false;
-        root.setVolume(root.volume + delta);
+        if (delta > 0 || !root.muted)
+            root.setVolume(root.volume + delta);
+        else
+            root.sink.audio.volume = Math.max(0, root.volume + delta);
     }
 
     function toggleMute(): void {
