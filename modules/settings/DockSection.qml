@@ -36,8 +36,8 @@ Column {
         width: root.width
         key: "dockHideDelay"
         label: qsTr("Hide delay")
-        min: 0
-        max: 5000
+        min: Dock.hideDelayRange.min
+        max: Dock.hideDelayRange.max
         step: 100
         value: Dock.hideDelay
         suffix: qsTr("ms")

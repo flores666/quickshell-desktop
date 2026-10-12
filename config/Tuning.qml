@@ -39,10 +39,6 @@ Singleton {
 
     /*! A user override, clamped — or the tuned value, when unset (negative). */
     function pick(key: string): int {
-        const limits = root.spec[key];
-        const override = Settings[key];
-        if (override === undefined || override < 0)
-            return limits.def;
-        return Math.max(limits.min, Math.min(limits.max, override));
+        return Settings.pick(key, root.spec[key]);
     }
 }

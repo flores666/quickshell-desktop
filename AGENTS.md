@@ -135,7 +135,8 @@ a colour seed, so an untouched shell renders exactly what was tuned. The layout
 overrides and their legal ranges live in one table, `config/Tuning.qml`, which
 is what both the clamp and the settings panel's sliders read — a knob cannot
 drift from its own guard rail. Timings are not design tokens and stay with the
-service that acts on them (`Notifs.defaultTimeout`, `Dock.hideDelay`). Hyprland
+service that acts on them, range and all (`Notifs.timeoutRange`,
+`Dock.hideDelayRange`). Every override is clamped by the one `Settings.pick`. Hyprland
 options (`hyprGapsIn`, `hyprBlur`, …) are overrides too, with the same
 arrangement in `CompositorOptions.spec`: Hyprland's name for each, its range,
 and how the integer maps onto it (a 0–1 float is a percentage, a −1..1
@@ -175,7 +176,7 @@ contents.
 |---|---|---|
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`; `r.panel` is **the** radius of the bar, the dock and every popup card — nothing picks its own. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `setOverride/isOverridden/resetOverrides` |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
 | `Overlay` | which popup is open, on which screen, and outside-click dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `setPointerOver`, `dismissOnOutsideClick` |
 | `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |

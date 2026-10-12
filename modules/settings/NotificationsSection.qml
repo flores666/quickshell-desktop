@@ -31,8 +31,8 @@ Column {
         width: root.width
         key: "notificationTimeout"
         label: qsTr("Dwell")
-        min: 1500
-        max: 30000
+        min: Notifs.timeoutRange.min
+        max: Notifs.timeoutRange.max
         step: 500
         value: Notifs.defaultTimeout
         suffix: qsTr("ms")

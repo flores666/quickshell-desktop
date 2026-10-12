@@ -28,10 +28,11 @@ Singleton {
 
     readonly property int maxHistory: 64
     readonly property int maxPopups: 3
-    /*! How long a toast with no timeout of its own stays up. Clamped to the
-        same range an application's own expireTimeout is held to below. */
-    readonly property int defaultTimeout: Settings.notificationTimeout < 0
-        ? 5000 : Math.max(1500, Math.min(30000, Settings.notificationTimeout))
+    /*! How long a toast stays up: the range an application's own
+        expireTimeout is held to, and the settings row's. */
+    readonly property var timeoutRange: ({ min: 1500, max: 30000, def: 5000 })
+    /*! For a toast with no timeout of its own. */
+    readonly property int defaultTimeout: Settings.pick("notificationTimeout", root.timeoutRange)
 
     signal notified(var notification)
 
@@ -66,7 +67,7 @@ Singleton {
         if (!n || root.isCritical(n))
             return 0;
         if (n.expireTimeout > 0)
-            return Math.max(1500, Math.min(30000, n.expireTimeout));
+            return Math.max(root.timeoutRange.min, Math.min(root.timeoutRange.max, n.expireTimeout));
         return root.defaultTimeout;
     }
 

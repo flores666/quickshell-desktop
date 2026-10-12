@@ -163,6 +163,18 @@ Singleton {
         adapter[key] = value;
     }
 
+    /*!
+        An override held to `range` ({ min, max, def }), or `def` while unset.
+        The one guard rail for every override, so a hand-edited settings.json
+        cannot push a value outside what its own control offers.
+    */
+    function pick(key: string, range: var): int {
+        const v = root[key];
+        if (v === undefined || v < 0)
+            return range.def;
+        return Math.max(range.min, Math.min(range.max, v));
+    }
+
     function isOverridden(key: string): bool {
         return adapter[key] !== undefined && adapter[key] >= 0;
     }
