@@ -41,6 +41,14 @@ apply_args=()
 [[ "$src_dir" != "." ]] && apply_args=(--directory="$src_dir")
 git apply "${apply_args[@]}" "$patch" || { echo "hyprexpo-real-wallpaper-bg.patch no longer applies to ${tag}" >&2; exit 1; }
 
+# A tile is highlighted by growing rather than by a border: the one under the
+# pointer or the keyboard zooms on a quick ease and the current workspace rests
+# a little larger. The dynamic grid also gains a last tile, a compact + button
+# standing for the next empty workspace. Cut against the tree with the patch
+# above applied, and relative to the same source directory.
+zoom_patch="$script_dir/hyprexpo-tile-zoom-and-add-tile.patch"
+git apply "${apply_args[@]}" "$zoom_patch" || { echo "hyprexpo-tile-zoom-and-add-tile.patch no longer applies to ${tag}" >&2; exit 1; }
+
 make all
 install -Dm755 hyprexpo.so "$dest/hyprexpo.so"
 echo "installed -> $dest/hyprexpo.so"

@@ -49,7 +49,7 @@ Column {
 
     Label {
         width: root.width
-        text: qsTr("Only this shell is affected; system and application themes are left alone. Right-click a colour you made to pin it.")
+        text: qsTr("Only this shell is affected; system and application themes are left alone. Right-click a colour you made to pin or remove it.")
         role: Label.Role.Caption
         faint: true
         wrapMode: Text.Wrap

@@ -85,6 +85,7 @@ Singleton {
 
     function open(name: string, onScreen: ShellScreen): void {
         root.screen = onScreen ?? Compositor.focusedScreen;
+        root.menu = null;
         root.active = name;
     }
 
@@ -105,8 +106,36 @@ Singleton {
     }
 
     function close(): void {
+        root.menu = null;
         root.active = root.none;
         root.payload = null;
+    }
+
+    /*!
+        A context menu inside the popup that is open: `{ source, entries }`,
+        where `source` is the item it opens beside and each entry is
+        `{ label, icon, danger, run }`.
+
+        Held here rather than by a popup because there is only ever one popup
+        for it to be in, and it has to go when that popup does, however the
+        popup goes. OverlayCard draws it.
+    */
+    property var menu: null
+
+    function openMenu(source: Item, entries: var): void {
+        root.menu = { source: source, entries: entries };
+    }
+
+    function closeMenu(): void {
+        root.menu = null;
+    }
+
+    /*! Escape: a context menu goes first, and the popup only once none is up. */
+    function dismissOnEscape(): void {
+        if (root.menu !== null)
+            root.closeMenu();
+        else
+            root.close();
     }
 
     function toggle(name: string, onScreen: ShellScreen): void {

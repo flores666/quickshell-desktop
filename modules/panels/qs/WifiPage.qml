@@ -75,7 +75,6 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - toggle.width - parent.spacing
                 - (spinner.visible ? spinner.width + parent.spacing : 0)
-                - (restart.visible ? restart.width + parent.spacing : 0)
             text: Network.restarting ? qsTr("Restarting Wi-Fi…")
                 : Network.wifiEnabled ? qsTr("Available networks") : qsTr("Wi-Fi is off")
             role: Label.Role.Small
@@ -87,17 +86,6 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             visible: Network.restarting
             size: Appearance.m.iconSm
-        }
-
-        // For an adapter that has stopped finding or holding networks: the
-        // radio off and on again, which NetworkManager does without privilege.
-        TextButton {
-            id: restart
-            anchors.verticalCenter: parent.verticalCenter
-            visible: Network.wifiEnabled && !Network.restarting
-            compact: true
-            text: qsTr("Restart")
-            onClicked: Network.restartWifi()
         }
 
         ToggleSwitch {

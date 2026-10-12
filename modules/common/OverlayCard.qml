@@ -81,12 +81,23 @@ Surface {
         layer.enabled: card.opacity < 1
     }
 
-    /*! Escape is consumed here; anything else is offered to the popup, which
-        owns its own navigation. */
+    // Over the content, so a menu opened near a pane's edge is not clipped by it.
+    CardMenu {
+        anchors.fill: parent
+        active: card.shown
+    }
+
+    /*!
+        Escape is consumed here and acted on elsewhere: the global bind
+        (ShellIpc's escapeKey) fires on every press whether or not this card
+        has the keyboard, and it is the one that closes. Acting here as well
+        would take two steps on one press — a context menu closed by one, and
+        the popup behind it by the other. Anything else is offered to the
+        popup, which owns its own navigation.
+    */
     Keys.onPressed: event => {
         InputMode.keyboardUsed();
         if (event.key === Qt.Key_Escape) {
-            Overlay.close();
             event.accepted = true;
             return;
         }

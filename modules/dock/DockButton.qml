@@ -4,7 +4,7 @@ import QtQuick
 import "root:/config"
 import "root:/components"
 
-/*! A non-application action in the dock, such as the overview or app grid. */
+/*! A non-application action in the dock: the application grid. */
 Clickable {
     id: root
 

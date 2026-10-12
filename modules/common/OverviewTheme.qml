@@ -32,9 +32,12 @@ Binding {
     property: "derived"
     value: ({
         "plugin:hyprexpo:bg_col": root.rgba(Appearance.c.base),
+        // No tile is outlined: the patched plugin marks the one under the
+        // pointer by growing it. These two colour its add-workspace button
+        // instead — the disc, and the plus on it.
         "plugin:hyprexpo:border_color": root.rgba(Appearance.c.borderStrong),
         "plugin:hyprexpo:border_color_focus": root.rgba(Appearance.c.accent),
-        "plugin:hyprexpo:border_width": String(Appearance.m.focusRing),
+        "plugin:hyprexpo:border_width": "0",
         // A workspace tile is a card like any other, so it takes the one
         // panel radius, which follows the roundness setting or the windows.
         "plugin:hyprexpo:tile_rounding": String(Appearance.r.panel)

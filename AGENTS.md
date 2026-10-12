@@ -66,14 +66,17 @@ compositor do the right thing". Use the real session:
 5. **Degrade, never fake.** If hardware or a service is absent, the control is
    absent. No placeholder rows, no mock data. The one exception is quick
    settings' front page (`panels/qs/FrontPage`), whose tiles and sliders keep
-   their places and go *disabled* — "Unavailable", "No battery" — so that the
-   layout is the same on every machine and does not shift as devices come and
-   go. Disabling is `Clickable`'s own state; nothing else gets a disabled
+   their places and go *disabled* — "Unavailable" — so that the layout is the
+   same on every machine and does not shift as devices come and go. The
+   footer's battery reading is not a control and is simply absent without a
+   battery. Disabling is `Clickable`'s own state; nothing else gets a disabled
    stand-in, and the bar still shows only what is there.
 6. **The wheel only ever scrolls.** No control changes a value or a selection
    from it, so a wheel anywhere inside a panel reaches the surface that
    scrolls. Do not add an `onWheel` to a widget; the two on the bar
    (`Workspaces`, `Tray`) are outside the panels and are the only exceptions.
+   (`CardMenu`'s handler changes nothing: it closes the menu and hands the
+   wheel on with `event.accepted = false`.)
 7. Keep files small. The largest is under 300 lines; that is the ceiling.
 
 ## Architecture
@@ -169,7 +172,11 @@ A colour seed can also come from the picker, which is held to
 stay legible over a background near the theme's own. Picked colours go into one
 shared history (`recentColors`, newest first, capped; `pinnedColors`, kept).
 Each seed's row shows only those inside its own range, which is what keeps
-accents and backgrounds apart — so the ranges must not overlap.
+accents and backgrounds apart — so the ranges must not overlap. The row is a
+queue of one line: a new colour goes in at the front, the oldest drops out of
+sight at the back, pinned ones hold the end, and choosing a colour from it
+applies it without reordering anything. A right click opens a `CardMenu` to
+pin, unpin or remove one (`forgetColor`).
 
 **Placement** — where a popup attaches: `BelowBar`, `AboveDock`, `Centre`.
 
@@ -189,9 +196,9 @@ contents.
 |---|---|---|
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
-| `Overlay` | which popup is open, on which screen, and outside-click dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `setPointerOver`, `dismissOnOutsideClick` |
+| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup) |
 | `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
 | `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
@@ -235,7 +242,8 @@ implemented.
 | File | Purpose |
 |---|---|
 | `ShellOverlay` | the base every popup derives from: the surface, placement, sizing, masking, the map/settle/unmap lifecycle and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself |
-| `OverlayCard` | the card inside it: the entry slide, the fade (as one flattened layer), clipping, hover reporting to `Overlay`, and Escape |
+| `OverlayCard` | the card inside it: the entry slide, the fade (as one flattened layer), clipping, hover reporting to `Overlay`, and swallowing Escape (the global bind acts on it) |
+| `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
 | `OverviewTheme` | pushes the shell's colours into the hyprexpo plugin so the overview matches the theme |
 | `MenuItemRow` | one row of a popup menu |
@@ -251,8 +259,10 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 ### QML / Qt
 
 - **`escape` is an illegal QML method name**, as are other JS globals. This has
-  bitten twice (`Apps.escapeRegExp`, `ShellIpc.escapeKey`). Symptom:
-  `Illegal method name` at load.
+  bitten three times (`Apps.escapeRegExp`, `ShellIpc.escapeKey`,
+  `Overlay.dismissOnEscape`). Symptom: `Illegal method name` at load, and the
+  whole shell fails to start — **qmllint does not catch it**; only the
+  runtime log does.
 - **`Palette` collides with a QtQuick type.** The palette component is called
   `ColorScheme` for this reason. Watch for the same with `Icon`, `Label`,
   `Slider` if `QtQuick.Controls` is ever imported (it currently is not).
@@ -346,6 +356,10 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   key bind reports the press to the shell *and* still delivers it to the
   application. See the `shell:dismiss` / `shell:escapeKey` binds in
   `hyprland.conf`.
+- **So Escape reaches a focused popup twice**: once through that bind, once as
+  the key event. Only the bind acts (`Overlay.dismissOnEscape`); `OverlayCard`
+  swallows the key. Acting on both took two steps per press — a card menu
+  closed by one, and the popup behind it by the other.
 - **`mask: Region { item: null }` is genuinely click-through** (verified with a
   hover probe: `item: catcher` → 1 hover, `item: null` → 0). This is what lets a
   surface be visible but inert.
@@ -408,6 +422,15 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   the target is a shell surface before sending input to it. Restart it with
   `systemctl --user restart quickshell`, not by relaunching `qs` by hand: a
   shell started outside the unit has no memory cap.
+- **Test a plugin build in a nested Hyprland, not the session.** A plugin
+  that crashes takes the compositor and every open window with it. Run
+  `hyprctl dispatch exec "[workspace special:x silent] Hyprland -c <conf>"`
+  with a minimal config whose `plugin =` names the new `.so`. A nested
+  compositor on a hidden workspace gets no frame callbacks and never renders,
+  so give it its own screen: `hyprctl -i <instance> output create headless
+  <name>`, move its workspaces there, and capture with
+  `WAYLAND_DISPLAY=<its socket> grim -o <name>`. `hyprexpo:kb_selecti N`
+  picks a tile without any input. Kill it by PID.
 - **A hung shell cannot be attached to.** `ptrace_scope` is 1, so `gdb -p` and
   `eu-stack` get nothing. `systemctl --user kill -s ABRT quickshell` instead:
   Quickshell's crash handler writes a report with the main thread's stack and
@@ -435,3 +458,16 @@ and is absent from its `v0.56.0` release. The build script uses the maintained
 matching the installed Hyprland. **Hyprland refuses to load a plugin built
 against different headers**, so it must be rebuilt after every Hyprland update.
 `master` chases hyprland-git and will not compile against a release.
+
+Two patches are applied, in order, both relative to the source directory:
+`hyprexpo-real-wallpaper-bg.patch` (the real wallpaper, blurred, behind the
+tiles) and `hyprexpo-tile-zoom-and-add-tile.patch`. The second highlights a
+tile by growing it — the one under the pointer or the keyboard on a quick
+ease, the current workspace a little — instead of with a border, so the
+shell pushes `border_width` 0; and it gives the dynamic grid a last tile, a
+compact + button naming the next empty workspace, chosen through the same
+`ensureWorkspaceForTile` path as any tile. The button is coloured from the
+`border_color` (disc) and `border_color_focus` (plus) options.
+`gaps_out` in `hyprland.conf` keeps the grid off the screen's edges on every
+side; tiles keep the screen's shape, so only the axis the grid fills first
+gets exactly that.

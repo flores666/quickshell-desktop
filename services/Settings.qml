@@ -140,6 +140,13 @@ Singleton {
         }
     }
 
+    /*! Drops a colour from the history, pinned or not. A seed set to it keeps
+        it; only the record of having made it goes. */
+    function forgetColor(value: string): void {
+        adapter.recentColors = adapter.recentColors.filter(x => x !== value);
+        adapter.pinnedColors = adapter.pinnedColors.filter(x => x !== value);
+    }
+
     /*! Empty means the shell's own face. Any installed family is accepted. */
     function setFontFamily(value: string): void {
         adapter.fontFamily = value;

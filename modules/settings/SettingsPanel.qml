@@ -37,33 +37,58 @@ ShellOverlay {
     cardWidth: Math.min(820, (root.screen ? root.screen.width : 1920) - Appearance.s.huge * 2)
     cardHeight: Math.min(580, (root.screen ? root.screen.height : 1080) - Appearance.s.huge * 3)
 
-    /*!
-        Every section, and the words each is found by. The terms are the
-        names of the controls in it, kept here because a section is only built
-        while it is shown — they have to be readable without loading it, and a
-        control renamed in a section wants its term renamed with it.
-    */
+    /*! Every section, in the order the sidebar lists them. */
     readonly property var sections: [
-        { key: "appearance", title: qsTr("Appearance"), icon: "night-light",
-          terms: qsTr("theme light dark style accent colour color background font type text size border corner roundness surfaces") },
-        { key: "wallpaper", title: qsTr("Wallpaper"), icon: "wallpaper",
-          terms: qsTr("picture background image") },
-        { key: "panel", title: qsTr("Top panel"), icon: "display",
-          terms: qsTr("bar height gap sides") },
-        { key: "dock", title: qsTr("Dock"), icon: "apps",
-          terms: qsTr("icon size gap edge hide delay") },
-        { key: "notifications", title: qsTr("Notifications"), icon: "bell",
-          terms: qsTr("do not disturb dwell urgent") },
-        { key: "windows", title: qsTr("Windows"), icon: "window",
-          terms: qsTr("layout gap border corner radius effects blur animations opacity") },
-        { key: "input", title: qsTr("Input"), icon: "mouse",
-          terms: qsTr("mouse touchpad pointer speed acceleration scroll natural tap click") }
+        { key: "appearance", title: qsTr("Appearance"), icon: "night-light", component: appearanceSection },
+        { key: "wallpaper", title: qsTr("Wallpaper"), icon: "wallpaper", component: wallpaperSection },
+        { key: "panel", title: qsTr("Top panel"), icon: "display", component: panelSection },
+        { key: "dock", title: qsTr("Dock"), icon: "apps", component: dockSection },
+        { key: "notifications", title: qsTr("Notifications"), icon: "bell", component: notificationsSection },
+        { key: "windows", title: qsTr("Windows"), icon: "window", component: windowsSection },
+        { key: "input", title: qsTr("Input"), icon: "mouse", component: inputSection }
     ]
+
+    /*!
+        What the search finds each section by: its title and the names of the
+        controls in it, by key.
+
+        Read off the sections themselves rather than kept beside them, so a
+        control renamed is found by its new name. A section is only built while
+        it is shown, so the first search of each opening builds a copy of every
+        one away from the screen, reads it, and lets it go; a control this
+        machine leaves out — the touchpad's, without a touchpad — is left out of
+        the copy too, and is not found. Dropped when the panel closes, since
+        what is left out can change while it is away.
+    */
+    property var index: null
+
+    function buildIndex(): var {
+        // A copy has no parent, so each item's `visible` is its own choice and
+        // its ancestors' within the copy, never the screen's.
+        const names = item => {
+            if (!item || !item.visible)
+                return [];
+            const out = [item.title, item.label, item.subtitle]
+                .filter(t => typeof t === "string" && t !== "");
+            for (let i = 0; i < item.children.length; ++i)
+                out.push(...names(item.children[i]));
+            return out;
+        };
+        const index = {};
+        for (const section of root.sections) {
+            const copy = section.component.createObject(null);
+            index[section.key] = [section.title].concat(names(copy)).join(" ").toLowerCase();
+            copy?.destroy();
+        }
+        return index;
+    }
+
     /*! The sections the search leaves, in order; all of them when it is empty. */
     readonly property var matches: {
         const needle = search.text.trim().toLowerCase();
-        return needle === "" ? root.sections : root.sections.filter(s =>
-            (s.title + " " + s.terms).toLowerCase().includes(needle));
+        if (needle === "" || root.index === null)
+            return root.sections;
+        return root.sections.filter(s => root.index[s.key].includes(needle));
     }
     readonly property var current: root.sections.find(s => s.key === root.section)
 
@@ -72,6 +97,8 @@ ShellOverlay {
     // A search that leaves the open section out moves to the first it keeps.
     onMatchesChanged: if (root.matches.length > 0 && !root.matches.includes(root.current))
         root.section = root.matches[0].key
+
+    onRenderedChanged: if (!root.rendered) root.index = null
 
     onShownChanged: {
         if (!root.shown)
@@ -122,6 +149,7 @@ ShellOverlay {
             anchors.rightMargin: Appearance.s.md
             width: Math.min(260, parent.width - root.navWidth - resetAll.width - Appearance.s.xl * 2)
             placeholder: qsTr("Search settings…")
+            onTextChanged: if (search.text !== "" && root.index === null) root.index = root.buildIndex()
             onEscaped: Overlay.close()
             onNavigate: key => root.navigate(key)
         }
@@ -233,15 +261,7 @@ ShellOverlay {
                     // picker left open, a font filter half typed — is there
                     // next time.
                     active: root.rendered
-                    sourceComponent: switch (root.section) {
-                        case "wallpaper": return wallpaperSection;
-                        case "panel": return panelSection;
-                        case "dock": return dockSection;
-                        case "notifications": return notificationsSection;
-                        case "windows": return windowsSection;
-                        case "input": return inputSection;
-                        default: return appearanceSection;
-                    }
+                    sourceComponent: root.current?.component ?? null
                 }
             }
         }

@@ -9,8 +9,9 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    The bottom dock: a glass capsule holding an overview button, pinned
-    applications and every open window, then the application grid.
+    The bottom dock: a glass capsule holding the pinned applications and every
+    open window, then the application grid. The overview is Super+Tab and the
+    three-finger swipe; it has no button here.
 
     It hides itself when it is not being used and slides back when the pointer
     reaches the bottom edge. The reveal trigger is a few pixels tall, invisible,
@@ -179,16 +180,6 @@ PanelWindow {
             id: layout
             anchors.centerIn: parent
             spacing: Appearance.m.dockGap
-
-            DockButton {
-                icon: "grid"
-                tipText: qsTr("Overview")
-                onActivated: Compositor.toggleOverview()
-                onHoverChanged: (key, label, centerX, entered) =>
-                    root.onChildHover(key, label, centerX, entered)
-            }
-
-            DockSeparator {}
 
             Repeater {
                 model: Dock.items

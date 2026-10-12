@@ -11,8 +11,11 @@ import "root:/services"
 
     A picked colour is applied as it is dragged and remembered when the drag
     ends. The remembered ones are those of Settings.recentColors and
-    pinnedColors that fall inside this seed's range, pinned first; a right
-    click pins or unpins one.
+    pinnedColors that fall inside this seed's range, and they make a queue of
+    one row: a new colour goes in at the front, the oldest drops out of sight
+    at the back, and a pinned one holds its place at the end however many come
+    after it. Choosing a remembered colour applies it and leaves the order
+    alone. A right click opens a menu to pin, unpin or remove one.
 */
 Column {
     id: root
@@ -32,10 +35,14 @@ Column {
     readonly property var range: Appearance.seedRange(root.seed)
     readonly property var remembered: {
         const fits = c => Appearance.inSeedRange(c, root.range);
-        return Settings.pinnedColors.filter(fits)
-            .concat(Settings.recentColors.filter(fits))
-            .slice(0, Math.max(root.columns - 1, Settings.pinnedColors.filter(fits).length));
+        const pinned = Settings.pinnedColors.filter(fits);
+        return Settings.recentColors.filter(fits)
+            .slice(0, Math.max(0, root.capacity - pinned.length))
+            .concat(pinned)
+            .slice(0, root.capacity);
     }
+    /*! How many remembered colours the row holds beside its add button. */
+    readonly property int capacity: root.columns - 1
     readonly property int columns: 9
     property bool picking: false
     /*! The colour this visit to the picker last remembered; the next one
@@ -106,11 +113,16 @@ Column {
                 color: this.modelData
                 pinned: Settings.isColorPinned(this.modelData)
                 selected: root.current === this.modelData
-                onClicked: {
-                    root.choose(this.modelData);
-                    Settings.rememberColor(this.modelData, "");
+                onClicked: root.choose(this.modelData)
+                onRightClicked: {
+                    const value = this.modelData;
+                    Overlay.openMenu(this, [
+                        this.pinned
+                            ? { label: qsTr("Unpin"), icon: "pin", run: () => Settings.togglePinnedColor(value) }
+                            : { label: qsTr("Pin"), icon: "pin", run: () => Settings.togglePinnedColor(value) },
+                        { label: qsTr("Remove"), icon: "trash", danger: true, run: () => Settings.forgetColor(value) }
+                    ]);
                 }
-                onRightClicked: Settings.togglePinnedColor(this.modelData)
             }
         }
 

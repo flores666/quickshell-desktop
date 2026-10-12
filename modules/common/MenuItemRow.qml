@@ -15,7 +15,7 @@ Clickable {
     property bool submenu: false
     property bool danger: false
 
-    implicitWidth: Math.max(180, textLabel.implicitWidth + 76)
+    implicitWidth: Math.max(Appearance.m.menuWidth, textLabel.implicitWidth + 76)
     implicitHeight: 32
     radius: Appearance.r.xs
     focusable: false

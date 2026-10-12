@@ -46,8 +46,9 @@ QtObject {
         case "dismiss": Overlay.dismissOnOutsideClick(); break;
         // Escape arrives as a global, non-consuming bind so it closes the popup
         // whether or not the compositor gave it keyboard focus. Applications
-        // still receive the key.
-        case "escapeKey": Overlay.close(); break;
+        // still receive the key. It is the only path Escape takes to Overlay:
+        // one press closes one thing.
+        case "escapeKey": Overlay.dismissOnEscape(); break;
         case "lock": Session.lock(); break;
 
         case "volumeUp": Audio.stepVolume(0.05); break;

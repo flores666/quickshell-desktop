@@ -62,7 +62,7 @@ Column {
 
     SettingGroup {
         width: root.width
-        title: qsTr("Type")
+        title: qsTr("Font")
 
         FontSection { width: parent.width }
     }

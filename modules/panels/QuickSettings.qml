@@ -36,9 +36,10 @@ ShellOverlay {
     property string visiblePage: ""
     readonly property bool swapping: root.page !== root.visiblePage
 
-    /*! Every sub-page, by the name `page` holds. */
+    /*! Every sub-page, by the name `page` holds. `action` is an optional button
+        for the page's title row, beside the way back. */
     readonly property var pages: ({
-        wifi: { title: qsTr("Wi-Fi"), component: wifiPage },
+        wifi: { title: qsTr("Wi-Fi"), component: wifiPage, action: restartWifi },
         bluetooth: { title: qsTr("Bluetooth"), component: bluetoothPage },
         output: { title: qsTr("Output Device"), component: outputPage },
         input: { title: qsTr("Input Device"), component: inputPage },
@@ -96,9 +97,16 @@ ShellOverlay {
             Label {
                 anchors.verticalCenter: parent.verticalCenter
                 x: back.width + Appearance.s.sm
-                width: parent.width - x
+                width: (action.item ? action.x - Appearance.s.sm : parent.width) - x
                 text: root.current?.title ?? ""
                 role: Label.Role.Subtitle
+            }
+
+            Loader {
+                id: action
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                sourceComponent: root.current?.action ?? null
             }
         }
 
@@ -120,6 +128,18 @@ ShellOverlay {
         }
 
         Component { id: wifiPage; WifiPage {} }
+        Component {
+            // For an adapter that has stopped finding or holding networks: the
+            // radio off and on again, which NetworkManager does without
+            // privilege. While it runs, the page says so beside a spinner.
+            id: restartWifi
+            IconButton {
+                visible: Network.wifiEnabled && !Network.restarting
+                icon: "refresh"
+                size: 30
+                onClicked: Network.restartWifi()
+            }
+        }
         Component { id: bluetoothPage; BluetoothPage {} }
         Component { id: outputPage; AudioDevicePage { output: true } }
         Component { id: inputPage; AudioDevicePage { output: false } }

@@ -1,0 +1,168 @@
+diff --git a/Overview.cpp b/Overview.cpp
+index 4318636..e4789ff 100644
+--- a/Overview.cpp
++++ b/Overview.cpp
+@@ -1264,6 +1264,19 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+             }
+         }
+ 
++        // quickshell-desktop: one tile more, after the workspaces in use -- a
++        // compact button standing for the next empty workspace. Choosing it
++        // goes there by the path any tile naming a workspace not yet open
++        // takes (ensureWorkspaceForTile), so nothing else has to know about it.
++        addTileID = -1;
++        if (visibleWorkspaceIDs.size() < (size_t)HyprexpoConfig::DYNAMIC_GRID_MAX_TILES) {
++            const auto NEWID = nextEmptyWorkspaceIDForMonitor(MON);
++            if (NEWID != WORKSPACE_INVALID && std::find(visibleWorkspaceIDs.begin(), visibleWorkspaceIDs.end(), NEWID) == visibleWorkspaceIDs.end()) {
++                addTileID = (int)visibleWorkspaceIDs.size();
++                visibleWorkspaceIDs.push_back(NEWID);
++            }
++        }
++
+         gridShape = Hyprexpo::computeDynamicGridShape((int)visibleWorkspaceIDs.size());
+         images.resize(visibleWorkspaceIDs.size());
+         for (size_t i = 0; i < visibleWorkspaceIDs.size(); ++i)
+diff --git a/Overview.hpp b/Overview.hpp
+index 4675867..63e3bd4 100644
+--- a/Overview.hpp
++++ b/Overview.hpp
+@@ -151,6 +151,11 @@ class COverview final : public IOverviewSession {
+     int                          closeOnID = -1;
+     int                          kbFocusID = -1;
+     int                          hoveredID = -1;
++    // quickshell-desktop: the add-workspace tile, and how far each tile has
++    // grown towards its highlighted size (0 resting, 1 under the pointer).
++    int                          addTileID = -1;
++    std::vector<double>          tileLift;
++    std::chrono::steady_clock::time_point liftClock{};
+     bool                         submapActive = false;
+ 
+     std::vector<int>             queuedRedrawIDs;
+diff --git a/OverviewRender.cpp b/OverviewRender.cpp
+index c902c55..0f988ff 100644
+--- a/OverviewRender.cpp
++++ b/OverviewRender.cpp
+@@ -337,6 +337,31 @@ void COverview::fullRender() {
+     bool              entryAnimationPending = false;
+     const double      entryElapsed = entryAnimationActive ? std::chrono::duration<double>(std::chrono::steady_clock::now() - createdAt).count() : 0.0;
+ 
++    // quickshell-desktop: a tile is highlighted by growing rather than by a
++    // border. The one under the pointer (or the keyboard) grows on a quick
++    // ease, the current workspace rests a little larger than the others, and
++    // all of them settle back while the overview closes, so the zoom into the
++    // chosen workspace still lands exactly on the screen. Eased by the time
++    // since the last frame, so it runs at the same speed at any refresh rate.
++    const auto   LIFT_NOW  = std::chrono::steady_clock::now();
++    const double LIFT_DT   = tileLift.size() == images.size() ? std::clamp(std::chrono::duration<double>(LIFT_NOW - liftClock).count(), 0.0, 0.1) : 0.0;
++    const double LIFT_STEP = 1.0 - std::exp(-LIFT_DT / 0.035);
++    const int    LIFTED    = hoveredID >= 0 ? hoveredID : kbFocusID;
++    liftClock              = LIFT_NOW;
++    if (tileLift.size() != images.size())
++        tileLift.assign(images.size(), 0.0);
++    bool               liftPending = false;
++    std::vector<int>   drawOrder;
++    std::vector<int>   tileRounds(images.size(), 0);
++    std::vector<float> tileAlphas(images.size(), 1.0f);
++    auto               liftTarget = [&](int id) -> double {
++        if (closing)
++            return 0.0;
++        if (id == LIFTED)
++            return 1.0;
++        return id == openedID ? 0.4 : 0.0;
++    };
++
+     for (size_t y = 0; y < (size_t)SHAPE.rows; ++y) {
+         for (size_t x = 0; x < (size_t)SHAPE.cols; ++x) {
+             const int id = x + y * SHAPE.cols;
+@@ -344,6 +369,14 @@ void COverview::fullRender() {
+                 continue;
+             CBox texbox = tileBoxForIndex(id, SIZE, GAPSIZE, OUTER, true);
+             texbox.scale(MON->m_scale).translate(pos->value());
++
++            const double target = liftTarget(id);
++            tileLift[id] += (target - tileLift[id]) * LIFT_STEP;
++            if (std::abs(target - tileLift[id]) > 0.002)
++                liftPending = true;
++            else
++                tileLift[id] = target;
++            texbox.scaleFromCenter(1.0 + 0.04 * tileLift[id]);
+             texbox.round();
+             tileBoxes[id] = texbox;
+ 
+@@ -367,9 +400,57 @@ void COverview::fullRender() {
+                     entryAnimationPending = true;
+             }
+ 
+-            CRegion damage{0, 0, INT16_MAX, INT16_MAX};
+-            Render::GL::g_pHyprOpenGL->renderTextureInternal(images[id].fb->getTexture(), texbox, {.damage = &damage, .a = alpha, .round = tileRound, .roundingPower = ROUND_PWR});
++            tileRounds[id] = tileRound;
++            tileAlphas[id] = alpha;
++            drawOrder.push_back(id);
++        }
++    }
++
++    // quickshell-desktop: the add tile is a compact button rather than a
++    // preview -- a disc in the middle of its cell with a plus on it. Its
++    // colours are the border options', which the shell still sets though no
++    // border is drawn.
++    static auto const* PADDFILL  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:border_color")->getDataStaticPtr();
++    static auto const* PADDGLYPH = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:border_color_focus")->getDataStaticPtr();
++    auto colorOf = [](const char* spec, CHyprColor fallback) {
++        Hyprexpo::SColorRGBA parsed;
++        return spec && Hyprexpo::parseSolidColorSpec(std::string{spec}, parsed) ? CHyprColor{parsed.r, parsed.g, parsed.b, parsed.a} : fallback;
++    };
++    auto drawAddButton = [&](const CBox& cell, float alpha) {
++        const double side = std::round(std::min(cell.w, cell.h) * 0.3);
++        if (side <= 0.0)
++            return;
++        CBox disc{cell.x + (cell.w - side) / 2.0, cell.y + (cell.h - side) / 2.0, side, side};
++        disc.round();
++        CHyprColor fill = colorOf(*PADDFILL, CHyprColor{1.0, 1.0, 1.0, 0.25});
++        CHyprColor ink  = colorOf(*PADDGLYPH, CHyprColor{1.0, 1.0, 1.0, 1.0});
++        fill.a *= alpha;
++        ink.a *= alpha;
++        Render::GL::g_pHyprOpenGL->renderRect(disc, fill, {.round = (int)(side / 2.0)});
++
++        const double arm = std::round(side * 0.4);
++        const double bar = std::max(2.0, std::round(side * 0.07));
++        const double cx  = disc.x + side / 2.0;
++        const double cy  = disc.y + side / 2.0;
++        CBox         across{cx - arm / 2.0, cy - bar / 2.0, arm, bar};
++        CBox         down{cx - bar / 2.0, cy - arm / 2.0, bar, arm};
++        across.round();
++        down.round();
++        Render::GL::g_pHyprOpenGL->renderRect(across, ink, {.round = (int)(bar / 2.0)});
++        Render::GL::g_pHyprOpenGL->renderRect(down, ink, {.round = (int)(bar / 2.0)});
++    };
++
++    // Grown tiles last, so a tile reaching into the gap is drawn over its
++    // neighbours rather than under them.
++    std::stable_sort(drawOrder.begin(), drawOrder.end(), [&](int a, int b) { return tileLift[a] < tileLift[b]; });
++    for (const int id : drawOrder) {
++        if (id == addTileID) {
++            drawAddButton(tileBoxes[id], tileAlphas[id]);
++            continue;
+         }
++        CRegion damage{0, 0, INT16_MAX, INT16_MAX};
++        Render::GL::g_pHyprOpenGL->renderTextureInternal(images[id].fb->getTexture(), tileBoxes[id],
++                                                          {.damage = &damage, .a = tileAlphas[id], .round = tileRounds[id], .roundingPower = ROUND_PWR});
+     }
+ 
+     // overlays: labels and borders
+@@ -621,7 +702,7 @@ void COverview::fullRender() {
+             const auto& image = images[id];
+             const auto& tile  = tileBoxes[id];
+ 
+-            if (image.workspaceID == WORKSPACE_INVALID || tile.w <= 0.0 || tile.h <= 0.0)
++            if (image.workspaceID == WORKSPACE_INVALID || (int)id == addTileID || tile.w <= 0.0 || tile.h <= 0.0)
+                 continue;
+ 
+             const bool labelEnabled = **PLABELEN || showWorkspaceNumbers;
+@@ -739,6 +820,6 @@ void COverview::fullRender() {
+         }
+     }
+ 
+-    if (entryAnimationPending)
++    if (entryAnimationPending || liftPending)
+         damage();
+ }

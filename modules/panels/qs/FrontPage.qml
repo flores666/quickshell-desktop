@@ -140,22 +140,23 @@ Column {
         width: parent.width
         height: 34
 
+        // A reading, not a control: on a machine with no battery there is
+        // nothing to read, and the buttons opposite hold the row's place.
         Row {
             anchors.verticalCenter: parent.verticalCenter
+            visible: Power.hasBattery
             spacing: Appearance.s.sm
 
             Icon {
                 anchors.verticalCenter: parent.verticalCenter
-                name: Power.hasBattery ? Power.icon : "battery-missing"
+                name: Power.icon
                 size: Appearance.m.icon
-                color: !Power.hasBattery ? Appearance.c.textDisabled
-                    : Power.critical ? Appearance.c.danger : Appearance.c.text
+                color: Power.critical ? Appearance.c.danger : Appearance.c.text
             }
 
             Label {
                 anchors.verticalCenter: parent.verticalCenter
-                text: !Power.hasBattery ? qsTr("No battery")
-                    : Power.timeLabel !== ""
+                text: Power.timeLabel !== ""
                     ? qsTr("%1% · %2").arg(Math.round(Power.percentage)).arg(Power.timeLabel)
                     : qsTr("%1%").arg(Math.round(Power.percentage))
                 role: Label.Role.Small
