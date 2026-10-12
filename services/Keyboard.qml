@@ -12,7 +12,8 @@ import Quickshell.Hyprland
     Hyprland pushes an `activelayout` event on every switch, so the indicator is
     entirely event-driven. Only the starting value has to be asked for, because
     the event stream says nothing until the first change — that is one query at
-    startup, not a poll.
+    startup, and again after a config reload, which may have changed the
+    layouts; not a poll.
 
     The indicator hides itself when only one layout is configured; there is
     nothing to report on a single-layout machine.
@@ -57,8 +58,9 @@ Singleton {
     }
 
     Process {
-        // One shot: the current layout and how many are configured. Everything
-        // after this arrives as an event.
+        id: probe
+        // The current layout and how many are configured. Everything after
+        // this arrives as an event.
         running: true
         command: ["sh", "-c",
             "hyprctl getoption input:kb_layout -j; hyprctl devices -j"]
@@ -86,6 +88,8 @@ Singleton {
         target: Hyprland
 
         function onRawEvent(event: HyprlandEvent): void {
+            if (event.name === "configreloaded")
+                probe.running = true;
             if (event.name !== "activelayout")
                 return;
             // "KEYBOARD_NAME,LAYOUT NAME" — the layout may itself contain commas,
