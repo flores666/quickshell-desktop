@@ -450,6 +450,14 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   chooses a tile and closes the overview onto it without any input; inside
   the nested instance `hyprctl -i <instance> dispatch movecursor` does move
   the overview's hover. Kill it by PID.
+- **Trackpad gestures can be synthesised, but only in the session**: a
+  nested compositor gets no touchpad. A `/dev/uinput` device with
+  `BTN_TOOL_FINGER`…`BTN_TOOL_TRIPLETAP`, MT slots, axis resolutions and
+  `INPUT_PROP_POINTER` is a touchpad to libinput, and three slots moving
+  together are a swipe. Hyprland holds one active gesture across *all*
+  touchpads, so a real swipe during the test corrupts it; libinput's lines
+  in the Hyprland log name the device (`eventN - gesture: [3fg] …`), so
+  check that only yours swiped.
 - **A plugin cannot be loaded into a Hyprland whose binary was replaced on
   disk** — a `pacman -Syu` mid-session. `findFunctionsByName` canonicalises
   `/proc/self/exe`, which then reads `/usr/bin/Hyprland (deleted)`, and the
@@ -486,9 +494,10 @@ matching the installed Hyprland. **Hyprland refuses to load a plugin built
 against different headers**, so it must be rebuilt after every Hyprland update.
 `master` chases hyprland-git and will not compile against a release.
 
-Two patches are applied, in order, both relative to the source directory:
+Three patches are applied, in order, all relative to the source directory:
 `hyprexpo-real-wallpaper-bg.patch` (the real wallpaper, blurred, behind the
-tiles) and `hyprexpo-tile-zoom-and-add-tile.patch`. The second highlights a
+tiles), `hyprexpo-tile-zoom-and-add-tile.patch` and
+`hyprexpo-swipe-open-close.patch`. The second highlights a
 tile with a focus zoom instead of a border, so the shell pushes
 `border_width` 0: the tile under the pointer or the keyboard keeps its size
 and the workspace in it grows 2% inside the tile's rounded edge (a crop of
@@ -500,9 +509,9 @@ a key is pressed (upstream's `ensureKbFocusInitialized` then puts it on the
 current workspace). Each tile eases on its own clock — hyprutils'
 `CBezierCurve`, `cubic-bezier(0.22, 1, 0.36, 1)`, 400 ms — from wherever it
 stands when its target changes, jumps with `animations:enabled` off (the
-shell's *Animations* setting, the session's reduced motion), and unwinds
-with the close the way the gaps do, so the chosen workspace lands exactly on
-the screen. It also gives the dynamic grid a last tile, the
+shell's *Animations* setting, the session's reduced motion), and scales with
+how far open the overview is, the way the gaps do, so a workspace leaves the
+screen and lands back on it exactly. It also gives the dynamic grid a last tile, the
 lowest-numbered workspace this monitor can take — one no workspace has yet,
 or one it holds empty and does not show; never another monitor's — drawn as
 the empty workspace it is (a missing workspace captures as the bare monitor)
@@ -510,3 +519,16 @@ and chosen through the same `ensureWorkspaceForTile` path as any tile.
 `gaps_out` in `hyprland.conf` keeps the grid off the screen's edges on every
 side; tiles keep the screen's shape, so only the axis the grid fills first
 gets exactly that.
+
+The third is the swipe. **How far open the overview is comes from the zoom
+itself** (`openness()`, 0 with the current tile filling the screen, 1 with
+the grid fitting it), and the gaps, the outer margin and the focus zoom all
+follow it. Upstream read `getPercent()` of the animation driving the zoom,
+but a swipe moves the zoom with `setValueAndWarp` and never starts one: the
+gaps were all there on a swipe's first frame, vanished when the fingers
+lifted (the settle animation restarts that clock at 0) and grew back. It
+also makes `gesture_direction` open only — a swipe that way over an open
+overview does nothing — and registers the opposite direction as upstream's
+`cancel` gesture, which closes back to the workspace the overview opened on,
+the way Escape and Super+Tab do. Hyprland lets `up` and `down` coexist on
+one finger count; only `vertical` would shadow either.

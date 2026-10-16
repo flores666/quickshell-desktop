@@ -1,0 +1,165 @@
+diff --git a/Dispatchers.cpp b/Dispatchers.cpp
+index f8c4571..0df7ff5 100644
+--- a/Dispatchers.cpp
++++ b/Dispatchers.cpp
+@@ -538,12 +538,14 @@ static SDispatchResult registerExpoGesture(int fingerCount, const std::string& d
+     std::expected<void, std::string> result;
+     if (action == "expo")
+         result = g_pTrackpadGestures->addGesture(makeUnique<CExpoGesture>(EExpoGestureAction::Expo), fingerCount, direction, modMask, deltaScale, disableInhibit);
++    else if (action == "open")
++        result = g_pTrackpadGestures->addGesture(makeUnique<CExpoGesture>(EExpoGestureAction::Open), fingerCount, direction, modMask, deltaScale, disableInhibit);
+     else if (action == "cancel")
+         result = g_pTrackpadGestures->addGesture(makeUnique<CExpoGesture>(EExpoGestureAction::Cancel), fingerCount, direction, modMask, deltaScale, disableInhibit);
+     else if (action == "unset")
+         result = g_pTrackpadGestures->removeGesture(fingerCount, direction, modMask, deltaScale, disableInhibit);
+     else
+-        return {.success = false, .error = std::format("invalid action '{}', expected expo|cancel|unset", action)};
++        return {.success = false, .error = std::format("invalid action '{}', expected expo|open|cancel|unset", action)};
+ 
+     if (!result)
+         return {.success = false, .error = result.error()};
+@@ -581,7 +583,27 @@ void syncExpoGestureFromConfig() {
+     if (!DECISION.registerGesture)
+         return;
+ 
+-    if (const auto RESULT = registerExpoGesture(FINGERS, DIR, "expo", "", 1.F, false); !RESULT.success)
++    // quickshell-desktop: a swipe in gesture_direction opens the overview and
++    // the opposite swipe closes it, back to the workspace it opened on, as on
++    // GNOME. A direction with no opposite (an axis, a pinch) still toggles.
++    std::string OPPOSITE;
++    switch (g_pTrackpadGestures->dirForString(DIR)) {
++        case TRACKPAD_GESTURE_DIR_UP: OPPOSITE = "down"; break;
++        case TRACKPAD_GESTURE_DIR_DOWN: OPPOSITE = "up"; break;
++        case TRACKPAD_GESTURE_DIR_LEFT: OPPOSITE = "right"; break;
++        case TRACKPAD_GESTURE_DIR_RIGHT: OPPOSITE = "left"; break;
++        default: break;
++    }
++
++    if (OPPOSITE.empty()) {
++        if (const auto RESULT = registerExpoGesture(FINGERS, DIR, "expo", "", 1.F, false); !RESULT.success)
++            reportGestureConfigError(RESULT.error);
++        return;
++    }
++
++    if (const auto RESULT = registerExpoGesture(FINGERS, DIR, "open", "", 1.F, false); !RESULT.success)
++        reportGestureConfigError(RESULT.error);
++    if (const auto RESULT = registerExpoGesture(FINGERS, OPPOSITE, "cancel", "", 1.F, false); !RESULT.success)
+         reportGestureConfigError(RESULT.error);
+ }
+ 
+diff --git a/ExpoGesture.cpp b/ExpoGesture.cpp
+index d26a8a7..ae18126 100644
+--- a/ExpoGesture.cpp
++++ b/ExpoGesture.cpp
+@@ -35,6 +35,8 @@ void CExpoGesture::begin(const ITrackpadGesture::STrackpadGestureBegin& e) {
+         if (auto* const CREATED = createOverview(monitor, true))
+             m_sessionGeneration = CREATED->sessionGeneration();
+     }
++    else if (m_action == EExpoGestureAction::Open)
++        m_monitor.reset(); // drive nothing
+     else if (!OV->closeCommitted()) {
+         OV->selectHoveredWorkspace();
+         OV->setClosing(true);
+diff --git a/ExpoGesture.hpp b/ExpoGesture.hpp
+index fd49036..7fa986b 100644
+--- a/ExpoGesture.hpp
++++ b/ExpoGesture.hpp
+@@ -7,6 +7,9 @@ class IOverviewSession;
+ 
+ enum class EExpoGestureAction {
+     Expo,
++    // quickshell-desktop: like Expo, but a swipe over an open overview does
++    // nothing rather than closing it.
++    Open,
+     Cancel,
+ };
+ 
+diff --git a/Overview.cpp b/Overview.cpp
+index 8dc0c2a..1b4747d 100644
+--- a/Overview.cpp
++++ b/Overview.cpp
+@@ -1020,8 +1020,26 @@ double COverview::currentOuterInset() const {
+         return 0.0;
+ 
+     static auto* const* PGAPSO = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:gaps_out")->getDataStaticPtr();
+-    const double        percent = closing ? (1.0 - size->getPercent()) : size->getPercent();
+-    return std::max<Hyprlang::INT>(0, **PGAPSO) * percent;
++    return std::max<Hyprlang::INT>(0, **PGAPSO) * openness();
++}
++
++// quickshell-desktop: how far open the overview is, from 0 with the current
++// tile filling the screen to 1 with the grid fitting it, read off the zoom
++// itself. Upstream read the clock of the animation driving the zoom, but a
++// swipe moves the zoom without one: the gaps were all there on a swipe's
++// first frame, vanished as the fingers lifted and grew back after, and went
++// at once on a swipe that closes. A grid of one tile does not zoom.
++double COverview::openness() const {
++    const auto MON = pMonitor.lock();
++    if (!MON)
++        return 0.0;
++
++    const double SHUT = zoomSizeForCurrentGrid(MON->m_size).x;
++    const double OPEN = MON->m_size.x;
++    if (std::abs(SHUT - OPEN) <= 1e-6)
++        return closing ? 0.0 : 1.0;
++
++    return std::clamp((SHUT - size->value().x) / (SHUT - OPEN), 0.0, 1.0);
+ }
+ 
+ Hyprexpo::STileLayout COverview::tileLayoutForIndex(int id, const Vector2D& totalSize, double gap, double outerInset, bool centerPartialRows) const {
+diff --git a/Overview.hpp b/Overview.hpp
+index aea7357..50f74f4 100644
+--- a/Overview.hpp
++++ b/Overview.hpp
+@@ -114,6 +114,7 @@ class COverview final : public IOverviewSession {
+     void       fullRender() override;
+     Hyprexpo::SGridShape currentGridShape() const;
+     double     currentOuterInset() const;
++    double     openness() const;
+     Hyprexpo::STileLayout tileLayoutForIndex(int id, const Vector2D& totalSize, double gap, double outerInset = 0.0, bool centerPartialRows = true) const;
+     CBox       tileBoxForIndex(int id, const Vector2D& totalSize, double gap, double outerInset = 0.0, bool centerPartialRows = true) const;
+     int        tileIndexAtPoint(const Vector2D& point, const Vector2D& totalSize, double gap, double outerInset = 0.0, bool centerPartialRows = true) const;
+diff --git a/OverviewRender.cpp b/OverviewRender.cpp
+index 176d86a..e18d627 100644
+--- a/OverviewRender.cpp
++++ b/OverviewRender.cpp
+@@ -113,7 +113,7 @@ void COverview::onDamageReported() {
+ 
+     Vector2D SIZE = size->value();
+ 
+-    const auto GAPSIZE = (closing ? (1.0 - size->getPercent()) : size->getPercent()) * GAP_WIDTH;
++    const auto GAPSIZE = openness() * GAP_WIDTH;
+     const auto OUTER = currentOuterInset();
+     CBox texbox = tileBoxForIndex(openedID, SIZE, GAPSIZE, OUTER, true).translate(MON->m_position);
+ 
+@@ -269,7 +269,7 @@ void COverview::fullRender() {
+ 
+     Vector2D SIZE = size->value();
+ 
+-    const auto GAPSIZE = (closing ? (1.0 - size->getPercent()) : size->getPercent()) * GAP_WIDTH;
++    const auto GAPSIZE = openness() * GAP_WIDTH;
+     const auto OUTER   = currentOuterInset();
+     const auto SHAPE   = currentGridShape();
+ 
+@@ -349,9 +349,9 @@ void COverview::fullRender() {
+     // A tile whose target changes eases from wherever it stands, so a pointer
+     // sweeping across the grid never snaps one, on an ease-out that settles
+     // without overshoot -- or jumps there with Hyprland's animations off,
+-    // which is the shell's Animations setting. While the overview closes the
+-    // zoom unwinds with the close, as the gaps do, so the chosen workspace
+-    // still lands exactly on the screen.
++    // which is the shell's Animations setting. The zoom also scales with how
++    // far open the overview is, as the gaps do, so a workspace leaves the
++    // screen and lands back on it exactly, by key or by swipe.
+     static CConfigValue<Config::INTEGER> PANIMATIONS("animations:enabled");
+     static const auto                    FOCUS_EASE = [] {
+         Hyprutils::Animation::CBezierCurve curve;
+@@ -362,7 +362,7 @@ void COverview::fullRender() {
+     constexpr double FOCUS_IMAGE   = 0.02; // the workspace, at full focus
+     const auto       FOCUS_NOW     = std::chrono::steady_clock::now();
+     const int        FOCUSED       = pointerMoved && hoveredID >= 0 ? hoveredID : kbFocusID;
+-    const double     FOCUS_SETTLE  = closing ? 1.0 - size->getPercent() : 1.0;
++    const double     FOCUS_SETTLE  = openness();
+     if (tileFocus.size() != images.size())
+         tileFocus.assign(images.size(), {});
+     bool focusPending = false;

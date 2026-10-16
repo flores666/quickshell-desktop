@@ -51,6 +51,14 @@ git apply "${apply_args[@]}" "$patch" || { echo "hyprexpo-real-wallpaper-bg.patc
 zoom_patch="$script_dir/hyprexpo-tile-zoom-and-add-tile.patch"
 git apply "${apply_args[@]}" "$zoom_patch" || { echo "hyprexpo-tile-zoom-and-add-tile.patch no longer applies to ${tag}" >&2; exit 1; }
 
+# The swipe follows the zoom the way the keyboard's animation does: the gaps,
+# the outer margin and the focus zoom are read off how far open the overview
+# is, not off an animation clock a swipe never starts. And gesture_direction
+# only opens it; the opposite swipe closes it. Cut against the tree with both
+# patches above applied.
+swipe_patch="$script_dir/hyprexpo-swipe-open-close.patch"
+git apply "${apply_args[@]}" "$swipe_patch" || { echo "hyprexpo-swipe-open-close.patch no longer applies to ${tag}" >&2; exit 1; }
+
 make all
 install -Dm755 hyprexpo.so "$dest/hyprexpo.so"
 echo "installed -> $dest/hyprexpo.so"
