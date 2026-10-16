@@ -44,7 +44,7 @@ ShellOverlay {
         output: { title: qsTr("Output Device"), component: outputPage },
         input: { title: qsTr("Input Device"), component: inputPage },
         power: { title: qsTr("Power"), component: powerPage },
-        colors: { title: qsTr("Colours"), component: colorsPage }
+        colors: { title: qsTr("Colors"), component: colorsPage }
     })
     readonly property var current: root.pages[root.visiblePage] ?? null
 
@@ -83,7 +83,7 @@ ShellOverlay {
             opacity: !root.swapping && root.visiblePage !== "" ? 1 : 0
 
             Behavior on opacity {
-                NumberAnimation { duration: Appearance.t.fast }
+                NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
             }
 
             IconButton {
@@ -121,10 +121,16 @@ ShellOverlay {
             layer.enabled: opacity < 1
 
             Behavior on opacity {
-                NumberAnimation { duration: Appearance.t.fast }
+                NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
             }
 
             sourceComponent: root.current?.component ?? null
+        }
+
+        Tooltip {
+            id: actionTip
+            below: true
+            z: 1
         }
 
         Component { id: wifiPage; WifiPage {} }
@@ -132,12 +138,26 @@ ShellOverlay {
             // For an adapter that has stopped finding or holding networks: the
             // radio off and on again, which NetworkManager does without
             // privilege. While it runs, the page says so beside a spinner.
+            // A wand — the fix-it — rather than a refresh glyph, which could as
+            // well mean "scan again"; it also says what it does when pointed at
+            // or tabbed to.
             id: restartWifi
             IconButton {
+                id: restartButton
                 visible: Network.wifiEnabled && !Network.restarting
-                icon: "refresh"
+                icon: "magic-wand"
                 size: 30
                 onClicked: Network.restartWifi()
+
+                readonly property bool explaining: restartButton.hovered || restartButton.focusVisible
+                onExplainingChanged: {
+                    const at = restartButton.mapToItem(content, restartButton.width / 2, restartButton.height);
+                    actionTip.anchorX = at.x;
+                    actionTip.anchorY = at.y;
+                    actionTip.text = qsTr("Restart Wi-Fi");
+                    actionTip.show = restartButton.explaining;
+                }
+                Component.onDestruction: actionTip.show = false
             }
         }
         Component { id: bluetoothPage; BluetoothPage {} }
@@ -162,7 +182,7 @@ ShellOverlay {
             layer.enabled: opacity < 1
 
             Behavior on opacity {
-                NumberAnimation { duration: Appearance.t.fast }
+                NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
             }
 
             onPageRequested: page => root.page = page

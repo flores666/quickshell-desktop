@@ -68,7 +68,7 @@ Item {
     opacity: (root.flickable && root.flickable.moving) || grab.pressed ? 1 : 0.45
 
     Behavior on opacity {
-        NumberAnimation { duration: Appearance.t.base }
+        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.standardEasing }
     }
 
     /*!

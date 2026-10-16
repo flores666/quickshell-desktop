@@ -27,6 +27,8 @@ Singleton {
         its own range (Appearance.seedRange), which keeps them apart. */
     readonly property var recentColors: adapter.recentColors
     readonly property var pinnedColors: adapter.pinnedColors
+    /*! Built-in colour choices the user has removed from their rows. */
+    readonly property var hiddenColors: adapter.hiddenColors
     /*! How many unpinned colours are remembered, across all the seeds. */
     readonly property int recentColorLimit: 24
     readonly property string fontFamily: adapter.fontFamily
@@ -126,8 +128,9 @@ Singleton {
         return adapter.pinnedColors.indexOf(value) !== -1;
     }
 
-    /*! Pinning takes a colour out of the recent ones so it never ages out;
-        unpinning returns it to the front of them. */
+    /*! Pinning takes a colour out of the recent ones so it never ages out,
+        and puts it at the front of the pinned ones; unpinning returns it to
+        the front of the recent ones. */
     function togglePinnedColor(value: string): void {
         if (value === "")
             return;
@@ -136,15 +139,20 @@ Singleton {
             root.rememberColor(value, "");
         } else {
             adapter.recentColors = adapter.recentColors.filter(x => x !== value);
-            adapter.pinnedColors = adapter.pinnedColors.concat([value]);
+            adapter.pinnedColors = [value].concat(adapter.pinnedColors);
         }
     }
 
-    /*! Drops a colour from the history, pinned or not. A seed set to it keeps
-        it; only the record of having made it goes. */
+    /*! Takes a colour out of every row: out of the history, pinned or not,
+        and out of the built-in choices if it is one. A seed set to it keeps
+        it; "" — the theme's own colour, the way back — cannot be removed. */
     function forgetColor(value: string): void {
+        if (value === "")
+            return;
         adapter.recentColors = adapter.recentColors.filter(x => x !== value);
         adapter.pinnedColors = adapter.pinnedColors.filter(x => x !== value);
+        if (adapter.hiddenColors.indexOf(value) === -1)
+            adapter.hiddenColors = adapter.hiddenColors.concat([value]);
     }
 
     /*! Empty means the shell's own face. Any installed family is accepted. */
@@ -230,6 +238,7 @@ Singleton {
         property string backgroundDark: ""
         property list<string> recentColors: []
         property list<string> pinnedColors: []
+        property list<string> hiddenColors: []
         /*! Empty means the built-in font family. */
         property string fontFamily: ""
         property string systemFontBefore: ""

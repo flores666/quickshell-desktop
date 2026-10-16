@@ -126,6 +126,8 @@ ICONS = {
     "cat-system": "applications-system",
     "cat-settings": "preferences-system",
     "cat-utilities": "applications-utilities",
+    # drawn for the shell (tools/icons)
+    "magic-wand": "magic-wand",
 }
 
 # battery levels are generated programmatically
@@ -136,7 +138,14 @@ ICONS["battery-100"] = "battery-level-100"
 ICONS["battery-100-charging"] = "battery-level-100-charged"
 
 
+# Glyphs Adwaita does not draw, kept beside this script in the same form.
+LOCAL = os.path.join(os.path.dirname(__file__), "icons")
+
+
 def find(name):
+    local = os.path.join(LOCAL, f"{name}-symbolic.svg")
+    if os.path.exists(local):
+        return local
     for sub in ("status", "ui", "actions", "devices", "categories", "places",
                 "emotes", "mimetypes", "legacy"):
         p = os.path.join(THEME, sub, f"{name}-symbolic.svg")

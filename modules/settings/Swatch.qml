@@ -21,6 +21,15 @@ Clickable {
     radius: Appearance.r.full
     showStateLayer: false
 
+    // The halo the color in force wears: a soft ring of the accent around it.
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -Appearance.s.xs
+        radius: height / 2
+        visible: root.selected
+        color: Appearance.c.accentSoft
+    }
+
     Rectangle {
         anchors.fill: parent
         radius: height / 2

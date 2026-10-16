@@ -45,7 +45,8 @@ ShellOverlay {
         { key: "dock", title: qsTr("Dock"), icon: "apps", component: dockSection },
         { key: "notifications", title: qsTr("Notifications"), icon: "bell", component: notificationsSection },
         { key: "windows", title: qsTr("Windows"), icon: "window", component: windowsSection },
-        { key: "input", title: qsTr("Input"), icon: "mouse", component: inputSection }
+        { key: "input", title: qsTr("Input"), icon: "mouse", component: inputSection },
+        { key: "reset", title: qsTr("Reset"), icon: "refresh", component: resetSection }
     ]
 
     /*!
@@ -98,13 +99,18 @@ ShellOverlay {
     onMatchesChanged: if (root.matches.length > 0 && !root.matches.includes(root.current))
         root.section = root.matches[0].key
 
-    onRenderedChanged: if (!root.rendered) root.index = null
+    // Back to the first tab once the surface is gone rather than as it comes
+    // back: the pane starts building as the popup opens, and switching it then
+    // threw away a half-built section — whichever was left open last time.
+    onRenderedChanged: if (!root.rendered) {
+        root.index = null;
+        search.clear();
+        root.section = "appearance";
+    }
 
     onShownChanged: {
         if (!root.shown)
             return;
-        search.clear();
-        root.section = "appearance";
         // The scroller outlives being closed, so without this it reopens
         // wherever it was left — which since Appearance grew a type section is
         // halfway down a list the user came back to the top of.
@@ -140,34 +146,18 @@ ShellOverlay {
             role: Label.Role.Subtitle
         }
 
+        // As wide as the pane it searches, starting where the pane does.
         SearchField {
             id: search
 
             anchors.top: parent.top
             anchors.topMargin: Appearance.s.lg
-            anchors.right: resetAll.left
-            anchors.rightMargin: Appearance.s.md
-            width: Math.min(260, parent.width - root.navWidth - resetAll.width - Appearance.s.xl * 2)
+            x: root.navWidth + Appearance.s.xl
+            width: parent.width - x - Appearance.s.xl
             placeholder: qsTr("Search settings…")
             onTextChanged: if (search.text !== "" && root.index === null) root.index = root.buildIndex()
             onEscaped: Overlay.close()
             onNavigate: key => root.navigate(key)
-        }
-
-        TextButton {
-            id: resetAll
-            anchors.right: parent.right
-            anchors.verticalCenter: search.verticalCenter
-            // The same inset the heading and the pane below both use.
-            anchors.rightMargin: Appearance.s.xl
-            compact: true
-            text: qsTr("Reset all")
-            icon: "refresh"
-            // The colour, font and wallpaper choices are picked from a list
-            // rather than measured, and each list carries its own way back, so
-            // this is only ever about the numbers.
-            enabled: Settings.overrideKeys.some(k => Settings.isOverridden(k))
-            onClicked: Settings.resetOverrides()
         }
 
         Divider {
@@ -276,4 +266,5 @@ ShellOverlay {
     Component { id: notificationsSection; NotificationsSection { width: pane.width } }
     Component { id: windowsSection; WindowsSection { width: pane.width } }
     Component { id: inputSection; InputSection { width: pane.width } }
+    Component { id: resetSection; ResetSection { width: pane.width } }
 }

@@ -46,7 +46,7 @@ Column {
 
         Label {
             width: parent.width
-            text: qsTr("Both themes are hand-tuned; the colours below apply to each separately.")
+            text: qsTr("Both themes are hand-tuned; the colors below apply to each separately.")
             role: Label.Role.Caption
             faint: true
             wrapMode: Text.Wrap
@@ -55,7 +55,7 @@ Column {
 
     SettingGroup {
         width: root.width
-        title: qsTr("Colours")
+        title: qsTr("Colors")
 
         ColorsSection { width: parent.width }
     }

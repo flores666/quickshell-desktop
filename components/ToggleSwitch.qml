@@ -37,7 +37,7 @@ Clickable {
                 : root.hovered ? Appearance.c.hoverLayer : "transparent"
 
             Behavior on color {
-                ColorAnimation { duration: Appearance.t.instant }
+                ColorAnimation { duration: Appearance.t.instant; easing.type: Appearance.t.standardEasing }
             }
         }
 
@@ -54,7 +54,7 @@ Clickable {
                 NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.emphasizedEasing }
             }
             Behavior on color {
-                ColorAnimation { duration: Appearance.t.fast }
+                ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
             }
 
             Shadow {

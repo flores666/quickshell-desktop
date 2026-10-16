@@ -6,8 +6,8 @@ import "root:/config"
 import "root:/components"
 import "root:/services"
 
-/*! The pictures in the wallpaper folder, and which of them is up: the one up
-    shown large, every one of them in a strip beneath it. */
+/*! The pictures in the wallpaper folder, every one of them in a strip, and
+    which of them is up. */
 Column {
     id: root
 
@@ -15,27 +15,6 @@ Column {
 
     // The pane is built afresh on every visit, so this is every time it shows.
     Component.onCompleted: Wallpaper.rescan()
-
-    ClippingRectangle {
-        width: root.width
-        height: Math.round(root.width * 9 / 16)
-        visible: Wallpaper.current !== ""
-        radius: Appearance.r.lg
-        color: Appearance.c.sunken
-        border.width: Appearance.m.border
-        border.color: Appearance.c.border
-
-        Image {
-            anchors.fill: parent
-            source: Wallpaper.current !== "" ? "file://" + Wallpaper.current : ""
-            fillMode: Image.PreserveAspectCrop
-            // Twice the pane, as for the thumbnails: sharp on a scaled screen,
-            // and no 4K decode for a picture this size.
-            sourceSize.width: root.width * 2
-            asynchronous: true
-            cache: true
-        }
-    }
 
     Filmstrip {
         id: strip
@@ -94,17 +73,7 @@ Column {
         width: root.width
         text: !Wallpaper.available
             ? qsTr("Put pictures in %1 and they show up here.").arg(Wallpaper.folderPath)
-            : strip.overflowing
-                ? qsTr("Pictures come from %1. Scroll sideways for the rest.").arg(Wallpaper.folderPath)
-                : qsTr("Pictures come from %1.").arg(Wallpaper.folderPath)
-        role: Label.Role.Caption
-        faint: true
-        wrapMode: Text.Wrap
-    }
-
-    Label {
-        width: root.width
-        text: qsTr("The choice is remembered and set again at login; the wallpaper daemon forgets it on its own.")
+            : qsTr("Pictures come from %1.").arg(Wallpaper.folderPath)
         role: Label.Role.Caption
         faint: true
         wrapMode: Text.Wrap

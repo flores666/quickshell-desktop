@@ -86,7 +86,7 @@ Item {
                         }
                     }
                     Behavior on color {
-                        ColorAnimation { duration: Appearance.t.fast }
+                        ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
                     }
                 }
             }

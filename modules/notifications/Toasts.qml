@@ -106,6 +106,7 @@ PanelWindow {
                     from: 0
                     to: 1
                     duration: Appearance.t.base
+                    easing.type: Appearance.t.standardEasing
                 }
 
                 // ...and back out to it. A plain animation rather than a
@@ -118,7 +119,7 @@ PanelWindow {
                 ParallelAnimation {
                     id: leave
                     NumberAnimation { target: toast; property: "x"; to: 40; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
-                    NumberAnimation { target: toast; property: "opacity"; to: 0; duration: Appearance.t.resize }
+                    NumberAnimation { target: toast; property: "opacity"; to: 0; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
                     onFinished: root.forget(toast.modelData)
                 }
             }

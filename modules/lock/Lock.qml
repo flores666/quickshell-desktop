@@ -147,17 +147,10 @@ Scope {
                     role: Label.Role.Subtitle
                 }
 
-                Item {
+                FieldWell {
                     width: 300
-                    height: Appearance.m.fieldHeight
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Appearance.r.sm
-                        color: Appearance.c.surface
-                        border.width: 1
-                        border.color: field.activeFocus ? Appearance.c.accent : Appearance.c.border
-                    }
+                    color: Appearance.c.surface
+                    focused: field.activeFocus
 
                     Icon {
                         id: keyIcon

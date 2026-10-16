@@ -48,7 +48,9 @@ Clickable {
 
     implicitWidth: Appearance.m.dockCell
     implicitHeight: Appearance.m.dockCell
-    radius: Appearance.r.md
+    // Concentric with the dock's round ends: a square wash would put its
+    // corners outside the capsule at either end of the row.
+    radius: Appearance.r.capsule(Appearance.m.dockCell)
     focusable: false
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     selected: root.item.active
@@ -129,7 +131,7 @@ Clickable {
             NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
         }
         Behavior on color {
-            ColorAnimation { duration: Appearance.t.fast }
+            ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
         }
     }
 }

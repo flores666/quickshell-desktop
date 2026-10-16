@@ -55,17 +55,9 @@ Column {
         wrapMode: Text.Wrap
     }
 
-    Item {
+    FieldWell {
         width: parent.width
-        height: Appearance.m.fieldHeight
-
-        Rectangle {
-            anchors.fill: parent
-            radius: Appearance.r.sm
-            color: Appearance.c.sunken
-            border.width: 1
-            border.color: psk.activeFocus ? Appearance.c.accent : Appearance.c.border
-        }
+        focused: psk.activeFocus
 
         TextInput {
             id: psk

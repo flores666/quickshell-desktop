@@ -16,9 +16,13 @@ Item {
 
     property string text: ""
     property bool show: false
-    /*! Horizontal centre and top edge of the thing being described. */
+    /*! Horizontal centre and top edge of the thing being described — or its
+        bottom edge, for a tooltip that hangs `below` it. */
     property real anchorX: 0
     property real anchorY: 0
+    /*! Under the thing rather than over it: for one at the top of a popup,
+        where the card would clip a tooltip above it. */
+    property bool below: false
     property int gap: Appearance.s.md
     property int delayMs: 450
     property int edgeMargin: Appearance.s.md
@@ -31,7 +35,7 @@ Item {
             Math.min(root.parent.width - root.width - root.edgeMargin,
                 root.anchorX - root.width / 2))
         : root.anchorX - root.width / 2)
-    y: Math.round(root.anchorY - height - root.gap)
+    y: Math.round(root.below ? root.anchorY + root.gap : root.anchorY - height - root.gap)
     implicitWidth: label.implicitWidth + Appearance.s.lg * 2
     implicitHeight: label.implicitHeight + Appearance.s.md * 2
     width: implicitWidth

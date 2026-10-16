@@ -33,8 +33,8 @@ Binding {
     value: ({
         "plugin:hyprexpo:bg_col": root.rgba(Appearance.c.base),
         // No tile is outlined: the patched plugin marks the one under the
-        // pointer by growing it. These two colour its add-workspace button
-        // instead — the disc, and the plus on it.
+        // pointer by zooming into it. The focus colour still outlines a window
+        // being dragged between tiles.
         "plugin:hyprexpo:border_color": root.rgba(Appearance.c.borderStrong),
         "plugin:hyprexpo:border_color_focus": root.rgba(Appearance.c.accent),
         "plugin:hyprexpo:border_width": "0",

@@ -93,8 +93,9 @@ modules/             the surfaces themselves
                      and their tiles and rows
   settings/          one *Section per tab, its rows (SettingRow /
                      SettingToggle) on SettingGroup cards; ThemeCard previews a
-                     theme; SeedPicker is one colour seed: presets, history,
-                     picker
+                     theme; SeedPicker is one colour seed: one row of choices
+                     and a picker; ResetSection is the one place "Reset all"
+                     lives
   common/            shared surface chrome (ShellOverlay, OverlayCard), IPC,
                      overview theming
 tools/               generators and the lint wrapper; not loaded at runtime
@@ -172,11 +173,15 @@ A colour seed can also come from the picker, which is held to
 stay legible over a background near the theme's own. Picked colours go into one
 shared history (`recentColors`, newest first, capped; `pinnedColors`, kept).
 Each seed's row shows only those inside its own range, which is what keeps
-accents and backgrounds apart — so the ranges must not overlap. The row is a
-queue of one line: a new colour goes in at the front, the oldest drops out of
-sight at the back, pinned ones hold the end, and choosing a colour from it
-applies it without reordering anything. A right click opens a `CardMenu` to
-pin, unpin or remove one (`forgetColor`).
+accents and backgrounds apart — so the ranges must not overlap. Choosing a
+colour from it applies it. Each seed shows one line of swatches, never two:
+the colour in force first, with a halo; the pinned ones, newest pin first; then the recent
+ones and the built-in choices; as many as fit, and the add button last. A
+right click opens a `CardMenu` to pin, unpin or remove one; removing a
+built-in choice keeps it in `hiddenColors` (`forgetColor` does both), and ""
+— the theme's own colour, the way back — cannot be removed. User-visible
+text is American English ("color"); the code and its comments are not
+rewritten for it.
 
 **Placement** — where a popup attaches: `BelowBar`, `AboveDock`, `Centre`.
 
@@ -235,7 +240,8 @@ implemented.
 | `ColorPicker` | an HSV plane and hue strip, optionally held to a saturation/value band; `moved`/`committed` like `Slider`, arrow keys, no wheel |
 | `Filmstrip` | a sideways-scrolling row of choices wider than its room: wallpaper previews, font samples |
 | `MenuRow` | a popover list row; `flush` drops the inset and wash so it sits among a settings pane's sliders |
-| `IconButton`, `TextButton` (`compact` for in-row actions), `ToggleSwitch`, `Slider`, `SearchField`, `Spinner`, `Divider`, `ThinScrollBar`, `Tooltip` | the rest of the kit |
+| `FieldWell` | the well every text input sits in: no border, a wash on hover and a stronger one while the input has the keyboard; its hover is a `Clickable` laid over the input taking no buttons, and anything with its own hover goes in `trailing` above it |
+| `IconButton`, `TextButton` (`compact` for in-row actions), `ToggleSwitch`, `Slider`, `SearchField`, `Spinner`, `Divider`, `ThinScrollBar`, `Tooltip` (`below` for one at the top of a popup) | the rest of the kit |
 
 ## Module chrome (`modules/common/`)
 
@@ -330,13 +336,24 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **Quickshell gives battery charge and Wi-Fi signal as 0–1 fractions**, not
   the 0–100 UPower and NetworkManager speak. `Power.percentage` converts once;
   `Network.signalIcon` holds the thresholds as fractions.
+- **Quickshell 0.3.1's volume write does not reach a Bluetooth headset's
+  microphone.** It reports the new level while the device keeps the old one
+  (wrote 0.3, `wpctl` read 0.6); muting does reach it, and the true level read
+  back then made the slider jump. `Audio.setMicVolume` goes through
+  `wpctl set-volume`, coalesced to one process at a time. The speaker's
+  writes do land and stay on the node.
 - **A `PwNode`'s volume is not real until the node is `ready`** (bound). What
   it reports while binding is its state, not a change: `Audio.hasSink` waits
   for it, and that is what keeps the OSD from flashing at login.
 - **Quickshell 0.3.1's `Networking` never recovers from NetworkManager
   restarting**: the devices go and are not registered again, so Wi-Fi reads
   "Unavailable" while it works. It is a process-wide C++ singleton, so no QML
-  reload rebuilds it; 0.3.2 watches the service and fixes it.
+  reload rebuilds it; 0.3.2 watches the service and fixes it. Until then
+  `Network` watches NetworkManager's bus name (`gdbus monitor`) and restarts
+  the shell's unit when it gets a new owner — only inside the unit
+  (`INVOCATION_ID`), so a `qs` run by hand is never duplicated. Remove that
+  watcher with the upgrade. (A probe that reads `Networking.devices` from a
+  timer sees none: the backend connects on first use, then fills in.)
 - **UPower reports a time to empty for a full battery on AC**, computed from
   its trickle (≈30 days). `Power.timeLabel` answers only while charging or
   discharging.
@@ -430,7 +447,15 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   so give it its own screen: `hyprctl -i <instance> output create headless
   <name>`, move its workspaces there, and capture with
   `WAYLAND_DISPLAY=<its socket> grim -o <name>`. `hyprexpo:kb_selecti N`
-  picks a tile without any input. Kill it by PID.
+  chooses a tile and closes the overview onto it without any input; inside
+  the nested instance `hyprctl -i <instance> dispatch movecursor` does move
+  the overview's hover. Kill it by PID.
+- **A plugin cannot be loaded into a Hyprland whose binary was replaced on
+  disk** — a `pacman -Syu` mid-session. `findFunctionsByName` canonicalises
+  `/proc/self/exe`, which then reads `/usr/bin/Hyprland (deleted)`, and the
+  plugin throws in its init; the old build fails exactly the same way, so
+  unloading the working one loses the overview until the next login. Check
+  `ls -l /proc/$(pidof Hyprland)/exe` before `hyprctl plugin unload`.
 - **A hung shell cannot be attached to.** `ptrace_scope` is 1, so `gdb -p` and
   `eu-stack` get nothing. `systemctl --user kill -s ABRT quickshell` instead:
   Quickshell's crash handler writes a report with the main thread's stack and
@@ -441,7 +466,9 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 ### Icons
 
 `components/Icons.qml` is **generated** — do not hand-edit. `tools/genicons.py`
-lifts path data out of the Adwaita symbolic theme. Two details matter:
+lifts path data out of the Adwaita symbolic theme, and out of `tools/icons/`
+for the glyphs Adwaita lacks (the Wi-Fi restart's magic wand), drawn the same
+way: 16×16, filled paths. Two details matter:
 
 - Subpaths sharing an opacity are merged into one path, and **a merged path's
   leading relative `m` must be upper-cased to `M`** or it becomes relative to
@@ -462,12 +489,24 @@ against different headers**, so it must be rebuilt after every Hyprland update.
 Two patches are applied, in order, both relative to the source directory:
 `hyprexpo-real-wallpaper-bg.patch` (the real wallpaper, blurred, behind the
 tiles) and `hyprexpo-tile-zoom-and-add-tile.patch`. The second highlights a
-tile by growing it — the one under the pointer or the keyboard on a quick
-ease, the current workspace a little — instead of with a border, so the
-shell pushes `border_width` 0; and it gives the dynamic grid a last tile, a
-compact + button naming the next empty workspace, chosen through the same
-`ensureWorkspaceForTile` path as any tile. The button is coloured from the
-`border_color` (disc) and `border_color_focus` (plus) options.
+tile with a focus zoom instead of a border, so the shell pushes
+`border_width` 0: the tile under the pointer or the keyboard keeps its size
+and the workspace in it grows 2% inside the tile's rounded edge (a crop of
+the capture through the renderer's custom UVs), the current workspace rests
+40% of the way there. No tile is in focus as the overview opens: the
+pointer takes focus only once it has moved since — a change of position, not
+a move event, since opening simulates one — and the keyboard has none until
+a key is pressed (upstream's `ensureKbFocusInitialized` then puts it on the
+current workspace). Each tile eases on its own clock — hyprutils'
+`CBezierCurve`, `cubic-bezier(0.22, 1, 0.36, 1)`, 400 ms — from wherever it
+stands when its target changes, jumps with `animations:enabled` off (the
+shell's *Animations* setting, the session's reduced motion), and unwinds
+with the close the way the gaps do, so the chosen workspace lands exactly on
+the screen. It also gives the dynamic grid a last tile, the
+lowest-numbered workspace this monitor can take — one no workspace has yet,
+or one it holds empty and does not show; never another monitor's — drawn as
+the empty workspace it is (a missing workspace captures as the bare monitor)
+and chosen through the same `ensureWorkspaceForTile` path as any tile.
 `gaps_out` in `hyprland.conf` keeps the grid off the screen's edges on every
 side; tiles keep the screen's shape, so only the axis the grid fills first
 gets exactly that.

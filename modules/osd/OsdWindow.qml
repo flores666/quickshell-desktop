@@ -90,7 +90,7 @@ PanelWindow {
                 color: Appearance.c.accent
 
                 Behavior on width {
-                    NumberAnimation { duration: Appearance.t.instant }
+                    NumberAnimation { duration: Appearance.t.instant; easing.type: Appearance.t.standardEasing }
                 }
             }
         }

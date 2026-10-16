@@ -75,12 +75,14 @@ Item {
             NumberAnimation {
                 property: "opacity"; from: 0; to: 1
                 duration: Appearance.t.base
+                easing.type: Appearance.t.standardEasing
             }
         }
         remove: Transition {
             NumberAnimation {
                 property: "opacity"; to: 0
                 duration: Appearance.t.fast
+                easing.type: Appearance.t.standardEasing
             }
         }
         displaced: Transition {
