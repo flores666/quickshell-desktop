@@ -1,8 +1,7 @@
 [org/gnome/desktop/interface]
 cursor-size=24
 cursor-theme='default'
-font-name='Ubuntu Regular 10'
-gtk-theme='Yaru-Amber-dark'
+font-name='Adwaita Sans 10'
 icon-theme='Papirus-Dark'
 monospace-font-name='JetBrainsMono Nerd Font 10'
 [org/gnome/desktop/wm/preferences]

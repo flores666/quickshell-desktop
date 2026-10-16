@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 
 /*!
     What the dock shows: the applications the user arranged, then anything

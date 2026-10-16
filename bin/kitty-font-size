@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# This machine's size, which the kitty.conf beside the project's include
+# reads after it; without one, the size the project's terminal/kitty.conf
+# starts from.
 conf="${XDG_CONFIG_HOME:-$HOME/.config}/kitty/font-size.conf"
 mkdir -p "$(dirname "$conf")"
 
-current="15.0"
+project="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../terminal/kitty.conf"
+default="$(awk '$1 == "font_size" {print $2; exit}' "$project" 2>/dev/null || true)"
+default="${default:-11.0}"
+
+current="$default"
 if [[ -f "$conf" ]]; then
     value="$(awk '$1 == "font_size" {print $2; exit}' "$conf" || true)"
     [[ -n "${value:-}" ]] && current="$value"
@@ -15,7 +22,7 @@ case "${1:-}" in
     down) delta="-1" ;;
     up2) delta="2" ;;
     down2) delta="-2" ;;
-    reset) printf 'font_size 15.0\n' > "$conf"; kitty @ set-font-size --all 15.0 >/dev/null 2>&1 || true; exit 0 ;;
+    reset) rm -f "$conf"; kitty @ set-font-size --all "$default" >/dev/null 2>&1 || true; exit 0 ;;
     *) echo "Usage: kitty-font-size up|down|up2|down2|reset" >&2; exit 2 ;;
 esac
 

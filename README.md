@@ -1,11 +1,12 @@
 # Shell
 
 A desktop shell for Wayland / Hyprland, written in QML against
-[Quickshell](https://quickshell.outfoxxed.me) 0.3 and Qt 6.11.
+[Quickshell](https://quickshell.outfoxxed.me) 0.3 and Qt 6.12.
 
 GNOME's interaction model — a top bar, a quick-settings panel, an activities
-overview, a searchable app grid — with a warm, opaque, minimal visual language:
-no blur, no translucency, no decorative chrome.
+overview, a searchable app grid — drawn as glass: capsule chrome, and panels
+of the theme's surface over a blur Hyprland draws behind them, with no
+decoration beyond that.
 
 ## Running it
 
@@ -28,12 +29,14 @@ place:
 | `terminal/prompt.fish` | linked into `~/.config/fish/conf.d` |
 | `nvim/` | linked as `~/.config/nvim` |
 | `bin/` | each script linked into `~/.local/bin` |
-| `profile/` | wallpapers copied into the Pictures folder, GTK settings applied where still at their defaults, and the shell starts from `settings.json` |
+| `profile/` | GTK settings applied where still at their defaults, and the shell starts from `settings.json` |
 
 The configs are links into the project, so editing one edits the project.
-What is not a file — the shell's preferences, the GTK settings, the wallpapers
-— is saved with `tools/save-profile.sh`; run it and commit `profile/` to take
-them to the next machine. Anything `install.sh` has to replace is kept as
+What is not a file — the shell's preferences and the GTK settings — is saved
+with `tools/save-profile.sh`; run it and commit `profile/` to take them to the
+next machine. The wallpapers are not in the repository: put the pictures into
+the Pictures folder's `Wallpapers` yourself, and the saved choice, kept by file
+name, comes back once one of that name is there. Anything `install.sh` has to replace is kept as
 `<name>.bak-<date>`, and it is safe to re-run. Then log in again, or start the
 shell with `qs -c shell`.
 
@@ -66,7 +69,7 @@ hypr/                     the Hyprland and hyprpaper config
 terminal/                 kitty, and the fish prompt
 nvim/                     neovim
 bin/                      the scripts the configs run
-profile/                  saved preferences, GTK settings and wallpapers
+profile/                  saved preferences and GTK settings
 ```
 
 ### Services
@@ -113,16 +116,18 @@ stopped.
 hyprexpo was dropped from the official hyprland-plugins repo as unmaintained, so
 `tools/build-overview-plugin.sh` builds the maintained
 [sandwichfarm fork](https://github.com/sandwichfarm/hyprexpo), picking the tag
-that matches the installed Hyprland. **Re-run it after every Hyprland update** —
-Hyprland refuses to load a plugin built against different headers.
+that matches the installed Hyprland. Hyprland refuses to load a plugin built
+against different headers, so `hyprland.conf` runs it with `--if-stale` at every
+login: after a Hyprland update it rebuilds the plugin in the background, loads
+it and sends a notification, and otherwise does nothing.
 
 Its layout and gestures live in `hyprland.conf`; its three colours are pushed by
 the shell (`modules/common/OverviewTheme.qml`) so the overview follows the theme.
 
 ### Event-driven, not polled
 
-There is exactly one periodic timer in normal operation: `SystemClock` at
-minute precision, shared by every monitor. Everything else is push-driven —
+There is exactly one periodic timer in normal operation: the `Time` service's
+clock at minute precision, shared by every monitor. Everything else is push-driven —
 PipeWire and NetworkManager signals, the Hyprland event socket, inotify on the
 settings file and the backlight.
 
@@ -232,12 +237,16 @@ last command's status only when it failed — with a blank line above each one.
 
 `terminal/kitty.conf` is the whole kitty config — the font, the keys, the
 look. Your own `kitty.conf` only includes it, then `font-size.conf`, where
-`bin/kitty-font-size` keeps the size Ctrl+=/Ctrl+- set for that machine;
-anything you add after the include wins over the project. The prompt is fish's,
-so fish is made the login shell; its syntax colours are fish's default theme,
-drawn in the terminal's palette. neovim is drawn in it too (`nvim/init.lua`),
-on the terminal's own background. The terminal keeps its own colours rather
-than following the shell's theme and accent.
+`bin/kitty-font-size` keeps the size Ctrl+=/Ctrl+- set for that machine (a
+machine starts at the project's 13 pt); anything you add after the include wins
+over the project. The prompt is fish's, so fish is made the login shell; its
+syntax colours are fish's default theme, drawn in the terminal's palette.
+
+The colours are written once, in `terminal/palette.conf`: kitty takes them
+through `kitty-colors.py` (a `geninclude`), and the prompt and neovim
+(`nvim/init.lua`, on the terminal's own background) read the file themselves.
+The terminal keeps its own colours rather than following the shell's theme and
+accent.
 
 ## Development
 

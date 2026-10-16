@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
 import "root:/config"
 import "root:/components"
 import "root:/services"
@@ -26,7 +25,7 @@ ShellOverlay {
         spacing: Appearance.s.lg
 
         Column {
-            id: left
+            id: leftColumn
 
             width: 352
             height: parent.height
@@ -41,8 +40,8 @@ ShellOverlay {
             NotificationList {
                 width: parent.width
                 // The column has a fixed height, so this cannot feed back.
-                implicitHeight: left.height
-                    - (media.visible ? media.height + left.spacing : 0)
+                implicitHeight: leftColumn.height
+                    - (media.visible ? media.height + leftColumn.spacing : 0)
             }
         }
 
@@ -52,7 +51,7 @@ ShellOverlay {
         }
 
         Column {
-            width: parent.width - left.width - Appearance.s.lg * 2 - 1
+            width: parent.width - leftColumn.width - Appearance.s.lg * 2 - 1
             height: parent.height
             spacing: Appearance.s.lg
 

@@ -62,10 +62,10 @@ Surface {
 
         Item {
             width: parent.width
-            height: Math.max(icon.height, headline.implicitHeight)
+            height: Math.max(picture.height, headline.implicitHeight)
 
             AppIcon {
-                id: icon
+                id: picture
                 // The card outlives its notification while it fades out.
                 source: (root.notification?.image ?? "") !== "" ? root.notification.image
                     : (root.notification?.appIcon ?? "")
@@ -79,7 +79,7 @@ Surface {
                 id: headline
 
                 anchors.verticalCenter: parent.verticalCenter
-                x: icon.width + Appearance.s.lg
+                x: picture.width + Appearance.s.lg
                 width: parent.width - x - closeButton.width - Appearance.s.sm
                 spacing: 1
 
@@ -118,7 +118,7 @@ Surface {
             IconButton {
                 id: closeButton
                 anchors.right: parent.right
-                anchors.verticalCenter: icon.verticalCenter
+                anchors.verticalCenter: picture.verticalCenter
                 icon: "close"
                 size: 24
                 iconSize: Appearance.m.iconSm

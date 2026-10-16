@@ -8,9 +8,9 @@ import "root:/services"
 FocusScope {
     id: root
 
-    property alias text: input.text
+    property alias text: field.text
     property alias placeholder: placeholderLabel.text
-    property alias input: input
+    property alias input: field
 
     signal accepted
     signal escaped
@@ -20,12 +20,12 @@ FocusScope {
     implicitWidth: 320
     implicitHeight: Appearance.m.fieldHeight
 
-    function clear(): void { input.text = ""; }
+    function clear(): void { field.text = ""; }
 
     FieldWell {
         id: well
         anchors.fill: parent
-        focused: input.activeFocus
+        focused: field.activeFocus
 
         Icon {
             id: searchIcon
@@ -37,7 +37,7 @@ FocusScope {
         }
 
         TextInput {
-            id: input
+            id: field
             anchors.verticalCenter: parent.verticalCenter
             x: searchIcon.x + searchIcon.width + Appearance.s.md
             width: (clearButton.visible ? clearButton.x : root.width - Appearance.s.lg) - x - Appearance.s.md
@@ -82,9 +82,9 @@ FocusScope {
         Label {
             id: placeholderLabel
             anchors.verticalCenter: parent.verticalCenter
-            x: input.x
-            width: input.width
-            visible: input.text === ""
+            x: field.x
+            width: field.width
+            visible: field.text === ""
             faint: true
         }
 
@@ -92,14 +92,14 @@ FocusScope {
             id: clearButton
             anchors.verticalCenter: parent.verticalCenter
             x: root.width - width - Appearance.s.sm
-            visible: input.text !== ""
+            visible: field.text !== ""
             icon: "clear"
             size: 26
             iconSize: Appearance.m.iconSm
             focusable: false
             onClicked: {
                 root.clear();
-                input.forceActiveFocus();
+                field.forceActiveFocus();
             }
         }
     }

@@ -11,13 +11,13 @@ Item {
     id: root
 
 
-    implicitHeight: Math.min(340, header.height + list.contentHeight + Appearance.s.md)
+    implicitHeight: Math.min(340, heading.height + list.contentHeight + Appearance.s.md)
 
     Component.onCompleted: Bt.setDiscovering(true)
     Component.onDestruction: Bt.setDiscovering(false)
 
     Row {
-        id: header
+        id: heading
         width: parent.width
         height: 40
         spacing: Appearance.s.md
@@ -49,7 +49,7 @@ Item {
     ListView {
         id: list
 
-        anchors.top: header.bottom
+        anchors.top: heading.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom

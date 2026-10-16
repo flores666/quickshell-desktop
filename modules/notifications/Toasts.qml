@@ -4,7 +4,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import "root:/config"
-import "root:/components"
 import "root:/services"
 
 /*!

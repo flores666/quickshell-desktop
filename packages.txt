@@ -33,12 +33,13 @@ adwaita-icon-theme
 papirus-icon-theme
 ttf-jetbrains-mono-nerd
 
-# the terminal, the editor and the file manager
+# the terminal, the editor, the file manager, and the browser Super+B opens
 kitty
 fish
 neovim
 glow
 nautilus
+firefox
 
 # building the overview plugin, and the tools in tools/
 git

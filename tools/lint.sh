@@ -41,6 +41,11 @@ cd "$work"
 qmllint=/usr/lib/qt6/bin/qmllint
 [[ -x "$qmllint" ]] || qmllint=qmllint
 
+# qmllint only reads a directory's qmldir once the file uses something else
+# from that directory, so a singleton that does not says it is "not declared
+# as singleton in qmldir" — though the qmldirs above declare every one from
+# its own pragma. Dropped as noise.
 # shellcheck disable=SC2046
 "$qmllint" -I /usr/lib/qt6/qml -I . $(find . -name '*.qml' | sort) 2>&1 \
+    | grep -v 'not declared as singleton in qmldir but using pragma Singleton' \
     | sed "s#$work/##"

@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import Quickshell
 import QtQuick
-import "root:/config"
 import "root:/services"
 import "root:/modules/bar"
 import "root:/modules/dock"

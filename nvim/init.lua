@@ -552,26 +552,39 @@ if not uv.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
--- The terminal's palette, Soft Surface (terminal/kitty.conf in the desktop
--- project), so that neovim is the same surface as the kitty window it runs in
--- rather than a black panel inside it. Change a colour there and here together.
-local soft = {
-  bg = "#11141d", -- the terminal's background
-  bg_alt = "#171a26", -- the cursor line: barely off the background
-  surface = "#1f2336", -- menus, popups, the statusline: the prompt's path pill
-  raised = "#2c314a", -- borders, scrollbars: the prompt's place pill
-  selection = "#334178", -- selections: the terminal's own, the prompt's git pill
-  muted = "#5c6178", -- comments, line numbers: the terminal's bright black
-  dim = "#8a8fa6",
-  fg = "#c9ccd9",
-  bright = "#e6e8f0",
-  accent = "#7d93ee",
-  blue = "#9aaef5",
-  green = "#9cd8a9",
-  yellow = "#e9c98a",
-  orange = "#f2b38f",
-  red = "#ee8a97",
-}
+-- The terminal's palette, Soft Surface, read from terminal/palette.conf in the
+-- desktop project (this config is linked from it), so that neovim is the same
+-- surface as the kitty window it runs in rather than a black panel inside it.
+-- Nil when the file is not there; the theme then stays lackluster's own.
+local soft = (function()
+  local here = vim.fn.resolve(vim.fn.stdpath("config"))
+  local file = io.open(here .. "/../terminal/palette.conf")
+  if not file then
+    return nil
+  end
+  local palette = {}
+  for line in file:lines() do
+    local name, hex = line:match("^([%w_]+)%s+(#%x%x%x%x%x%x)%s*$")
+    if name then
+      palette[name] = hex
+    end
+  end
+  file:close()
+  return palette
+end)()
+
+-- The shade <t> of the way from <a> to <b>, for the steps between the
+-- palette's own that lackluster's ramp has.
+local function mix(a, b, t)
+  local function channel(hex, i)
+    return tonumber(hex:sub(i, i + 1), 16)
+  end
+  local out = "#"
+  for i = 2, 6, 2 do
+    out = out .. string.format("%02x", math.floor(channel(a, i) + (channel(b, i) - channel(a, i)) * t + 0.5))
+  end
+  return out
+end
 
 require("lazy").setup({
   {
@@ -585,35 +598,35 @@ require("lazy").setup({
       -- when it builds the theme, and lazy-lock.json pins the version. Each
       -- becomes the terminal's cool equivalent at lackluster's own step.
       local has_special, special = pcall(require, "lackluster.color-special")
-      if has_special then
+      if soft and has_special then
         special.main_background = soft.bg
         special.menu_background = soft.surface
         special.popup_background = soft.surface
         special.statusline = soft.surface
         special.whitespace = soft.surface
         special.comment = soft.muted
-        special.exception = "#646a88"
-        special.keyword = "#7a809c"
-        special.param = "#9a9fb6"
+        special.exception = mix(soft.muted, soft.dim, 0.2)
+        special.keyword = mix(soft.muted, soft.dim, 0.6)
+        special.param = mix(soft.dim, soft.fg, 0.3)
       end
 
       local ok, lackluster = pcall(require, "lackluster")
-      if ok and lackluster.setup then
+      if soft and ok and lackluster.setup then
         lackluster.setup({
           tweak_color = {
             black = soft.bg,
             gray1 = soft.bg_alt,
             gray2 = soft.surface,
             gray3 = soft.raised,
-            gray4 = "#4a5070",
-            gray5 = "#6a7090",
+            gray4 = mix(soft.raised, soft.muted, 0.5),
+            gray5 = mix(soft.muted, soft.dim, 0.4),
             gray6 = soft.dim,
-            gray7 = "#a9aec4",
+            gray7 = mix(soft.dim, soft.fg, 0.5),
             gray8 = soft.fg,
             gray9 = soft.bright,
             luster = soft.bright,
             lack = soft.accent,
-            blue = soft.blue,
+            blue = soft.accent_bright,
             green = soft.green,
             yellow = soft.yellow,
             orange = soft.orange,
@@ -627,6 +640,9 @@ require("lazy").setup({
       end
 
       vim.cmd.colorscheme("lackluster")
+      if not soft then
+        return
+      end
 
       local function hl(group, opts)
         vim.api.nvim_set_hl(0, group, opts)
@@ -673,8 +689,9 @@ require("lazy").setup({
       require("lualine").setup({
         options = {
           -- The mode in a pill of its own colour, the branch and diagnostics on
-          -- the surface, the rest on the terminal's background.
-          theme = (function()
+          -- the surface, the rest on the terminal's background; lualine's own
+          -- guess without the palette.
+          theme = not soft and "auto" or (function()
             local function mode(color, fg)
               return {
                 a = { fg = fg or soft.bg, bg = color, gui = "bold" },

@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Services.Pipewire
 
 /*!
@@ -29,21 +28,8 @@ Singleton {
 
     readonly property real volume: root.hasSink ? root.sink.audio.volume : 0
     readonly property bool muted: root.hasSink ? root.sink.audio.muted : true
-    /*! The level last asked for while the device has yet to report it, so a
-        drag is followed at once (see setMicVolume). */
-    readonly property real micVolume: !root.hasSource ? 0
-        : root.micTarget >= 0 ? root.micTarget : root.source.audio.volume
+    readonly property real micVolume: root.hasSource ? root.source.audio.volume : 0
     readonly property bool micMuted: root.hasSource ? root.source.audio.muted : true
-
-    /*! The level asked of the microphone and not yet reported back by it, and
-        the one waiting for the write in flight to finish; -1 for none. */
-    property real micTarget: -1
-    property real micQueued: -1
-
-    onSourceChanged: {
-        root.micTarget = -1;
-        root.micQueued = -1;
-    }
 
     /*! True while some application is actually capturing from the default source. */
     readonly property bool micInUse: sourceLinks.linkGroups.length > 0
@@ -119,56 +105,10 @@ Singleton {
         root.sink.audio.muted = !root.sink.audio.muted;
     }
 
-    /*!
-        Sets the microphone's level through WirePlumber, not on the node.
-
-        Quickshell 0.3.1 writes the node's own volume, and a Bluetooth
-        headset's microphone ignores that: Quickshell reported the new level,
-        the device kept its old one (measured: wrote 0.3, `wpctl` still read
-        0.6). Muting does reach the device, and the level it then reported —
-        the real one, untouched — was what made the slider jump to 100% when
-        its icon was clicked. `wpctl set-volume` sets the device's route, which
-        every source honours; the speaker's writes do reach it and stay as
-        they are. A drag asks for many levels: one write runs at a time, and
-        only the latest asked for during it follows.
-    */
     function setMicVolume(v: real): void {
         if (!root.hasSource)
             return;
-        root.micTarget = Math.max(0, Math.min(1, v));
-        if (micWriter.running)
-            root.micQueued = root.micTarget;
-        else
-            root.writeMicLevel(root.micTarget);
-    }
-
-    function writeMicLevel(level: real): void {
-        micWriter.command = ["wpctl", "set-volume", String(root.source.id), level.toFixed(3)];
-        micWriter.running = true;
-    }
-
-    /*! Hands the slider back to the device once it reports what was asked. */
-    function settleMicTarget(): void {
-        if (root.micTarget >= 0 && root.micQueued < 0 && !micWriter.running && root.hasSource
-                && Math.abs(root.source.audio.volume - root.micTarget) < 0.01)
-            root.micTarget = -1;
-    }
-
-    Process {
-        id: micWriter
-        onExited: {
-            const next = root.micQueued;
-            root.micQueued = -1;
-            if (next >= 0 && root.hasSource)
-                root.writeMicLevel(next);
-            else
-                root.settleMicTarget();
-        }
-    }
-
-    Connections {
-        target: root.hasSource ? root.source.audio : null
-        function onVolumesChanged(): void { root.settleMicTarget(); }
+        root.source.audio.volume = Math.max(0, Math.min(1, v));
     }
 
     function toggleMicMute(): void {

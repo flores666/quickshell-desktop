@@ -90,6 +90,16 @@ Singleton {
             : { saturation: [0, 0.15], value: [0.9, 1] };
     }
 
+    /*! The curated choices a seed's row offers ahead of the picker, the
+        theme's own colour ("") first; a background's are the current theme's. */
+    function seedChoices(seed: string): var {
+        if (seed === "accent")
+            return ["", "#c15f3c", "#b5453f", "#a8632a", "#6f7f45", "#3f7d6d", "#4a6f9c", "#7a5a9b", "#5c6470"];
+        return root.dark
+            ? ["", "#191817", "#141414", "#17181c", "#151a19", "#1b1720", "#1a1a1a"]
+            : ["", "#faf9f5", "#ffffff", "#f6f5f2", "#f7f6f9", "#f4f7f6", "#f8f5f1"];
+    }
+
     function inSeedRange(c: color, range: var): bool {
         const within = (x, span) => x >= span[0] - 0.005 && x <= span[1] + 0.005;
         return within(c.hsvSaturation, range.saturation) && within(c.hsvValue, range.value);

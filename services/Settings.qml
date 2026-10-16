@@ -15,29 +15,29 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    readonly property bool effectiveDark: adapter.theme !== "light"
-    readonly property bool doNotDisturb: adapter.doNotDisturb
-    readonly property var pinnedApps: adapter.pinnedApps
-    readonly property var dockOrder: adapter.dockOrder
-    readonly property string accentColor: adapter.accentColor
-    readonly property string backgroundLight: adapter.backgroundLight
-    readonly property string backgroundDark: adapter.backgroundDark
+    readonly property bool effectiveDark: store.theme !== "light"
+    readonly property bool doNotDisturb: store.doNotDisturb
+    readonly property var pinnedApps: store.pinnedApps
+    readonly property var dockOrder: store.dockOrder
+    readonly property string accentColor: store.accentColor
+    readonly property string backgroundLight: store.backgroundLight
+    readonly property string backgroundDark: store.backgroundDark
     /*! Colours made in the picker, newest first, and the ones pinned to stay.
         One pair for every seed: each row offers only those that fall inside
         its own range (Appearance.seedRange), which keeps them apart. */
-    readonly property var recentColors: adapter.recentColors
-    readonly property var pinnedColors: adapter.pinnedColors
+    readonly property var recentColors: store.recentColors
+    readonly property var pinnedColors: store.pinnedColors
     /*! Built-in colour choices the user has removed from their rows. */
-    readonly property var hiddenColors: adapter.hiddenColors
+    readonly property var hiddenColors: store.hiddenColors
     /*! How many unpinned colours are remembered, across all the seeds. */
     readonly property int recentColorLimit: 24
-    readonly property string fontFamily: adapter.fontFamily
+    readonly property string fontFamily: store.fontFamily
     /*! The GTK interface font as it was before the shell first set it, so that
         going back to Default can give it back; empty while the shell has not. */
-    readonly property string systemFontBefore: adapter.systemFontBefore
-    readonly property string wallpaper: adapter.wallpaper
+    readonly property string systemFontBefore: store.systemFontBefore
+    readonly property string wallpaper: store.wallpaper
     /*! The shell's corners follow Hyprland's window rounding; see Radii. */
-    readonly property bool roundnessFollowsWindows: adapter.roundnessFollowsWindows
+    readonly property bool roundnessFollowsWindows: store.roundnessFollowsWindows
 
     // ------------------------------------------------------------- overrides
     //
@@ -48,32 +48,32 @@ Singleton {
     // the value — the layout keys in Appearance.m.adjustable, the timings in the
     // service that acts on them — so nothing here has an opinion about them.
 
-    readonly property int barHeight: adapter.barHeight
-    readonly property int barGap: adapter.barGap
-    readonly property int barSideGap: adapter.barSideGap
-    readonly property int dockIcon: adapter.dockIcon
-    readonly property int screenGap: adapter.screenGap
-    readonly property int border: adapter.border
-    readonly property int roundness: adapter.roundness
-    readonly property int fontScale: adapter.fontScale
-    readonly property int notificationTimeout: adapter.notificationTimeout
-    readonly property int dockHideDelay: adapter.dockHideDelay
+    readonly property int barHeight: store.barHeight
+    readonly property int barGap: store.barGap
+    readonly property int barSideGap: store.barSideGap
+    readonly property int dockIcon: store.dockIcon
+    readonly property int screenGap: store.screenGap
+    readonly property int border: store.border
+    readonly property int roundness: store.roundness
+    readonly property int fontScale: store.fontScale
+    readonly property int notificationTimeout: store.notificationTimeout
+    readonly property int dockHideDelay: store.dockHideDelay
     // Hyprland options; ranges and encoding in CompositorOptions.spec.
-    readonly property int hyprGapsIn: adapter.hyprGapsIn
-    readonly property int hyprGapsOut: adapter.hyprGapsOut
-    readonly property int hyprBorder: adapter.hyprBorder
-    readonly property int hyprRounding: adapter.hyprRounding
-    readonly property int hyprBlur: adapter.hyprBlur
-    readonly property int hyprAnimations: adapter.hyprAnimations
-    readonly property int hyprActiveOpacity: adapter.hyprActiveOpacity
-    readonly property int hyprInactiveOpacity: adapter.hyprInactiveOpacity
-    readonly property int hyprMouseSpeed: adapter.hyprMouseSpeed
-    readonly property int hyprMouseAccel: adapter.hyprMouseAccel
-    readonly property int hyprMouseScroll: adapter.hyprMouseScroll
-    readonly property int hyprTouchpadScroll: adapter.hyprTouchpadScroll
-    readonly property int hyprTouchpadSpeed: adapter.hyprTouchpadSpeed
-    readonly property int hyprNaturalScroll: adapter.hyprNaturalScroll
-    readonly property int hyprTapToClick: adapter.hyprTapToClick
+    readonly property int hyprGapsIn: store.hyprGapsIn
+    readonly property int hyprGapsOut: store.hyprGapsOut
+    readonly property int hyprBorder: store.hyprBorder
+    readonly property int hyprRounding: store.hyprRounding
+    readonly property int hyprBlur: store.hyprBlur
+    readonly property int hyprAnimations: store.hyprAnimations
+    readonly property int hyprActiveOpacity: store.hyprActiveOpacity
+    readonly property int hyprInactiveOpacity: store.hyprInactiveOpacity
+    readonly property int hyprMouseSpeed: store.hyprMouseSpeed
+    readonly property int hyprMouseAccel: store.hyprMouseAccel
+    readonly property int hyprMouseScroll: store.hyprMouseScroll
+    readonly property int hyprTouchpadScroll: store.hyprTouchpadScroll
+    readonly property int hyprTouchpadSpeed: store.hyprTouchpadSpeed
+    readonly property int hyprNaturalScroll: store.hyprNaturalScroll
+    readonly property int hyprTapToClick: store.hyprTapToClick
 
     /*! Every key `setOverride` accepts, and everything `resetOverrides` clears. */
     readonly property var overrideKeys: [
@@ -86,7 +86,7 @@ Singleton {
     ]
 
     function setTheme(name: string): void {
-        adapter.theme = name === "light" ? "light" : "dark";
+        store.theme = name === "light" ? "light" : "dark";
     }
 
     function toggleTheme(): void {
@@ -94,23 +94,23 @@ Singleton {
     }
 
     function setDoNotDisturb(on: bool): void {
-        adapter.doNotDisturb = on;
+        store.doNotDisturb = on;
     }
 
     function setRoundnessFollowsWindows(on: bool): void {
-        adapter.roundnessFollowsWindows = on;
+        store.roundnessFollowsWindows = on;
     }
 
     function setAccentColor(value: string): void {
-        adapter.accentColor = value;
+        store.accentColor = value;
     }
 
     /*! Applies to whichever theme is active; the other keeps its own colour. */
     function setBackgroundColor(value: string): void {
-        if (adapter.theme === "light")
-            adapter.backgroundLight = value;
+        if (store.theme === "light")
+            store.backgroundLight = value;
         else
-            adapter.backgroundDark = value;
+            store.backgroundDark = value;
     }
 
     /*! Puts a picked colour at the front of the recent ones, in place of
@@ -120,12 +120,12 @@ Singleton {
         if (value === "" || root.isColorPinned(value))
             return;
         const gone = [value, replacing ?? ""];
-        adapter.recentColors = [value].concat(adapter.recentColors.filter(x => !gone.includes(x)))
+        store.recentColors = [value].concat(store.recentColors.filter(x => !gone.includes(x)))
             .slice(0, root.recentColorLimit);
     }
 
     function isColorPinned(value: string): bool {
-        return adapter.pinnedColors.indexOf(value) !== -1;
+        return store.pinnedColors.indexOf(value) !== -1;
     }
 
     /*! Pinning takes a colour out of the recent ones so it never ages out,
@@ -135,11 +135,11 @@ Singleton {
         if (value === "")
             return;
         if (root.isColorPinned(value)) {
-            adapter.pinnedColors = adapter.pinnedColors.filter(x => x !== value);
+            store.pinnedColors = store.pinnedColors.filter(x => x !== value);
             root.rememberColor(value, "");
         } else {
-            adapter.recentColors = adapter.recentColors.filter(x => x !== value);
-            adapter.pinnedColors = [value].concat(adapter.pinnedColors);
+            store.recentColors = store.recentColors.filter(x => x !== value);
+            store.pinnedColors = [value].concat(store.pinnedColors);
         }
     }
 
@@ -149,33 +149,33 @@ Singleton {
     function forgetColor(value: string): void {
         if (value === "")
             return;
-        adapter.recentColors = adapter.recentColors.filter(x => x !== value);
-        adapter.pinnedColors = adapter.pinnedColors.filter(x => x !== value);
-        if (adapter.hiddenColors.indexOf(value) === -1)
-            adapter.hiddenColors = adapter.hiddenColors.concat([value]);
+        store.recentColors = store.recentColors.filter(x => x !== value);
+        store.pinnedColors = store.pinnedColors.filter(x => x !== value);
+        if (store.hiddenColors.indexOf(value) === -1)
+            store.hiddenColors = store.hiddenColors.concat([value]);
     }
 
     /*! Empty means the shell's own face. Any installed family is accepted. */
     function setFontFamily(value: string): void {
-        adapter.fontFamily = value;
+        store.fontFamily = value;
     }
 
     function setSystemFontBefore(value: string): void {
-        adapter.systemFontBefore = value;
+        store.systemFontBefore = value;
     }
 
     /*! The wallpaper's picture: a path, or a name in the folder (Wallpaper.current). */
     function setWallpaper(path: string): void {
-        adapter.wallpaper = path;
+        store.wallpaper = path;
     }
 
     /*! Set one override. A negative value restores the built-in value. */
     function setOverride(key: string, value: int): void {
         // An undeclared key would have JsonAdapter grow a property nothing reads
         // and then write it out to the file forever.
-        if (adapter[key] === undefined)
+        if (store[key] === undefined)
             return;
-        adapter[key] = value;
+        store[key] = value;
     }
 
     /*!
@@ -191,94 +191,46 @@ Singleton {
     }
 
     function isOverridden(key: string): bool {
-        return adapter[key] !== undefined && adapter[key] >= 0;
+        return store[key] !== undefined && store[key] >= 0;
     }
 
     function resetOverrides(): void {
         for (const key of root.overrideKeys)
-            adapter[key] = -1;
+            store[key] = -1;
     }
 
     function isPinned(id: string): bool {
-        return id !== "" && adapter.pinnedApps.indexOf(id) !== -1;
+        return id !== "" && store.pinnedApps.indexOf(id) !== -1;
     }
 
     function pin(id: string): void {
         if (id === "" || root.isPinned(id))
             return;
-        adapter.pinnedApps = adapter.pinnedApps.concat([id]);
+        store.pinnedApps = store.pinnedApps.concat([id]);
     }
 
     function unpin(id: string): void {
         if (!root.isPinned(id))
             return;
-        adapter.pinnedApps = adapter.pinnedApps.filter(x => x !== id);
+        store.pinnedApps = store.pinnedApps.filter(x => x !== id);
     }
 
     /*! The order the user dragged the dock into, as application keys. */
     function setDockOrder(keys: var): void {
-        adapter.dockOrder = keys;
+        store.dockOrder = keys;
     }
 
     readonly property bool ready: file.loaded
 
-    JsonAdapter {
-        id: adapter
-
-        property string theme: "dark"
-        property bool doNotDisturb: false
-        property bool roundnessFollowsWindows: false
-        property list<string> pinnedApps: []
-        /*! Application keys in the order the dock shows them. Keys that are
-            neither pinned nor running are ignored, so it never needs pruning. */
-        property list<string> dockOrder: []
-        /*! Empty means "use the built-in colour for the current theme". */
-        property string accentColor: ""
-        property string backgroundLight: ""
-        property string backgroundDark: ""
-        property list<string> recentColors: []
-        property list<string> pinnedColors: []
-        property list<string> hiddenColors: []
-        /*! Empty means the built-in font family. */
-        property string fontFamily: ""
-        property string systemFontBefore: ""
-        /*! Absolute path; empty means the shell has never set the wallpaper and
-            leaves whatever the wallpaper daemon was configured with alone. */
-        property string wallpaper: ""
-        /*! Layout and timing overrides. -1 means "use the tuned value". */
-        property int barHeight: -1
-        property int barGap: -1
-        property int barSideGap: -1
-        property int dockIcon: -1
-        property int screenGap: -1
-        property int border: -1
-        property int roundness: -1
-        property int fontScale: -1
-        property int notificationTimeout: -1
-        property int dockHideDelay: -1
-        /*! Hyprland overrides, pushed as keywords by CompositorOptions. */
-        property int hyprGapsIn: -1
-        property int hyprGapsOut: -1
-        property int hyprBorder: -1
-        property int hyprRounding: -1
-        property int hyprBlur: -1
-        property int hyprAnimations: -1
-        property int hyprActiveOpacity: -1
-        property int hyprInactiveOpacity: -1
-        property int hyprMouseSpeed: -1
-        property int hyprMouseAccel: -1
-        property int hyprMouseScroll: -1
-        property int hyprTouchpadScroll: -1
-        property int hyprTouchpadSpeed: -1
-        property int hyprNaturalScroll: -1
-        property int hyprTapToClick: -1
+    SettingsStore {
+        id: store
     }
 
     FileView {
         id: file
 
         path: Quickshell.statePath("settings.json")
-        adapter: adapter
+        adapter: store
         watchChanges: true
         printErrors: false
 

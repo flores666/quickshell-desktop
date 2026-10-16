@@ -43,11 +43,17 @@ Singleton {
     readonly property string folderPath: root.folder.toString().replace(/^file:\/\//, "")
     /*! The picture in force, or empty when the shell has never set one. A
         choice saved as a bare file name is that picture in this machine's
-        folder: a profile saved from another machine names it that way, since
+        folder — a profile saved from another machine names it that way, since
         the folder's own path differs between them (the user's name, the
-        language the Pictures folder is named in). */
-    readonly property string current: Settings.wallpaper === "" || Settings.wallpaper.includes("/")
-        ? Settings.wallpaper : `${root.folderPath}/${Settings.wallpaper}`
+        language the Pictures folder is named in) — and empty until the folder
+        has it: the pictures themselves are not in the project. */
+    readonly property string current: {
+        const choice = Settings.wallpaper;
+        if (choice === "" || choice.includes("/"))
+            return choice;
+        const path = `${root.folderPath}/${choice}`;
+        return root.items.includes(path) ? path : "";
+    }
 
     function set(path: string): void {
         Settings.setWallpaper(path);

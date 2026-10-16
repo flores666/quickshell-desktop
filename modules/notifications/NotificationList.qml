@@ -13,7 +13,7 @@ Item {
     implicitHeight: 320
 
     Item {
-        id: header
+        id: heading
         width: parent.width
         height: 32
 
@@ -51,7 +51,7 @@ Item {
     ListView {
         id: list
 
-        anchors.top: header.bottom
+        anchors.top: heading.bottom
         anchors.topMargin: Appearance.s.md
         anchors.left: parent.left
         anchors.right: parent.right

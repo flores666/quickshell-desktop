@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Set a computer up as this desktop: the packages it needs, the Quickshell
 # config "shell", the overview plugin, and the configs of Hyprland, hyprpaper,
-# kitty, fish and neovim, the scripts in bin/, and the preferences, GTK
-# settings and wallpapers saved in profile/ (tools/save-profile.sh).
+# kitty, fish and neovim, the scripts in bin/, and the preferences and GTK
+# settings saved in profile/ (tools/save-profile.sh). The wallpapers are the
+# one thing to bring by hand, into the Pictures folder's Wallpapers.
 #
 # The configs are links into the project, so an edit to one lands in the
 # project and the next machine gets it. Each goes through the one link to the
@@ -64,11 +65,15 @@ if command -v pacman >/dev/null; then
     aur=($(missing "$repo/packages-aur.txt"))
     if ((${#aur[@]})); then
         helper="$(command -v yay || command -v paru || true)"
-        if [[ -n "$helper" ]]; then
-            "$helper" -S --needed "${aur[@]}"
-        else
-            say "install these from the AUR yourself: ${aur[*]}"
+        if [[ -z "$helper" ]]; then
+            # yay itself comes from the AUR, built the way any AUR package is.
+            build="$(mktemp -d)"
+            git clone --quiet https://aur.archlinux.org/yay-bin.git "$build/yay-bin"
+            (cd "$build/yay-bin" && makepkg -si --needed)
+            rm -rf "$build"
+            helper="$(command -v yay)"
         fi
+        "$helper" -S --needed "${aur[@]}"
     fi
 else
     say "not Arch: install what packages.txt and packages-aur.txt list yourself"
@@ -95,9 +100,10 @@ done
 
 link "$repo" "$shell_dir"
 
-plugin="${XDG_DATA_HOME:-$HOME/.local/share}/hyprexpo/hyprexpo.so"
-if [[ ! -e "$plugin" ]] && pkg-config --exists hyprland 2>/dev/null; then
-    "$repo/tools/build-overview-plugin.sh"
+# Built when missing or built against another Hyprland; hyprland.conf runs
+# the same check at every login, so an update rebuilds it by itself.
+if pkg-config --exists hyprland 2>/dev/null; then
+    "$repo/tools/build-overview-plugin.sh" --if-stale
 fi
 
 # ------------------------------------------------------------------- configs
@@ -138,18 +144,6 @@ for script in "$repo"/bin/*; do
 done
 
 # ------------------------------------------------------------------- profile
-
-# Where Qt finds the Pictures folder, which is what Wallpaper.folder is under.
-pictures="$(xdg-user-dir PICTURES 2>/dev/null || true)"
-[[ -n "$pictures" && "$pictures" != "$HOME" ]] || pictures="$HOME/Pictures"
-mkdir -p "$pictures/Wallpapers"
-for picture in "$repo"/profile/wallpapers/*; do
-    [[ -e "$picture" ]] || continue
-    target="$pictures/Wallpapers/${picture##*/}"
-    [[ -e "$target" ]] && continue
-    cp -- "$picture" "$target"
-    say "copied the wallpaper ${picture##*/}"
-done
 
 # A saved setting only where the machine still has the default: a re-run
 # never takes back a change made since.

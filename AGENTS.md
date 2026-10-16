@@ -7,14 +7,14 @@ and is not recoverable from the code alone.
 ## What this is
 
 A desktop shell for Wayland / Hyprland written in QML against
-[Quickshell](https://quickshell.outfoxxed.me) 0.3 and Qt 6.11. It is the whole
+[Quickshell](https://quickshell.outfoxxed.me) 0.3 and Qt 6.12. It is the whole
 desktop UI: top bar, dock, launcher, quick settings, notifications, OSD, session
 lock. There is no build step — Quickshell interprets the QML directly and
 reloads on file change.
 
 The project is also the rest of the desktop: the packages it needs, the
 configs of Hyprland, hyprpaper, kitty, fish and neovim, the scripts it binds,
-and the saved preferences and wallpapers. `./install.sh` sets a new computer
+and the saved preferences. `./install.sh` sets a new computer
 up as this desktop from the checkout alone; see *The rest of the desktop*.
 
 ## Running and verifying
@@ -24,7 +24,7 @@ qs -c shell                       # run it (resolves ~/.config/quickshell/shell)
 qs -c shell ipc call shell <action>   # drive it; see ShellIpc.actions
 ./tools/lint.sh                   # qmllint over the whole tree
 python3 tools/genicons.py         # regenerate components/Icons.qml
-./tools/build-overview-plugin.sh  # rebuild the hyprexpo plugin
+./tools/build-overview-plugin.sh  # rebuild the hyprexpo plugin (--if-stale: only if out of date)
 ```
 
 **Always run `./tools/lint.sh` and check the runtime log before claiming done.**
@@ -32,15 +32,19 @@ Plain `qmllint` will not work: it does not understand Quickshell's `root:/`
 imports and needs `qmldir` files that Quickshell synthesizes at runtime. The
 wrapper copies the tree to a scratch dir, rewrites imports and generates the
 qmldirs. Expect a residue of unavoidable warnings — types Quickshell registers
-from C++ (`PanelWindow`, `GlobalShortcut`, enum types) and `QObject*`-typed
-properties like `Loader.item`. Everything else must be clean.
+from C++ (`PanelWindow`, `GlobalShortcut` and its base `PostReloadHook`, enum
+types) and `QObject*`-typed properties like `Loader.item` and
+`ObjectModel.values`. Everything else must be clean. The
+wrapper filters one false warning itself: qmllint calls a singleton "not
+declared as singleton in qmldir" unless its file uses something else from its
+own directory, though the generated qmldirs declare every one.
 
 In the session the shell is the user unit `quickshell.service` (see
 `hyprland.conf`: capped at 1.5 GB with no swap, restarted on failure). To check
 the runtime log, `systemctl --user restart quickshell`, then read
 `journalctl --user -u quickshell -o cat` and grep out the `INFO` lines plus the
-two environmental warnings (`sni.watcher`, `bluez` — this machine has no
-Bluetooth adapter). A healthy start prints nothing else.
+environmental warnings (`sni.watcher`, from tray applications; `bluez` on a
+machine with no Bluetooth adapter). A healthy start prints nothing else.
 
 ### Verifying behaviour, not just compilation
 
@@ -120,14 +124,16 @@ packages-aur.txt     every package from the AUR
 hypr/                the Hyprland config (hyprland.conf sources conf.d/*.conf
                      in name order) and hyprpaper.conf
 terminal/            kitty.conf (the whole kitty config, in the Soft Surface
-                     look) and prompt.fish. Not QML and not a surface, so its
-                     colours are its own rather than tokens
+                     look), prompt.fish, and palette.conf: the terminal's
+                     colours, written there only — kitty takes them through
+                     kitty-colors.py (a geninclude), the prompt and neovim
+                     read the file. Not QML and not a surface, so they are not
+                     tokens
 nvim/                the neovim config; its theme is lackluster recoloured
-                     with terminal/kitty.conf's palette (`soft`), so a colour
-                     changes in both
+                     with palette.conf, and plain lackluster without it
 bin/                 scripts the configs run, linked into ~/.local/bin
 profile/             state saved from a machine set up already, for the next:
-                     settings.json (the shell's), gtk.dconf, wallpapers/
+                     settings.json (the shell's) and gtk.dconf
 ```
 
 The dependency rule is one-way: `modules/` → `components/` → `config/`, and
@@ -153,7 +159,9 @@ something new, the change also records it here.** Concretely:
 | a script a config or bind runs | `bin/`; refer to it by bare name (kitty finds `~/.local/bin` itself; Hyprland binds use `~/.local/bin/<name>`) | links every file in `bin/` into `~/.local/bin` |
 | a system or user service | the package; enabling it is a line in `install.sh` | enables it if it is off |
 | a setting that lives in dconf | its directory in `tools/save-profile.sh`'s `gtk` list, then run that | writes each key the machine still has at its default |
-| the shell's preferences, wallpapers | nothing new: run `tools/save-profile.sh` and commit `profile/` | `Settings` starts from `profile/settings.json` on a machine with none; wallpapers are copied into the Pictures folder |
+| a colour in the terminal, the prompt or neovim | `terminal/palette.conf`, by name | nothing: all three read it |
+| a setting for one particular monitor or input device | its rule keyed by the device itself (`desc:` for a monitor, `name` in a `device` block), never by connector, in `hypr/conf.d` | nothing: a rule for a device a machine lacks matches nothing there |
+| the shell's preferences | nothing new: run `tools/save-profile.sh` and commit `profile/` | `Settings` starts from `profile/settings.json` on a machine with none |
 
 How it fits together:
 
@@ -164,14 +172,17 @@ How it fits together:
   machine's, hold a single `source`/`include` of the project, and take what
   only that machine needs after it (kitty's font size, which
   `bin/kitty-font-size` writes there, is one).
-- **State is saved, not linked.** dconf, the shell's `settings.json` and the
-  wallpapers change as the desktop is used, and a link would put every slider
-  move into git and fight the next machine's own changes. `save-profile.sh`
-  snapshots them; `install.sh` gives them only to a machine that has none, so
-  a re-run never takes back a change made since. A wallpaper inside the folder
-  is saved by its bare name (`Wallpaper.current` finds it in the next
-  machine's folder, whatever its Pictures folder is called);
-  `systemFontBefore` is machine state and is saved empty.
+- **State is saved, not linked.** dconf and the shell's `settings.json`
+  change as the desktop is used, and a link would put every slider move into
+  git and fight the next machine's own changes. `save-profile.sh` snapshots
+  them; `install.sh` gives them only to a machine that has none, so a re-run
+  never takes back a change made since. `systemFontBefore` is machine state
+  and is saved empty.
+- **The pictures are not in the repository.** It is public, and every save
+  would have grown its history by megabytes. The wallpaper choice is saved by
+  its bare name when the picture is in the folder, and `Wallpaper.current`
+  resolves it in the next machine's folder (whatever its Pictures folder is
+  called), empty until a picture of that name is put there.
 - **`install.sh` never loses a file.** Whatever has to make way is kept beside
   itself as `<name>.bak-<date>`. Every step checks first, so running it twice
   changes nothing the second time.
@@ -283,7 +294,7 @@ contents.
 |---|---|---|
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup) |
 | `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
@@ -299,7 +310,7 @@ contents.
 | `Keyboard` | the active XKB layout | `available`, `code` (e.g. `EN`), `cycle` (every keyboard at once) |
 | `Osd` | the transient volume/mic/brightness indicator, listening to each source only once it holds a true reading | `shown`, `kind`, `value`, `icon`, `text`, `holdTime` |
 | `Screenshot` | screen capture through grim/slurp | `capture`, `captureRegion` |
-| `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current` (always a path: a saved bare name is a picture in the folder), `set` |
+| `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current` (always a path: a saved bare name is that picture in the folder, empty until it is there), `set` |
 | `Fonts` | the font families Qt found, and applying the chosen one to applications — the GTK interface font and a fontconfig file the shell owns (`conf.d/50-quickshell-font.conf`); *Default* restores the GTK font it first replaced | `families`, `available`, `chosen`, `search` |
 | `Session` | lock, suspend, logout, reboot, shutdown | `lock` (raises `lockRequested`), `suspend`, `logout`, … |
 | `Time` | one clock for the whole shell | `now`, `time`, `dateShort`, `dateLong` |
@@ -340,9 +351,11 @@ implemented.
 
 # Platform gotchas
 
-These are all verified on this machine (Hyprland 0.56.2, Quickshell 0.3.1,
-Qt 6.11.2). Several of them are the reason code looks the way it does; if you
-"simplify" past one you will reintroduce a bug that was expensive to find.
+These were verified on this machine under Hyprland 0.56.2, Quickshell 0.3.1
+and Qt 6.11.2; it now runs Quickshell 0.3.2 and Qt 6.12, and the two that
+0.3.2 fixed are marked so. Several of them are the reason code looks the way
+it does; if you "simplify" past one you will reintroduce a bug that was
+expensive to find.
 
 ### QML / Qt
 
@@ -423,24 +436,22 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **Quickshell gives battery charge and Wi-Fi signal as 0–1 fractions**, not
   the 0–100 UPower and NetworkManager speak. `Power.percentage` converts once;
   `Network.signalIcon` holds the thresholds as fractions.
-- **Quickshell 0.3.1's volume write does not reach a Bluetooth headset's
-  microphone.** It reports the new level while the device keeps the old one
-  (wrote 0.3, `wpctl` read 0.6); muting does reach it, and the true level read
-  back then made the slider jump. `Audio.setMicVolume` goes through
-  `wpctl set-volume`, coalesced to one process at a time. The speaker's
-  writes do land and stay on the node.
+- **Fixed in 0.3.2: a volume write did not reach a Bluetooth headset's
+  microphone.** 0.3.1 reported the new level while the device kept the old
+  one (wrote 0.3, `wpctl` read 0.6), and `Audio.setMicVolume` went through
+  `wpctl set-volume` instead. Under 0.3.2 the node write lands (a WH-1000XM4:
+  wrote 0.35, `wpctl` read 0.35 and kept it), so the mic is written like the
+  speaker. On 0.3.1 the workaround would be needed again.
 - **A `PwNode`'s volume is not real until the node is `ready`** (bound). What
   it reports while binding is its state, not a change: `Audio.hasSink` waits
   for it, and that is what keeps the OSD from flashing at login.
-- **Quickshell 0.3.1's `Networking` never recovers from NetworkManager
-  restarting**: the devices go and are not registered again, so Wi-Fi reads
-  "Unavailable" while it works. It is a process-wide C++ singleton, so no QML
-  reload rebuilds it; 0.3.2 watches the service and fixes it. Until then
-  `Network` watches NetworkManager's bus name (`gdbus monitor`) and restarts
-  the shell's unit when it gets a new owner — only inside the unit
-  (`INVOCATION_ID`), so a `qs` run by hand is never duplicated. Remove that
-  watcher with the upgrade. (A probe that reads `Networking.devices` from a
-  timer sees none: the backend connects on first use, then fills in.)
+- **Fixed in 0.3.2: `Networking` never recovered from NetworkManager
+  restarting** (its changelog: "networking state breaking after restarting
+  NetworkManager"). Under 0.3.1 the devices went and were not registered
+  again, so Wi-Fi read "Unavailable" while it worked, and `Network` restarted
+  the shell's unit whenever NetworkManager's bus name got a new owner; that
+  watcher is gone with the upgrade. (A probe that reads `Networking.devices`
+  from a timer sees none: the backend connects on first use, then fills in.)
 - **UPower reports a time to empty for a full battery on AC**, computed from
   its trickle (≈30 days). `Power.timeLabel` answers only while charging or
   discharging.
@@ -464,6 +475,15 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
   the key event. Only the bind acts (`Overlay.dismissOnEscape`); `OverlayCard`
   swallows the key. Acting on both took two steps per press — a card menu
   closed by one, and the popup behind it by the other.
+- **Qt 6.12 warns on every popup close** —
+  `QWaylandTextInputv3::disableSurface … Trying to disable <surface> but
+  <other> is focused` — popups with no text field included, so it is not the
+  shell's focus handling: Qt disables text input for each window it hides,
+  and Hyprland never gave that surface text input. Nothing is lost. A
+  `//@ pragma Env QT_LOGGING_RULES=…` does nothing (Quickshell installs its
+  own log filter), so the unit's command line in `hyprland.conf` passes
+  `--log-rules qt.qpa.wayland.textinput.warning=false`; a `qs` started by
+  hand shows the warning.
 - **`mask: Region { item: null }` is genuinely click-through** (verified with a
   hover probe: `item: catcher` → 1 hover, `item: null` → 0). This is what lets a
   surface be visible but inert.
@@ -578,7 +598,13 @@ way: 16×16, filled paths. Two details matter:
 and is absent from its `v0.56.0` release. The build script uses the maintained
 [sandwichfarm fork](https://github.com/sandwichfarm/hyprexpo), picking the tag
 matching the installed Hyprland. **Hyprland refuses to load a plugin built
-against different headers**, so it must be rebuilt after every Hyprland update.
+against different headers**, so it must be rebuilt after every Hyprland update,
+and `hyprland.conf` does that by itself: an `exec-once` runs the build script
+with `--if-stale` at every login, which compares the Hyprland the plugin was
+built against (`built-for`, written beside it) with the installed one, and
+only on a difference rebuilds, loads the result into the running Hyprland
+(unless one is loaded, or the binary was replaced on disk — see *Testing*)
+and sends a notification. Its output is in `journalctl --user -t hyprexpo`.
 `master` chases hyprland-git and will not compile against a release.
 
 Three patches are applied, in order, all relative to the source directory:

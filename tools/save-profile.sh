@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Save into profile/ what this machine has set up that is not a file in the
 # project, so that install.sh can give it to the next one: the shell's
-# preferences, the GTK and file-manager settings, and the wallpapers.
+# preferences, and the GTK and file-manager settings. Not the wallpapers: the
+# pictures stay out of the repository, and the choice among them is saved by
+# name, so it comes back on a machine whose folder has a picture of that name.
 #
 # The configs themselves need no saving: install.sh links them to the project,
 # so an edit to one already lands here. Commit profile/ afterwards.
@@ -54,12 +56,3 @@ for dir in "${gtk[@]}"; do
     dconf dump "/$dir/" | awk 'NR > 1 && /^\[/ { exit } NR > 1 && NF'
 done > "$profile/gtk.dconf"
 echo "saved the GTK settings"
-
-# A mirror of the folder, so a picture deleted here goes from the profile too.
-rm -rf "$profile/wallpapers"
-mkdir -p "$profile/wallpapers"
-shopt -s nullglob nocaseglob
-for picture in "$wallpapers"/*.{jpg,jpeg,png,webp,bmp}; do
-    cp -- "$picture" "$profile/wallpapers/"
-done
-echo "saved $(ls "$profile/wallpapers" | wc -l) wallpapers"

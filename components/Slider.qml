@@ -84,7 +84,7 @@ Item {
         color: Appearance.c.knob
         border.width: 1
         border.color: Appearance.c.border
-        scale: drag.pressed ? 1.12 : hover.hovered ? 1.06 : 1
+        scale: dragArea.pressed ? 1.12 : hover.hovered ? 1.06 : 1
 
         Behavior on scale {
             NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
@@ -114,7 +114,7 @@ Item {
     }
 
     MouseArea {
-        id: drag
+        id: dragArea
         anchors.fill: parent
         enabled: root.enabled && root.interactive
         preventStealing: true
@@ -125,7 +125,7 @@ Item {
             root.setFromX(event.x);
         }
         onPositionChanged: event => {
-            if (drag.pressed)
+            if (dragArea.pressed)
                 root.setFromX(event.x);
         }
         onReleased: root.committed(root.clamped)

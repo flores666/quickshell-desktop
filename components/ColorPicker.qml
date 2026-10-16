@@ -29,7 +29,7 @@ Column {
     id: root
 
     /*! The colour shown. Followed until the user takes hold of the picker. */
-    property color value: "#808080"
+    required property color value
     property var saturationRange: [0, 1]
     property var valueRange: [0, 1]
 

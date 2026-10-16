@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Networking
 
 /*!
@@ -259,32 +258,4 @@ Singleton {
 
     /*! `reason` is empty for a first ask, or says why the last try failed. */
     signal passwordRequested(WifiNetwork network, string reason)
-
-    /*!
-        Quickshell 0.3.1 registers NetworkManager's devices once: when the
-        service restarts they are dropped and never registered again, so Wi-Fi
-        reads "Unavailable" while it works — and Networking is a process-wide
-        C++ singleton, which no QML reload rebuilds. Until 0.3.2's own service
-        watcher, this one restarts the shell's unit when NetworkManager's bus
-        name gets a new owner: the first line gdbus prints is the owner it found,
-        any later one is a restart. Only inside the unit, so a `qs` started by
-        hand is never duplicated by it.
-    */
-    property string nmOwner: ""
-
-    Process {
-        running: Boolean(Quickshell.env("INVOCATION_ID"))
-        command: ["stdbuf", "-oL", "gdbus", "monitor", "--system",
-            "--dest", "org.freedesktop.NetworkManager", "--object-path", "/org/quickshell/none"]
-        stdout: SplitParser {
-            onRead: line => {
-                const owner = /is owned by (\S+)/.exec(line)?.[1] ?? "";
-                if (owner === "")
-                    return;
-                if (root.nmOwner !== "" && owner !== root.nmOwner)
-                    Quickshell.execDetached(["systemctl", "--user", "--no-block", "restart", "quickshell"]);
-                root.nmOwner = owner;
-            }
-        }
-    }
 }

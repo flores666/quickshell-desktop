@@ -22,7 +22,7 @@ ShellOverlay {
 
     overlayId: Overlay.quickSettings
     cardWidth: Appearance.m.popoverWidth
-    cardHeight: content.implicitHeight + Appearance.s.lg * 2
+    cardHeight: body.implicitHeight + Appearance.s.lg * 2
 
     /*! "" is the front page; anything else is a key of `pages`. */
     property string page: ""
@@ -66,7 +66,7 @@ ShellOverlay {
     }
 
     Item {
-        id: content
+        id: body
 
         anchors.fill: parent
         anchors.margins: Appearance.s.lg
@@ -151,7 +151,7 @@ ShellOverlay {
 
                 readonly property bool explaining: restartButton.hovered || restartButton.focusVisible
                 onExplainingChanged: {
-                    const at = restartButton.mapToItem(content, restartButton.width / 2, restartButton.height);
+                    const at = restartButton.mapToItem(body, restartButton.width / 2, restartButton.height);
                     actionTip.anchorX = at.x;
                     actionTip.anchorY = at.y;
                     actionTip.text = qsTr("Restart Wi-Fi");

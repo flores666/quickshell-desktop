@@ -37,10 +37,10 @@ Item {
     readonly property bool overridden: Settings.isOverridden(root.key)
 
     implicitWidth: Appearance.m.popoverWidth
-    implicitHeight: text.implicitHeight + slider.implicitHeight + Appearance.s.xxs
+    implicitHeight: title.implicitHeight + slider.implicitHeight + Appearance.s.xxs
 
     Label {
-        id: text
+        id: title
         anchors.left: parent.left
         anchors.top: parent.top
         text: root.label
@@ -50,14 +50,14 @@ Item {
     ResetButton {
         id: reset
         anchors.right: parent.right
-        anchors.verticalCenter: text.verticalCenter
+        anchors.verticalCenter: title.verticalCenter
         key: root.key
     }
 
     Label {
         anchors.right: reset.visible ? reset.left : parent.right
         anchors.rightMargin: reset.visible ? Appearance.s.xs : 0
-        anchors.verticalCenter: text.verticalCenter
+        anchors.verticalCenter: title.verticalCenter
         text: !root.known ? qsTr("As configured")
             : root.suffix === "" ? root.value : qsTr("%1 %2").arg(root.value).arg(root.suffix)
         role: Label.Role.Small

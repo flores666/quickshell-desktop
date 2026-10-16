@@ -70,7 +70,7 @@ ShellOverlay {
                 required property var modelData
 
                 width: column.width
-                sourceComponent: entryLoader.modelData?.isSeparator ? separator : item
+                sourceComponent: entryLoader.modelData?.isSeparator ? separator : entryRow
 
                 Component {
                     id: separator
@@ -84,7 +84,7 @@ ShellOverlay {
                 }
 
                 Component {
-                    id: item
+                    id: entryRow
                     MenuItemRow {
                         // The application owns its menu's entries and destroys
                         // them as it pleases — when the menu closes, when it

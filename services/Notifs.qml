@@ -72,21 +72,26 @@ Singleton {
     }
 
     function dismissPopup(n: var): void {
-        const next = root.popups.filter(p => p && p !== n);
-        if (next.length !== root.popups.length)
-            root.popups = next;
+        root.dropPopup(n);
         // Transient notifications exist only as a toast; once it is gone, so are
         // they. Anything else stays in history.
         if (n && n.transient)
             n.tracked = false;
     }
 
+    /*! dismiss() closes the notification and destroys it, so the toast goes
+        first and nothing touches it after. */
     function remove(n: var): void {
         if (!n)
             return;
-        root.dismissPopup(n);
+        root.dropPopup(n);
         n.dismiss();
-        n.tracked = false;
+    }
+
+    function dropPopup(n: var): void {
+        const next = root.popups.filter(p => p && p !== n);
+        if (next.length !== root.popups.length)
+            root.popups = next;
     }
 
     function clearAll(): void {
@@ -99,8 +104,10 @@ Singleton {
     function invoke(n: var, action: var): void {
         if (!n || !action)
             return;
+        root.dropPopup(n);
+        // The action closes the notification itself unless it is resident, in
+        // which case the application wants it kept until the user dismisses it.
         action.invoke();
-        root.remove(n);
     }
 
     /*! Body text with the small HTML subset the spec allows reduced to plain text. */

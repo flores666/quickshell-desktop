@@ -22,7 +22,7 @@ Item {
     implicitHeight: 36
 
     IconButton {
-        id: leading
+        id: leadingButton
         anchors.verticalCenter: parent.verticalCenter
         icon: root.icon
         size: 32
@@ -35,7 +35,7 @@ Item {
 
     Slider {
         anchors.verticalCenter: parent.verticalCenter
-        x: leading.x + leading.width + Appearance.s.sm
+        x: leadingButton.x + leadingButton.width + Appearance.s.sm
         // Always stop where a chevron would be, whether or not this row has
         // one, so a stack of rows shares a right edge.
         width: trailing.x - x - Appearance.s.sm
