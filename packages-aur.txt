@@ -1,0 +1,6 @@
+# Packages the desktop needs from the AUR, one per line; install.sh installs
+# whichever are missing through yay or paru, and lists them when there is
+# neither.
+
+# "Open in kitty" in nautilus' context menu (profile/gtk.dconf picks kitty)
+nautilus-open-any-terminal

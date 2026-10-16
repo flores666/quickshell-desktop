@@ -1,0 +1,16 @@
+[org/gnome/desktop/interface]
+cursor-size=24
+cursor-theme='default'
+font-name='Ubuntu Regular 10'
+gtk-theme='Yaru-Amber-dark'
+icon-theme='Papirus-Dark'
+monospace-font-name='JetBrainsMono Nerd Font 10'
+[org/gnome/desktop/wm/preferences]
+button-layout=':'
+[org/gnome/nautilus/preferences]
+default-folder-viewer='icon-view'
+migrated-gtk-settings=true
+[org/gnome/nautilus/icon-view]
+default-zoom-level='large'
+[com/github/stunkymonkey/nautilus-open-any-terminal]
+terminal='kitty'

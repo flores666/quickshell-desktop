@@ -12,6 +12,11 @@ desktop UI: top bar, dock, launcher, quick settings, notifications, OSD, session
 lock. There is no build step — Quickshell interprets the QML directly and
 reloads on file change.
 
+The project is also the rest of the desktop: the packages it needs, the
+configs of Hyprland, hyprpaper, kitty, fish and neovim, the scripts it binds,
+and the saved preferences and wallpapers. `./install.sh` sets a new computer
+up as this desktop from the checkout alone; see *The rest of the desktop*.
+
 ## Running and verifying
 
 ```sh
@@ -78,6 +83,11 @@ compositor do the right thing". Use the real session:
    (`CardMenu`'s handler changes nothing: it closes the menu and hands the
    wheel on with `event.accepted = false`.)
 7. Keep files small. The largest is under 300 lines; that is the ceiling.
+8. **Everything the desktop needs is in the project.** A package, a font, or
+   a config or script of any other application that the desktop comes to
+   depend on goes into the project in the same change that brings it in,
+   with what `install.sh` needs to put it in place. Nothing is set up on this
+   machine by hand alone. See *The rest of the desktop*.
 
 ## Architecture
 
@@ -98,9 +108,26 @@ modules/             the surfaces themselves
                      lives
   common/            shared surface chrome (ShellOverlay, OverlayCard), IPC,
                      overview theming
-tools/               generators and the lint wrapper; not loaded at runtime
-hyprland.conf        sourced by the user's own config: the plugin, the shell's
+tools/               generators, the lint wrapper and save-profile.sh; not
+                     loaded at runtime
+hyprland.conf        the shell's Hyprland integration, sourced from
+                     hypr/conf.d/90-quickshell.conf: the plugin, the shell's
                      global binds, the bindn dismissal binds
+
+install.sh           sets a computer up as this desktop. Safe to re-run
+packages.txt         every package from the official repositories
+packages-aur.txt     every package from the AUR
+hypr/                the Hyprland config (hyprland.conf sources conf.d/*.conf
+                     in name order) and hyprpaper.conf
+terminal/            kitty.conf (the whole kitty config, in the Soft Surface
+                     look) and prompt.fish. Not QML and not a surface, so its
+                     colours are its own rather than tokens
+nvim/                the neovim config; its theme is lackluster recoloured
+                     with terminal/kitty.conf's palette (`soft`), so a colour
+                     changes in both
+bin/                 scripts the configs run, linked into ~/.local/bin
+profile/             state saved from a machine set up already, for the next:
+                     settings.json (the shell's), gtk.dconf, wallpapers/
 ```
 
 The dependency rule is one-way: `modules/` → `components/` → `config/`, and
@@ -109,6 +136,61 @@ anything may read `services/`. **Services never import modules or components.**
 UI code never talks to D-Bus, PipeWire or Hyprland directly. If you find
 yourself reaching for a system API inside `modules/`, the derivation belongs in
 a service.
+
+## The rest of the desktop
+
+Everything outside the QML that makes this desktop is in the project too, so
+that `./install.sh` on a fresh Arch install gives the same desktop. Hard rule 8
+is what keeps that true: **whenever a change makes the desktop depend on
+something new, the change also records it here.** Concretely:
+
+| The desktop comes to need | Record it in | `install.sh` then |
+|---|---|---|
+| a package, from the official repos | `packages.txt`, under the heading it belongs to, with a comment saying what needs it | installs it with `pacman` when missing |
+| a package from the AUR | `packages-aur.txt` | installs it with `yay`/`paru`, or lists it |
+| a font, icon or cursor theme | its package, in one of the lists — never a file copied into `~/.local/share/fonts` | as above |
+| a config of another application | its own directory or file in the project (`hypr/`, `terminal/`, `nvim/`, …) | links it into place: one `link` line |
+| a script a config or bind runs | `bin/`; refer to it by bare name (kitty finds `~/.local/bin` itself; Hyprland binds use `~/.local/bin/<name>`) | links every file in `bin/` into `~/.local/bin` |
+| a system or user service | the package; enabling it is a line in `install.sh` | enables it if it is off |
+| a setting that lives in dconf | its directory in `tools/save-profile.sh`'s `gtk` list, then run that | writes each key the machine still has at its default |
+| the shell's preferences, wallpapers | nothing new: run `tools/save-profile.sh` and commit `profile/` | `Settings` starts from `profile/settings.json` on a machine with none; wallpapers are copied into the Pictures folder |
+
+How it fits together:
+
+- **Configs are links, not copies.** Each one points into the project through
+  `~/.config/quickshell/shell`, the one link to the checkout, so editing a
+  config on any machine edits the project, and moving the checkout takes only
+  a re-run. Hyprland's and kitty's own files are the exception: they stay the
+  machine's, hold a single `source`/`include` of the project, and take what
+  only that machine needs after it (kitty's font size, which
+  `bin/kitty-font-size` writes there, is one).
+- **State is saved, not linked.** dconf, the shell's `settings.json` and the
+  wallpapers change as the desktop is used, and a link would put every slider
+  move into git and fight the next machine's own changes. `save-profile.sh`
+  snapshots them; `install.sh` gives them only to a machine that has none, so
+  a re-run never takes back a change made since. A wallpaper inside the folder
+  is saved by its bare name (`Wallpaper.current` finds it in the next
+  machine's folder, whatever its Pictures folder is called);
+  `systemFontBefore` is machine state and is saved empty.
+- **`install.sh` never loses a file.** Whatever has to make way is kept beside
+  itself as `<name>.bak-<date>`. Every step checks first, so running it twice
+  changes nothing the second time.
+- **Never secrets.** fish's universal variables (`fish_variables`) hold
+  database credentials and stay out; so do NetworkManager's connections and
+  the rest of dconf (Wi-Fi credentials, proxies, window sizes), which is why
+  `save-profile.sh` lists the dconf directories it takes instead of dumping
+  everything. Read a new config for credentials before adding it.
+
+Verify an `install.sh` change as a fresh machine: run it twice with
+`HOME=<scratch dir>`, a fake `~/.local/share/hyprexpo/hyprexpo.so` there (or it
+builds the plugin) and `XDG_CONFIG_HOME` unset; the second run must print
+nothing but the closing line. The dconf step cannot be sandboxed that way —
+reads come from the scratch home and writes go to the real dconf service — so
+it reports setting every key both times. For a Hyprland config change, compare
+`hyprctl binds -j`, the options it sets (`hyprctl getoption`) and
+`hyprctl configerrors` before and after a `hyprctl reload`;
+`Hyprland --verify-config` cannot judge the plugin's options, which only
+exist once it is loaded.
 
 ---
 
@@ -201,7 +283,7 @@ contents.
 |---|---|---|
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup) |
 | `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
@@ -217,7 +299,7 @@ contents.
 | `Keyboard` | the active XKB layout | `available`, `code` (e.g. `EN`), `cycle` (every keyboard at once) |
 | `Osd` | the transient volume/mic/brightness indicator, listening to each source only once it holds a true reading | `shown`, `kind`, `value`, `icon`, `text`, `holdTime` |
 | `Screenshot` | screen capture through grim/slurp | `capture`, `captureRegion` |
-| `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current`, `set` |
+| `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current` (always a path: a saved bare name is a picture in the folder), `set` |
 | `Fonts` | the font families Qt found, and applying the chosen one to applications — the GTK interface font and a fontconfig file the shell owns (`conf.d/50-quickshell-font.conf`); *Default* restores the GTK font it first replaced | `families`, `available`, `chosen`, `search` |
 | `Session` | lock, suspend, logout, reboot, shutdown | `lock` (raises `lockRequested`), `suspend`, `logout`, … |
 | `Time` | one clock for the whole shell | `now`, `time`, `dateShort`, `dateLong` |
@@ -312,6 +394,11 @@ Qt 6.11.2). Several of them are the reason code looks the way it does; if you
 - **Quickshell singletons are lazy.** They initialise on first access, which is
   why `shell.qml` touches them all in `Component.onCompleted` — otherwise the
   bar renders one frame of empty placeholders.
+- **A `FileView` written from its own `onLoadFailed` warns** —
+  `got operation finished from dropped operation` — because the write drops
+  the failed read before it has finished (measured with `writeAdapter()` and
+  `setText()` alike, in a bare `qs -p` test). `Settings` defers the write with
+  `Qt.callLater`; the adapter still picks up what is written.
 - **Do not read churny properties in a model.** `Dock.items` used to read window
   titles; every keystroke in a terminal rebuilt the whole dock. Titles are now
   read per-item off the toplevel. This was worth 0.3% of idle CPU.

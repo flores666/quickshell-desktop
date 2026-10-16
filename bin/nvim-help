@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HELP_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/nvim-help.md"
+HELP_TITLE="nvim-help"
+INSTALL_TITLE="$HELP_TITLE"
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+trim() {
+  awk '{$1=$1; print}' <<<"${1:-}"
+}
+
+choose_terminal() {
+  if [[ -n "${TERMINAL:-}" ]]; then
+    local terminal_bin="${TERMINAL%% *}"
+    if command_exists "$terminal_bin"; then
+      printf '%s\n' "$terminal_bin"
+      return 0
+    fi
+  fi
+
+  local candidate
+  for candidate in kitty alacritty foot ghostty wezterm konsole gnome-terminal xterm; do
+    if command_exists "$candidate"; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+install_packages_interactive() {
+  local packages=("$@")
+  if ((${#packages[@]} == 0)); then
+    return 0
+  fi
+
+  printf 'nvim-help needs missing packages:\n\n'
+  printf '  %s\n' "${packages[@]}"
+  printf '\nInstall them now with pacman? [y/N] '
+
+  local answer
+  read -r answer || answer=""
+  case "$answer" in
+    y|Y|yes|YES)
+      sudo pacman -S --needed "${packages[@]}"
+      ;;
+    *)
+      printf 'Cancelled.\n'
+      return 1
+      ;;
+  esac
+}
+
+open_install_terminal() {
+  local terminal="$1"
+  shift
+
+  local packages=("$@")
+  local package_args
+  printf -v package_args '%q ' "${packages[@]}"
+
+  local shell_command="
+printf '\\033]0;${INSTALL_TITLE}\\007'
+echo 'nvim-help needs missing packages:'
+echo
+printf '  %s\n' ${package_args}
+echo
+read -r -p 'Install them now with pacman? [y/N] ' answer
+case \"\$answer\" in
+  y|Y|yes|YES)
+    sudo pacman -S --needed ${package_args}
+    status=\$?
+    echo
+    if [[ \"\$status\" -eq 0 ]]; then
+      echo 'Done. Close this window and press mainMod+H again.'
+    else
+      echo \"pacman exited with status: \$status\"
+    fi
+    ;;
+  *)
+    echo 'Cancelled.'
+    ;;
+esac
+echo
+read -r -p 'Press Enter to close...'
+"
+
+  case "$(basename "$terminal")" in
+    kitty)
+      setsid -f kitty --title "$INSTALL_TITLE" -e bash -lc "$shell_command"
+      ;;
+    alacritty)
+      setsid -f alacritty --title "$INSTALL_TITLE" -e bash -lc "$shell_command"
+      ;;
+    foot)
+      setsid -f foot --title "$INSTALL_TITLE" -e bash -lc "$shell_command"
+      ;;
+    ghostty)
+      setsid -f ghostty --title="$INSTALL_TITLE" -e bash -lc "$shell_command"
+      ;;
+    wezterm)
+      setsid -f wezterm start --always-new-process --class "$INSTALL_TITLE" -- bash -lc "$shell_command"
+      ;;
+    konsole)
+      setsid -f konsole --title "$INSTALL_TITLE" -e bash -lc "$shell_command"
+      ;;
+    gnome-terminal)
+      setsid -f gnome-terminal --title="$INSTALL_TITLE" -- bash -lc "$shell_command"
+      ;;
+    xterm)
+      setsid -f xterm -T "$INSTALL_TITLE" -e bash -lc "$shell_command"
+      ;;
+    *)
+      setsid -f "$terminal" -e bash -lc "$shell_command"
+      ;;
+  esac
+}
+
+ensure_dependencies() {
+  local missing_packages=()
+
+  command_exists jq || missing_packages+=("jq")
+  command_exists glow || missing_packages+=("glow")
+  command_exists less || missing_packages+=("less")
+  command_exists ps || missing_packages+=("procps-ng")
+  command_exists pgrep || missing_packages+=("procps-ng")
+
+  if ((${#missing_packages[@]} == 0)); then
+    return 0
+  fi
+
+  local unique_packages=()
+  local package
+  for package in "${missing_packages[@]}"; do
+    local exists=false
+    local seen
+    for seen in "${unique_packages[@]}"; do
+      if [[ "$seen" == "$package" ]]; then
+        exists=true
+        break
+      fi
+    done
+    "$exists" || unique_packages+=("$package")
+  done
+
+  if [[ -t 0 && -t 1 ]]; then
+    install_packages_interactive "${unique_packages[@]}"
+    return $?
+  fi
+
+  local terminal
+  terminal="$(choose_terminal || true)"
+  if [[ -z "$terminal" ]]; then
+    return 1
+  fi
+
+  open_install_terminal "$terminal" "${unique_packages[@]}"
+  return 1
+}
+
+ensure_dependencies || exit 0
+
+active_json="$(hyprctl activewindow -j 2>/dev/null || true)"
+[[ -n "$active_json" && "$active_json" != "null" ]] || exit 0
+
+active_pid="$(jq -r '.pid // empty' <<<"$active_json" 2>/dev/null || true)"
+active_title="$(jq -r '.title // empty' <<<"$active_json" 2>/dev/null || true)"
+active_address="$(jq -r '.address // empty' <<<"$active_json" 2>/dev/null || true)"
+
+if [[ "$active_title" == "$HELP_TITLE" && -n "$active_address" ]]; then
+  hyprctl dispatch closewindow "address:$active_address" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+has_nvim_in_tree() {
+  local root_pid="$1"
+  local pid child comm
+  local -a queue
+  local -A seen
+
+  [[ "$root_pid" =~ ^[0-9]+$ ]] || return 1
+  queue=("$root_pid")
+
+  while ((${#queue[@]} > 0)); do
+    pid="${queue[0]}"
+    queue=("${queue[@]:1}")
+
+    [[ -n "$pid" ]] || continue
+    [[ -z "${seen[$pid]+x}" ]] || continue
+    seen["$pid"]=1
+
+    comm="$(trim "$(ps -p "$pid" -o comm= 2>/dev/null || true)")"
+    case "$comm" in
+      nvim|nvim-bin)
+        return 0
+        ;;
+    esac
+
+    while IFS= read -r child; do
+      [[ -n "$child" ]] && queue+=("$child")
+    done < <(pgrep -P "$pid" 2>/dev/null || true)
+  done
+
+  return 1
+}
+
+has_nvim_in_tree "$active_pid" || exit 0
+
+if [[ ! -f "$HELP_FILE" ]]; then
+  terminal="$(choose_terminal || true)"
+  if [[ -n "$terminal" ]]; then
+    shell_command="
+printf '\\033]0;${HELP_TITLE}\\007'
+echo 'Не найден файл:'
+echo '$HELP_FILE'
+echo
+read -r -p 'Press Enter to close...'
+"
+    case "$(basename "$terminal")" in
+      kitty)
+        setsid -f kitty --title "$HELP_TITLE" -e bash -lc "$shell_command"
+        ;;
+      alacritty)
+        setsid -f alacritty --title "$HELP_TITLE" -e bash -lc "$shell_command"
+        ;;
+      foot)
+        setsid -f foot --title "$HELP_TITLE" -e bash -lc "$shell_command"
+        ;;
+      ghostty)
+        setsid -f ghostty --title="$HELP_TITLE" -e bash -lc "$shell_command"
+        ;;
+      wezterm)
+        setsid -f wezterm start --always-new-process --class "$HELP_TITLE" -- bash -lc "$shell_command"
+        ;;
+      konsole)
+        setsid -f konsole --title "$HELP_TITLE" -e bash -lc "$shell_command"
+        ;;
+      gnome-terminal)
+        setsid -f gnome-terminal --title="$HELP_TITLE" -- bash -lc "$shell_command"
+        ;;
+      xterm)
+        setsid -f xterm -T "$HELP_TITLE" -e bash -lc "$shell_command"
+        ;;
+      *)
+        setsid -f "$terminal" -e bash -lc "$shell_command"
+        ;;
+    esac
+  fi
+  exit 1
+fi
+
+existing_address="$(hyprctl clients -j 2>/dev/null | jq -r --arg title "$HELP_TITLE" '.[] | select(.title == $title) | .address' | head -n 1 || true)"
+if [[ -n "$existing_address" ]]; then
+  hyprctl dispatch focuswindow "address:$existing_address" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+terminal="$(choose_terminal || true)"
+if [[ -z "$terminal" ]]; then
+  exit 1
+fi
+
+export HELP_FILE
+shell_command='
+printf "\033]0;nvim-help\007"
+
+unset PAGER
+unset BAT_PAGER
+unset MANPAGER
+
+export LESS="-R -+F -+X"
+
+exec glow -p -s dark "$HELP_FILE"
+'
+
+case "$(basename "$terminal")" in
+  kitty)
+    setsid -f kitty --title "$HELP_TITLE" -e bash -lc "$shell_command"
+    ;;
+  alacritty)
+    setsid -f alacritty --title "$HELP_TITLE" -e bash -lc "$shell_command"
+    ;;
+  foot)
+    setsid -f foot --title "$HELP_TITLE" -e bash -lc "$shell_command"
+    ;;
+  ghostty)
+    setsid -f ghostty --title="$HELP_TITLE" -e bash -lc "$shell_command"
+    ;;
+  wezterm)
+    setsid -f wezterm start --always-new-process --class "$HELP_TITLE" -- bash -lc "$shell_command"
+    ;;
+  konsole)
+    setsid -f konsole --title "$HELP_TITLE" -e bash -lc "$shell_command"
+    ;;
+  gnome-terminal)
+    setsid -f gnome-terminal --title="$HELP_TITLE" -- bash -lc "$shell_command"
+    ;;
+  xterm)
+    setsid -f xterm -T "$HELP_TITLE" -e bash -lc "$shell_command"
+    ;;
+  *)
+    setsid -f "$terminal" -e bash -lc "$shell_command"
+    ;;
+esac

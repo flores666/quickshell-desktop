@@ -164,7 +164,7 @@ Singleton {
         adapter.systemFontBefore = value;
     }
 
-    /*! The picture the wallpaper is set from, as an absolute path. */
+    /*! The wallpaper's picture: a path, or a name in the folder (Wallpaper.current). */
     function setWallpaper(path: string): void {
         adapter.wallpaper = path;
     }
@@ -284,8 +284,16 @@ Singleton {
 
         onFileChanged: file.reload()
         onAdapterUpdated: file.writeAdapter()
-        // A missing file on first run is expected; write the defaults out so the
-        // user has something to edit by hand if they want to.
-        onLoadFailed: file.writeAdapter()
+        // None on first run: start from profile/ (tools/save-profile.sh), or the
+        // defaults, written out to edit by hand. Deferred: see AGENTS.md, FileView.
+        onLoadFailed: Qt.callLater(() => profile.text() !== ""
+            ? file.setText(profile.text()) : file.writeAdapter())
+    }
+
+    FileView {
+        id: profile
+        path: Quickshell.shellPath("profile/settings.json")
+        blockAllReads: true
+        printErrors: false
     }
 }

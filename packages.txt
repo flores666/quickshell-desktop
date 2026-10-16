@@ -1,0 +1,47 @@
+# Every package the desktop needs from Arch's official repositories, one per
+# line; install.sh installs whichever are missing. A config, script or font
+# added to the project brings its package here (see AGENTS.md).
+
+# the compositor and the shell
+hyprland
+hyprpaper
+xdg-desktop-portal-hyprland
+quickshell
+qt6-imageformats
+polkit
+
+# what the shell's services read: sound, network, power, Bluetooth
+pipewire
+pipewire-pulse
+wireplumber
+networkmanager
+upower
+power-profiles-daemon
+bluez
+
+# what the shell runs: screenshots, the clipboard, notifications, settings
+grim
+slurp
+wl-clipboard
+libnotify
+dconf
+xdg-user-dirs
+
+# fonts and icons: the shell's face, the terminal's, the applications' icons
+adwaita-fonts
+adwaita-icon-theme
+papirus-icon-theme
+ttf-jetbrains-mono-nerd
+
+# the terminal, the editor and the file manager
+kitty
+fish
+neovim
+glow
+nautilus
+
+# building the overview plugin, and the tools in tools/
+git
+base-devel
+pkgconf
+python

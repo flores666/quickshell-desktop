@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+conf="${XDG_CONFIG_HOME:-$HOME/.config}/kitty/font-size.conf"
+mkdir -p "$(dirname "$conf")"
+
+current="15.0"
+if [[ -f "$conf" ]]; then
+    value="$(awk '$1 == "font_size" {print $2; exit}' "$conf" || true)"
+    [[ -n "${value:-}" ]] && current="$value"
+fi
+
+case "${1:-}" in
+    up) delta="1" ;;
+    down) delta="-1" ;;
+    up2) delta="2" ;;
+    down2) delta="-2" ;;
+    reset) printf 'font_size 15.0\n' > "$conf"; kitty @ set-font-size --all 15.0 >/dev/null 2>&1 || true; exit 0 ;;
+    *) echo "Usage: kitty-font-size up|down|up2|down2|reset" >&2; exit 2 ;;
+esac
+
+new="$(awk -v c="$current" -v d="$delta" 'BEGIN { n = c + d; if (n < 6) n = 6; if (n > 40) n = 40; printf "%.1f", n }')"
+printf 'font_size %s\n' "$new" > "$conf"
+kitty @ set-font-size --all "$new" >/dev/null 2>&1 || true

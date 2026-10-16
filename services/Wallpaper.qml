@@ -41,8 +41,13 @@ Singleton {
     readonly property bool available: root.items.length > 0
     /*! The folder as a plain path, for telling someone where pictures go. */
     readonly property string folderPath: root.folder.toString().replace(/^file:\/\//, "")
-    /*! The picture in force, or empty when the shell has never set one. */
-    readonly property string current: Settings.wallpaper
+    /*! The picture in force, or empty when the shell has never set one. A
+        choice saved as a bare file name is that picture in this machine's
+        folder: a profile saved from another machine names it that way, since
+        the folder's own path differs between them (the user's name, the
+        language the Pictures folder is named in). */
+    readonly property string current: Settings.wallpaper === "" || Settings.wallpaper.includes("/")
+        ? Settings.wallpaper : `${root.folderPath}/${Settings.wallpaper}`
 
     function set(path: string): void {
         Settings.setWallpaper(path);

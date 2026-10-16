@@ -10,21 +10,32 @@ no blur, no translucency, no decorative chrome.
 ## Running it
 
 ```sh
-mkdir -p ~/.config/quickshell
-ln -sfn ~/quickshellProjects ~/.config/quickshell/shell
-./tools/build-overview-plugin.sh     # the workspace overview; see below
-qs -c shell
+./install.sh
 ```
 
-Then add `source = ~/quickshellProjects/hyprland.conf` to your `hyprland.conf`
-for autostart, the overview plugin and keybindings.
+On a fresh Arch install that is all it takes to get this desktop. It installs
+what `packages.txt` and `packages-aur.txt` list, enables the services the shell
+reads (Bluetooth, power profiles, NetworkManager where nothing else runs the
+network), masks any other notification daemon (the shell is one), makes fish
+the login shell, links this checkout as the Quickshell config `shell`, builds
+the overview plugin if it is not there yet (see below), and puts the configs in
+place:
 
-The shell is the session's notification daemon, so any other one must go:
+| What | Where it goes |
+| --- | --- |
+| `hypr/` — Hyprland and hyprpaper | `~/.config/hypr/hyprland.conf` sources it; `hyprpaper.conf` is linked |
+| `terminal/kitty.conf` | `~/.config/kitty/kitty.conf` includes it |
+| `terminal/prompt.fish` | linked into `~/.config/fish/conf.d` |
+| `nvim/` | linked as `~/.config/nvim` |
+| `bin/` | each script linked into `~/.local/bin` |
+| `profile/` | wallpapers copied into the Pictures folder, GTK settings applied where still at their defaults, and the shell starts from `settings.json` |
 
-```sh
-systemctl --user mask dunst.service     # or whichever you were using
-pkill dunst
-```
+The configs are links into the project, so editing one edits the project.
+What is not a file — the shell's preferences, the GTK settings, the wallpapers
+— is saved with `tools/save-profile.sh`; run it and commit `profile/` to take
+them to the next machine. Anything `install.sh` has to replace is kept as
+`<name>.bak-<date>`, and it is safe to re-run. Then log in again, or start the
+shell with `qs -c shell`.
 
 ## What is where
 
@@ -47,7 +58,15 @@ modules/                  the surfaces themselves
   osd/                    volume / brightness indicator
   lock/                   session lock
   common/                 shared surface chrome and the IPC surface
-tools/                    generators and the lint wrapper (not loaded at runtime)
+tools/                    generators, the lint wrapper, save-profile.sh (not
+                          loaded at runtime)
+install.sh                sets a computer up as this desktop
+packages.txt              the packages it needs (packages-aur.txt: the AUR ones)
+hypr/                     the Hyprland and hyprpaper config
+terminal/                 kitty, and the fish prompt
+nvim/                     neovim
+bin/                      the scripts the configs run
+profile/                  saved preferences, GTK settings and wallpapers
 ```
 
 ### Services
@@ -203,6 +222,22 @@ and `HyprlandFocusGrab` both eats the click and stops clearing entirely once the
 surface takes keyboard focus. For the same reason popups ask for **on-demand**
 keyboard focus rather than exclusive — an exclusive layer surface in Hyprland
 takes the pointer along with the keyboard.
+
+## The terminal
+
+`terminal/` gives kitty and fish the *Soft Surface* look: a deep blue-black
+ground with a periwinkle accent, no title bar, roomy padding and line height,
+and a prompt of rounded pills — the working directory, the git branch, and the
+last command's status only when it failed — with a blank line above each one.
+
+`terminal/kitty.conf` is the whole kitty config — the font, the keys, the
+look. Your own `kitty.conf` only includes it, then `font-size.conf`, where
+`bin/kitty-font-size` keeps the size Ctrl+=/Ctrl+- set for that machine;
+anything you add after the include wins over the project. The prompt is fish's,
+so fish is made the login shell; its syntax colours are fish's default theme,
+drawn in the terminal's palette. neovim is drawn in it too (`nvim/init.lua`),
+on the terminal's own background. The terminal keeps its own colours rather
+than following the shell's theme and accent.
 
 ## Development
 
