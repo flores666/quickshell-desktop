@@ -1,0 +1,539 @@
+diff --git a/HyprexpoLogic.cpp b/HyprexpoLogic.cpp
+index 6be4614..2e9f523 100644
+--- a/HyprexpoLogic.cpp
++++ b/HyprexpoLogic.cpp
+@@ -81,12 +81,12 @@ std::optional<std::vector<int64_t>> expandDynamicWorkspaceIDs(const std::vector<
+     return expanded;
+ }
+ 
+-SSize aspectCorrectTileSize(double screenW, double screenH, int cols, int rows, double gap) {
++SSize aspectCorrectTileSize(double screenW, double screenH, int cols, int rows, double gap, double aspect) {
+     if (screenW <= 0.0 || screenH <= 0.0 || cols <= 0 || rows <= 0)
+         return {};
+ 
+     const double safeGap = std::max(0.0, gap);
+-    const double monAspect = screenW / screenH;
++    const double monAspect = aspect > 0.0 ? aspect : screenW / screenH;
+     const double maxTileW  = std::max(0.0, (screenW - safeGap * (cols - 1)) / cols);
+     const double maxTileH  = std::max(0.0, (screenH - safeGap * (rows - 1)) / rows);
+ 
+@@ -100,7 +100,7 @@ SSize aspectCorrectTileSize(double screenW, double screenH, int cols, int rows,
+     return {maxTileW, maxTileW / monAspect};
+ }
+ 
+-STileLayout computeTileLayout(int index, int visibleCount, SGridShape shape, SSize total, double gap, bool centerPartialRows) {
++STileLayout computeTileLayout(int index, int visibleCount, SGridShape shape, SSize total, double gap, bool centerPartialRows, double aspect) {
+     STileLayout layout;
+ 
+     if (visibleCount <= 0 || index < 0 || index >= visibleCount)
+@@ -109,7 +109,7 @@ STileLayout computeTileLayout(int index, int visibleCount, SGridShape shape, SSi
+     shape.cols = std::max(1, shape.cols);
+     shape.rows = std::max(1, shape.rows);
+ 
+-    const SSize tileSize = aspectCorrectTileSize(total.w, total.h, shape.cols, shape.rows, gap);
++    const SSize tileSize = aspectCorrectTileSize(total.w, total.h, shape.cols, shape.rows, gap, aspect);
+     const int   row      = index / shape.cols;
+     const int   col      = index % shape.cols;
+ 
+@@ -137,9 +137,9 @@ STileLayout computeTileLayout(int index, int visibleCount, SGridShape shape, SSi
+     return layout;
+ }
+ 
+-int tileIndexAtPoint(double x, double y, int visibleCount, SGridShape shape, SSize total, double gap, bool centerPartialRows) {
++int tileIndexAtPoint(double x, double y, int visibleCount, SGridShape shape, SSize total, double gap, bool centerPartialRows, double aspect) {
+     for (int i = 0; i < visibleCount; ++i) {
+-        const auto layout = computeTileLayout(i, visibleCount, shape, total, gap, centerPartialRows);
++        const auto layout = computeTileLayout(i, visibleCount, shape, total, gap, centerPartialRows, aspect);
+         if (x >= layout.box.x && x < layout.box.x + layout.box.w && y >= layout.box.y && y < layout.box.y + layout.box.h)
+             return i;
+     }
+diff --git a/HyprexpoLogic.hpp b/HyprexpoLogic.hpp
+index cfebf7a..b65f3e6 100644
+--- a/HyprexpoLogic.hpp
++++ b/HyprexpoLogic.hpp
+@@ -195,9 +195,10 @@ std::vector<std::string> splitCommaList(const std::string& value);
+ SGridShape               computeDynamicGridShape(int visibleCount);
+ SGridShape               computeFixedGridShape(int64_t columns, int64_t rows);
+ std::optional<std::vector<int64_t>> expandDynamicWorkspaceIDs(const std::vector<int64_t>& workspaceIDs, bool fillGaps, std::size_t maxExpandedWorkspaces);
+-SSize                    aspectCorrectTileSize(double screenW, double screenH, int cols, int rows, double gap);
+-STileLayout              computeTileLayout(int index, int visibleCount, SGridShape shape, SSize total, double gap, bool centerPartialRows);
+-int                      tileIndexAtPoint(double x, double y, int visibleCount, SGridShape shape, SSize total, double gap, bool centerPartialRows);
++// quickshell-desktop: `aspect` is the tiles' shape, when it is not the area's.
++SSize                    aspectCorrectTileSize(double screenW, double screenH, int cols, int rows, double gap, double aspect = 0.0);
++STileLayout              computeTileLayout(int index, int visibleCount, SGridShape shape, SSize total, double gap, bool centerPartialRows, double aspect = 0.0);
++int                      tileIndexAtPoint(double x, double y, int visibleCount, SGridShape shape, SSize total, double gap, bool centerPartialRows, double aspect = 0.0);
+ std::optional<STileTarget> selectDirectionalTile(const SRect& source, EDirection direction, const std::vector<SGlobalTile>& candidates);
+ std::optional<STileHit>    hitTestGlobalTile(const SPoint& point, const std::vector<SGlobalTile>& tiles);
+ SOverviewDragTransition    transitionOverviewDrag(const SOverviewDragState& state, const SOverviewDragEvent& event, const std::vector<uint64_t>& liveMonitorKeys);
+diff --git a/Overview.cpp b/Overview.cpp
+index 1b4747d..c02254f 100644
+--- a/Overview.cpp
++++ b/Overview.cpp
+@@ -26,6 +26,11 @@
+ #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
+ #include <hyprland/src/managers/eventLoop/EventLoopTimer.hpp>
+ #include <hyprland/src/managers/input/InputManager.hpp>
++#include <hyprland/src/managers/SeatManager.hpp>
++#include <hyprland/src/desktop/state/ViewState.hpp>
++#include <hyprland/src/desktop/view/LayerSurface.hpp>
++#include <hyprland/src/output/Monitor.hpp>
++#include <hyprland/protocols/wlr-layer-shell-unstable-v1.hpp>
+ #include <hyprland/src/helpers/time/Time.hpp>
+ #include <hyprland/src/helpers/varlist/VarList.hpp>
+ #include <hyprland/src/helpers/Format.hpp>
+@@ -937,6 +942,32 @@ void removeOverview(WP<Hyprutils::Animation::CBaseAnimatedVariable> thisptr) {
+     MON->scheduleFrame();
+ }
+ 
++// quickshell-desktop: whether the pointer is on one of the shell's surfaces,
++// drawn over the overview where they stand (main.cpp). Where a surface's
++// input region takes it the pointer is the shell's -- moves, clicks and all --
++// and not the overview's.
++static bool pointerOnShell(const Vector2D& global) {
++    if (!g_shellAboveOverview)
++        return false;
++    const auto MON = State::monitorState()->query().vec(global).run();
++    if (!MON)
++        return false;
++    for (const auto layer : {ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, ZWLR_LAYER_SHELL_V1_LAYER_TOP}) {
++        Vector2D local;
++        PHLLS    found;
++        if (Desktop::viewState()->hitTest().layerPopupSurfaceAt(global, &MON->m_layerSurfaceLayers[layer], &local, &found))
++            return true;
++        if (Desktop::viewState()->hitTest().layerSurfaceAt(global, &MON->m_layerSurfaceLayers[layer], &local, &found))
++            return true;
++    }
++    return false;
++}
++
++// Whether the shell had the pointer at the last move. Coming off it, the shell
++// is told the pointer left: a move the overview takes for itself never
++// reaches Hyprland's focus, and the shell would go on seeing it there.
++static bool g_pointerOnShell = false;
++
+ static bool shouldShowCursorDuringOverview() {
+     static auto* const* PSHOWCURSOR = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:show_cursor")->getDataStaticPtr();
+     return **PSHOWCURSOR;
+@@ -1014,13 +1045,47 @@ Hyprexpo::SGridShape COverview::currentGridShape() const {
+     return gridShape;
+ }
+ 
+-double COverview::currentOuterInset() const {
++// quickshell-desktop: gaps_out past what the screen's edges reserve -- the bar,
++// a dock that stays out. They are drawn over the overview where they stand
++// (main.cpp), and the grid keeps clear of them as the windows do.
++SOuterInsets COverview::currentOuterInset() const {
+     const auto MON = pMonitor.lock();
+     if (!MON)
+-        return 0.0;
++        return {};
+ 
+     static auto* const* PGAPSO = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:gaps_out")->getDataStaticPtr();
+-    return std::max<Hyprlang::INT>(0, **PGAPSO) * openness();
++    const double GAP  = std::max<Hyprlang::INT>(0, **PGAPSO);
++    const double OPEN = openness();
++    if (!g_shellAboveOverview)
++        return {GAP * OPEN, GAP * OPEN, GAP * OPEN, GAP * OPEN};
++    const auto& RESERVED = MON->m_reservedArea;
++    return {(GAP + RESERVED.left()) * OPEN, (GAP + RESERVED.top()) * OPEN, (GAP + RESERVED.right()) * OPEN, (GAP + RESERVED.bottom()) * OPEN};
++}
++
++// quickshell-desktop: what each workspace's picture loses at each edge: the
++// room the screen's edges reserve, which only the shell would fill, and it is
++// drawn over the overview where it stands -- so a tile shows the work area
++// alone. As far as the overview is `open`, like the margins, so the current
++// tile fills the screen uncropped as it opens and closes; tileAspect, the
++// picture's shape once cropped, is the tiles' shape at every step.
++SOuterInsets COverview::croppedEdges(double open) const {
++    const auto MON = pMonitor.lock();
++    if (!MON || !g_shellAboveOverview)
++        return {};
++
++    const auto& RESERVED = MON->m_reservedArea;
++    return {RESERVED.left() * open, RESERVED.top() * open, RESERVED.right() * open, RESERVED.bottom() * open};
++}
++
++double COverview::tileAspect(double open) const {
++    const auto MON = pMonitor.lock();
++    if (!MON)
++        return 0.0;
++
++    const auto   EDGE = croppedEdges(open);
++    const double W    = MON->m_size.x - EDGE.left - EDGE.right;
++    const double H    = MON->m_size.y - EDGE.top - EDGE.bottom;
++    return W > 0.0 && H > 0.0 ? W / H : 0.0;
+ }
+ 
+ // quickshell-desktop: how far open the overview is, from 0 with the current
+@@ -1030,6 +1095,15 @@ double COverview::currentOuterInset() const {
+ // first frame, vanished as the fingers lifted and grew back after, and went
+ // at once on a swipe that closes. A grid of one tile does not zoom.
+ double COverview::openness() const {
++    return size ? opennessFor(size->value()) : 0.0;
++}
++
++// quickshell-desktop: how far open a grid of this total size is. The layout of
++// any size -- the one on screen, or the one a zoom is heading for -- takes the
++// tiles' shape at its own openness: laid out at the current one, the zoom
++// closing onto a tile stopped short of it, and the workspace under it stayed
++// on screen until the overview went.
++double COverview::opennessFor(const Vector2D& totalSize) const {
+     const auto MON = pMonitor.lock();
+     if (!MON)
+         return 0.0;
+@@ -1039,30 +1113,30 @@ double COverview::openness() const {
+     if (std::abs(SHUT - OPEN) <= 1e-6)
+         return closing ? 0.0 : 1.0;
+ 
+-    return std::clamp((SHUT - size->value().x) / (SHUT - OPEN), 0.0, 1.0);
++    return std::clamp((SHUT - totalSize.x) / (SHUT - OPEN), 0.0, 1.0);
+ }
+ 
+-Hyprexpo::STileLayout COverview::tileLayoutForIndex(int id, const Vector2D& totalSize, double gap, double outerInset, bool centerPartialRows) const {
++Hyprexpo::STileLayout COverview::tileLayoutForIndex(int id, const Vector2D& totalSize, double gap, const SOuterInsets& outerInset, bool centerPartialRows) const {
+     const auto shape = currentGridShape();
+-    const Hyprexpo::SSize total{std::max(0.0, totalSize.x - outerInset * 2.0), std::max(0.0, totalSize.y - outerInset * 2.0)};
+-    auto                  layout = Hyprexpo::computeTileLayout(id, (int)images.size(), shape, total, gap, centerPartialRows);
+-    layout.box.x += outerInset;
+-    layout.box.y += outerInset;
++    const Hyprexpo::SSize total{std::max(0.0, totalSize.x - outerInset.left - outerInset.right), std::max(0.0, totalSize.y - outerInset.top - outerInset.bottom)};
++    auto                  layout = Hyprexpo::computeTileLayout(id, (int)images.size(), shape, total, gap, centerPartialRows, tileAspect(opennessFor(totalSize)));
++    layout.box.x += outerInset.left;
++    layout.box.y += outerInset.top;
+     return layout;
+ }
+ 
+-CBox COverview::tileBoxForIndex(int id, const Vector2D& totalSize, double gap, double outerInset, bool centerPartialRows) const {
++CBox COverview::tileBoxForIndex(int id, const Vector2D& totalSize, double gap, const SOuterInsets& outerInset, bool centerPartialRows) const {
+     const auto layout = tileLayoutForIndex(id, totalSize, gap, outerInset, centerPartialRows);
+     return {layout.box.x, layout.box.y, layout.box.w, layout.box.h};
+ }
+ 
+-int COverview::tileIndexAtPoint(const Vector2D& point, const Vector2D& totalSize, double gap, double outerInset, bool centerPartialRows) const {
++int COverview::tileIndexAtPoint(const Vector2D& point, const Vector2D& totalSize, double gap, const SOuterInsets& outerInset, bool centerPartialRows) const {
+     const auto shape = currentGridShape();
+-    const Hyprexpo::SSize total{std::max(0.0, totalSize.x - outerInset * 2.0), std::max(0.0, totalSize.y - outerInset * 2.0)};
+-    return Hyprexpo::tileIndexAtPoint(point.x - outerInset, point.y - outerInset, (int)images.size(), shape, total, gap, centerPartialRows);
++    const Hyprexpo::SSize total{std::max(0.0, totalSize.x - outerInset.left - outerInset.right), std::max(0.0, totalSize.y - outerInset.top - outerInset.bottom)};
++    return Hyprexpo::tileIndexAtPoint(point.x - outerInset.left, point.y - outerInset.top, (int)images.size(), shape, total, gap, centerPartialRows, tileAspect(opennessFor(totalSize)));
+ }
+ 
+-Vector2D COverview::tilePosForID(int id, const Vector2D& totalSize, double gap, double outerInset, bool centerPartialRows) const {
++Vector2D COverview::tilePosForID(int id, const Vector2D& totalSize, double gap, const SOuterInsets& outerInset, bool centerPartialRows) const {
+     const auto box = tileBoxForIndex(id, totalSize, gap, outerInset, centerPartialRows);
+     return {box.x, box.y};
+ }
+@@ -1350,7 +1424,7 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+             .blockSurfaceFeedback = true,
+         }, image.fb);
+ 
+-        image.box = tileBoxForIndex((int)i, pMonitor->m_size, GAP_WIDTH, 0.0, true);
++        image.box = tileBoxForIndex((int)i, pMonitor->m_size, GAP_WIDTH, {}, true);
+     }
+     PMONITOR->m_activeWorkspace        = startedOn;
+     startedOn->m_visible               = true;
+@@ -1385,6 +1459,15 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+             return;
+ 
+         const Vector2D GLOBAL = g_pInputManager->getMouseCoordsInternal();
++        // quickshell-desktop: the shell's, so Hyprland's as anywhere else, and
++        // the tiles keep the focus they had.
++        if (pointerOnShell(GLOBAL)) {
++            g_pointerOnShell = true;
++            return;
++        }
++        if (std::exchange(g_pointerOnShell, false))
++            g_pSeatManager->setPointerFocus(nullptr, {});
++
+         for (const auto& session : g_overviews) {
+             auto* const OV = dynamic_cast<COverview*>(session.get());
+             if (!OV)
+@@ -1424,6 +1507,10 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+         const Vector2D GLOBAL = g_pInputManager->getMouseCoordsInternal();
+         auto* const    TARGET = gridOverviewForGlobalPoint(GLOBAL);
+         auto* const    SOURCE = gridOverviewForMonitorKey(g_overviewDrag.state.sourceMonitorKey);
++        // quickshell-desktop: a click on the shell is the shell's, unless it
++        // ends a window's drag between tiles.
++        if (!SOURCE && pointerOnShell(GLOBAL))
++            return;
+         if (!TARGET && !SOURCE)
+             return;
+ 
+diff --git a/Overview.hpp b/Overview.hpp
+index 50f74f4..dd4a4cf 100644
+--- a/Overview.hpp
++++ b/Overview.hpp
+@@ -21,6 +21,11 @@
+ // hyprland's fault, but cba to fix.
+ constexpr bool ENABLE_LOWRES = false;
+ 
++// quickshell-desktop: the room the grid keeps from each edge of the screen.
++struct SOuterInsets {
++    double left = 0.0, top = 0.0, right = 0.0, bottom = 0.0;
++};
++
+ class COverview final : public IOverviewSession {
+   public:
+     // The monitor is passed in rather than resolved from the cursor: with
+@@ -113,12 +118,15 @@ class COverview final : public IOverviewSession {
+     void       onWorkspaceChange();
+     void       fullRender() override;
+     Hyprexpo::SGridShape currentGridShape() const;
+-    double     currentOuterInset() const;
++    SOuterInsets currentOuterInset() const;
++    SOuterInsets croppedEdges(double open) const;
++    double     tileAspect(double open) const;
+     double     openness() const;
+-    Hyprexpo::STileLayout tileLayoutForIndex(int id, const Vector2D& totalSize, double gap, double outerInset = 0.0, bool centerPartialRows = true) const;
+-    CBox       tileBoxForIndex(int id, const Vector2D& totalSize, double gap, double outerInset = 0.0, bool centerPartialRows = true) const;
+-    int        tileIndexAtPoint(const Vector2D& point, const Vector2D& totalSize, double gap, double outerInset = 0.0, bool centerPartialRows = true) const;
+-    Vector2D   tilePosForID(int id, const Vector2D& totalSize, double gap, double outerInset = 0.0, bool centerPartialRows = true) const;
++    double     opennessFor(const Vector2D& totalSize) const;
++    Hyprexpo::STileLayout tileLayoutForIndex(int id, const Vector2D& totalSize, double gap, const SOuterInsets& outerInset = {}, bool centerPartialRows = true) const;
++    CBox       tileBoxForIndex(int id, const Vector2D& totalSize, double gap, const SOuterInsets& outerInset = {}, bool centerPartialRows = true) const;
++    int        tileIndexAtPoint(const Vector2D& point, const Vector2D& totalSize, double gap, const SOuterInsets& outerInset = {}, bool centerPartialRows = true) const;
++    Vector2D   tilePosForID(int id, const Vector2D& totalSize, double gap, const SOuterInsets& outerInset = {}, bool centerPartialRows = true) const;
+     Vector2D   zoomSizeForCurrentGrid(const Vector2D& monitorSize) const;
+     void       updateHoveredFromMouse();
+     void       ensureKbFocusInitialized();
+diff --git a/OverviewCapture.cpp b/OverviewCapture.cpp
+index cb18d2f..8927cf5 100644
+--- a/OverviewCapture.cpp
++++ b/OverviewCapture.cpp
+@@ -11,6 +11,9 @@
+ #include <hyprutils/utils/ScopeGuard.hpp>
+ #include <hyprland/src/render/OpenGL.hpp>
+ #include <hyprland/src/render/Renderer.hpp>
++#include <hyprland/src/output/Monitor.hpp>
++#include <hyprland/protocols/wlr-layer-shell-unstable-v1.hpp>
++#include "globals.hpp"
+ #undef private
+ #undef protected
+ 
+@@ -29,6 +32,41 @@ std::atomic<uint64_t> g_budgetGeneration = 1;
+ std::mutex            g_budgetLogMutex;
+ uint64_t              g_lastLoggedBudgetGeneration = 0;
+ 
++// quickshell-desktop: the top and overlay layers -- the bar, the dock, their
++// popups -- are no part of a workspace, and main.cpp draws them over the
++// overview where they stand. So each workspace is taken without them: set
++// aside for the one render and put back after it, with anything added
++// meanwhile.
++class CShellLayersAside {
++  public:
++    explicit CShellLayersAside(const PHLMONITOR& monitor) : m_monitor(monitor) {
++        if (!g_shellAboveOverview || !monitor)
++            return;
++        for (size_t i = 0; i < LAYERS.size(); ++i)
++            std::swap(monitor->m_layerSurfaceLayers[LAYERS[i]], m_aside[i]);
++        m_active = true;
++    }
++
++    ~CShellLayersAside() {
++        if (!m_active)
++            return;
++        for (size_t i = 0; i < LAYERS.size(); ++i) {
++            auto& layers = m_monitor->m_layerSurfaceLayers[LAYERS[i]];
++            std::swap(layers, m_aside[i]);
++            layers.insert(layers.end(), m_aside[i].begin(), m_aside[i].end());
++        }
++    }
++
++    CShellLayersAside(const CShellLayersAside&)            = delete;
++    CShellLayersAside& operator=(const CShellLayersAside&) = delete;
++
++  private:
++    static constexpr std::array<uint32_t, 2> LAYERS = {ZWLR_LAYER_SHELL_V1_LAYER_TOP, ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY};
++    PHLMONITOR                               m_monitor;
++    std::array<std::vector<PHLLSREF>, 2>     m_aside;
++    bool                                     m_active = false;
++};
++
+ class CRendererStateGuard {
+   public:
+     explicit CRendererStateGuard(Render::IHyprRenderer* renderer) : m_renderer(renderer), m_blockSurfaceFeedback(renderer->m_bBlockSurfaceFeedback),
+@@ -189,6 +227,7 @@ bool captureWorkspacePreview(const SWorkspaceCaptureRequest& request, SP<Render:
+         rendererState.begun();
+         g_pHyprRenderer->m_bBlockSurfaceFeedback = g_pHyprRenderer->m_bBlockSurfaceFeedback || request.blockSurfaceFeedback;
+         clearWithColor(CHyprColor{0, 0, 0, 1.0});
++        CShellLayersAside shellAside{request.monitor};
+ 
+         if (request.workspace) {
+             PHLWORKSPACE previousWS;
+diff --git a/OverviewInteraction.cpp b/OverviewInteraction.cpp
+index 30ab6ea..dc01e9d 100644
+--- a/OverviewInteraction.cpp
++++ b/OverviewInteraction.cpp
+@@ -137,10 +137,12 @@ Vector2D COverview::tilePointToWorkspacePoint(int id, const Vector2D& localPoint
+ 
+     const auto tileBox = tileBoxForIndex(id, size->value(), GAP_WIDTH, currentOuterInset(), true);
+     const Vector2D inTile = localPoint - Vector2D{tileBox.x, tileBox.y};
++    // quickshell-desktop: a tile shows the workspace cropped (croppedEdges).
++    const auto EDGE = croppedEdges(openness());
+ 
+     return MON->m_position + Vector2D{
+-        std::clamp(inTile.x / std::max(1.0, tileBox.w), 0.0, 1.0) * MON->m_size.x,
+-        std::clamp(inTile.y / std::max(1.0, tileBox.h), 0.0, 1.0) * MON->m_size.y,
++        EDGE.left + std::clamp(inTile.x / std::max(1.0, tileBox.w), 0.0, 1.0) * (MON->m_size.x - EDGE.left - EDGE.right),
++        EDGE.top + std::clamp(inTile.y / std::max(1.0, tileBox.h), 0.0, 1.0) * (MON->m_size.y - EDGE.top - EDGE.bottom),
+     };
+ }
+ 
+diff --git a/OverviewRender.cpp b/OverviewRender.cpp
+index e18d627..fb22111 100644
+--- a/OverviewRender.cpp
++++ b/OverviewRender.cpp
+@@ -271,6 +271,7 @@ void COverview::fullRender() {
+ 
+     const auto GAPSIZE = openness() * GAP_WIDTH;
+     const auto OUTER   = currentOuterInset();
++    const auto EDGE    = croppedEdges(openness());
+     const auto SHAPE   = currentGridShape();
+ 
+     clearWithColor(BG_COLOR.stripA());
+@@ -409,6 +410,11 @@ void COverview::fullRender() {
+             if (!closing && target != focus.to)
+                 focus = {.from = focusNow(focus), .to = target, .since = FOCUS_NOW};
+             const double crop = (1.0 - 1.0 / (1.0 + FOCUS_IMAGE * focusNow(focus) * FOCUS_SETTLE)) / 2.0;
++            // quickshell-desktop: the picture cropped to the work area
++            // (croppedEdges), and the focus zoom taken within what is left.
++            const double cropU0 = EDGE.left / MON->m_size.x, cropU1 = 1.0 - EDGE.right / MON->m_size.x;
++            const double cropV0 = EDGE.top / MON->m_size.y, cropV1 = 1.0 - EDGE.bottom / MON->m_size.y;
++            const double zoomU  = (cropU1 - cropU0) * crop, zoomV = (cropV1 - cropV0) * crop;
+ 
+             CRegion damage{0, 0, INT16_MAX, INT16_MAX};
+             Render::GL::g_pHyprOpenGL->renderTextureInternal(images[id].fb->getTexture(), texbox,
+@@ -417,8 +423,8 @@ void COverview::fullRender() {
+                                                                .round                       = tileRound,
+                                                                .roundingPower               = ROUND_PWR,
+                                                                .allowCustomUV               = true,
+-                                                               .primarySurfaceUVTopLeft     = {crop, crop},
+-                                                               .primarySurfaceUVBottomRight = {1.0 - crop, 1.0 - crop}});
++                                                               .primarySurfaceUVTopLeft     = {cropU0 + zoomU, cropV0 + zoomV},
++                                                               .primarySurfaceUVBottomRight = {cropU1 - zoomU, cropV1 - zoomV}});
+         }
+     }
+ 
+@@ -760,7 +766,7 @@ void COverview::fullRender() {
+                 .targetValid     = true,
+                 .pointerLocal    = {pointerLocal.x, pointerLocal.y},
+                 .targetTileLocal = {targetTileBox.x, targetTileBox.y, targetTileBox.w, targetTileBox.h},
+-                .workspaceSize   = {MON->m_size.x, MON->m_size.y},
++                .workspaceSize   = {MON->m_size.x - EDGE.left - EDGE.right, MON->m_size.y - EDGE.top - EDGE.bottom},
+                 .windowSize      = {windowBox.w, windowBox.h},
+                 .grabOffset      = {g_overviewDrag.grabOffset.x, g_overviewDrag.grabOffset.y},
+             });
+diff --git a/globals.hpp b/globals.hpp
+index 66c4f04..235d925 100644
+--- a/globals.hpp
++++ b/globals.hpp
+@@ -3,3 +3,9 @@
+ #include <hyprland/src/plugins/PluginAPI.hpp>
+ 
+ inline HANDLE PHANDLE = nullptr;
++
++// quickshell-desktop: the shell's own surfaces -- the top and overlay layers,
++// the bar, the dock and their popups -- are drawn over the overview where they
++// stand and stay usable there, instead of inside every workspace's picture.
++// Only once Hyprland's renderLayer is found to draw them with (main.cpp).
++inline bool g_shellAboveOverview = false;
+diff --git a/main.cpp b/main.cpp
+index 302ed07..20216cf 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -6,6 +6,11 @@
+ #include <hyprland/src/helpers/time/Time.hpp>
+ #include <hyprland/src/render/Renderer.hpp>
+ #include <hyprland/src/event/EventBus.hpp>
++#include <hyprland/src/desktop/state/ViewState.hpp>
++#include <hyprland/src/desktop/view/LayerSurface.hpp>
++#include <hyprland/src/managers/SeatManager.hpp>
++#include <hyprland/src/output/Monitor.hpp>
++#include <hyprland/protocols/wlr-layer-shell-unstable-v1.hpp>
+ 
+ #include "Dispatchers.hpp"
+ #include "globals.hpp"
+@@ -26,14 +31,53 @@ inline CFunctionHook* g_pAddDamageHookB      = nullptr;
+ typedef void (*origRenderWorkspace)(void*, PHLMONITOR, PHLWORKSPACE, const Time::steady_tp&, const CBox&);
+ typedef void (*origAddDamageA)(void*, const CBox&);
+ typedef void (*origAddDamageB)(void*, const pixman_region32_t*);
++// quickshell-desktop: Hyprland's renderLayer, which is not public, found by name.
++typedef void (*origRenderLayer)(void*, PHLLS, PHLMONITOR, const Time::steady_tp&, bool, bool);
++inline origRenderLayer g_pRenderLayer = nullptr;
++
++// quickshell-desktop: the top and overlay layers, live and where they stand,
++// over the overview -- each workspace's picture is taken without them
++// (OverviewCapture). In the order renderAllClientsForWorkspace draws them:
++// the surfaces, what is fading out of each layer, then their popups.
++static void renderShellLayers(void* renderer, PHLMONITOR monitor, const Time::steady_tp& now) {
++    static constexpr std::array<std::pair<uint32_t, Desktop::eFadeoutPlane>, 2> SHELL = {{
++        {ZWLR_LAYER_SHELL_V1_LAYER_TOP, Desktop::FADEOUT_PLANE_LAYER_TOP},
++        {ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, Desktop::FADEOUT_PLANE_LAYER_OVERLAY},
++    }};
++    for (const auto& [layer, plane] : SHELL) {
++        for (const auto& ref : monitor->m_layerSurfaceLayers[layer])
++            if (const auto LS = ref.lock())
++                g_pRenderLayer(renderer, LS, monitor, now, false, false);
++        g_pHyprRenderer->renderFadeouts(monitor, plane);
++    }
++    for (const auto& [layer, plane] : SHELL)
++        for (const auto& ref : monitor->m_layerSurfaceLayers[layer])
++            if (const auto LS = ref.lock())
++                g_pRenderLayer(renderer, LS, monitor, now, true, false);
++}
++
++// quickshell-desktop: while a shell surface has the keyboard -- the launcher
++// opened over the overview -- its keys are its own, not the overview's.
++static bool keyboardOnShell() {
++    const auto FOCUS = g_pSeatManager->m_state.keyboardFocus.lock();
++    if (!g_shellAboveOverview || !FOCUS)
++        return false;
++    for (const auto& ls : Desktop::viewState()->layers())
++        if (ls && ls->m_layer >= ZWLR_LAYER_SHELL_V1_LAYER_TOP && ls->resource() == FOCUS)
++            return true;
++    return false;
++}
+ 
+ static void hkRenderWorkspace(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now, const CBox& geometry) {
+     auto* const OV = overviewForMonitor(pMonitor);
+ 
+     if (!OV || isRenderingOverview() || OV->blocksOverviewRendering() || !OV->shouldRenderOverviewForMonitor(pMonitor))
+         ((origRenderWorkspace)(g_pRenderWorkspaceHook->m_original))(thisptr, pMonitor, pWorkspace, now, geometry);
+-    else
++    else {
+         OV->render();
++        if (g_shellAboveOverview)
++            renderShellLayers(thisptr, pMonitor, now);
++    }
+ }
+ 
+ static void hkAddDamageA(void* thisptr, const CBox& box) {
+@@ -106,6 +150,18 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+ 
+     g_pAddDamageHookA = HyprlandAPI::createFunctionHook(PHANDLE, FNS[0].address, (void*)hkAddDamageA);
+ 
++    // quickshell-desktop: without it the shell stays inside the workspaces, as
++    // upstream draws it, rather than vanishing from the overview.
++    for (const auto& fn : HyprlandAPI::findFunctionsByName(PHANDLE, "renderLayer")) {
++        if (fn.demangled.find("IHyprRenderer::renderLayer(") != std::string::npos) {
++            g_pRenderLayer = (origRenderLayer)fn.address;
++            break;
++        }
++    }
++    g_shellAboveOverview = g_pRenderLayer != nullptr;
++    if (!g_shellAboveOverview)
++        failNotif("no fn renderLayer; the shell is drawn inside the workspaces");
++
+     bool success = g_pRenderWorkspaceHook->hook();
+     success      = success && g_pAddDamageHookA->hook();
+     success      = success && g_pAddDamageHookB->hook();
+@@ -126,6 +182,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+     });
+ 
+     static auto PKEY = Event::bus()->m_events.input.keyboard.key.listen([](IKeyboard::SKeyEvent event, Event::SCallbackInfo& info) {
++        if (keyboardOnShell())
++            return;
++
+         if (shouldCancelOverview(event)) {
+             info.cancelled = true;
+             closeOverviews(false);

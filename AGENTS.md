@@ -303,7 +303,8 @@ keyboard navigation only, tracked by the `InputMode` service.
 
 **Overview** — the workspace overview. **Not a shell surface**: it is the
 `hyprexpo` compositor plugin. Only the compositor can render live workspace
-contents.
+contents. The shell's own surfaces stay where they stand above it, live and
+usable, and are left out of the workspaces' pictures.
 
 ## Services (`services/`, all `pragma Singleton`)
 
@@ -698,10 +699,10 @@ only on a difference rebuilds, loads the result into the running Hyprland
 and sends a notification. Its output is in `journalctl --user -t hyprexpo`.
 `master` chases hyprland-git and will not compile against a release.
 
-Three patches are applied, in order, all relative to the source directory:
+Four patches are applied, in order, all relative to the source directory:
 `hyprexpo-real-wallpaper-bg.patch` (the real wallpaper, blurred, behind the
-tiles), `hyprexpo-tile-zoom-and-add-tile.patch` and
-`hyprexpo-swipe-open-close.patch`. The second highlights a
+tiles), `hyprexpo-tile-zoom-and-add-tile.patch`,
+`hyprexpo-swipe-open-close.patch` and `hyprexpo-shell-above-overview.patch`. The second highlights a
 tile with a focus zoom instead of a border, so the shell pushes
 `border_width` 0: the tile under the pointer or the keyboard keeps its size
 and the workspace in it grows 2% inside the tile's rounded edge (a crop of
@@ -736,3 +737,42 @@ overview does nothing — and registers the opposite direction as upstream's
 `cancel` gesture, which closes back to the workspace the overview opened on,
 the way Escape and Super+Tab do. Hyprland lets `up` and `down` coexist on
 one finger count; only `vertical` would shadow either.
+
+The fourth keeps the shell where it stands. `renderWorkspace`, which the
+plugin both replaces with the overview and calls to take each workspace's
+picture, draws the top and overlay layers too: upstream the bar and the dock
+vanished from the screen and appeared, frozen, inside every tile. Now each
+picture is taken with those two layer lists set aside for the one render
+(`CShellLayersAside`), and after the overview the hook draws them itself,
+where they stand, with Hyprland's `renderLayer` — protected, so found by
+name like the hooks, and the whole patch stands down if it is not found. A
+pointer move or click where a top or overlay surface's input region is
+(`hitTest().layerSurfaceAt`, and the layers' popups) is left to Hyprland
+instead of being taken by the overview, and coming off one the shell is told
+the pointer left (`setPointerFocus(nullptr)`), since the overview's own moves
+never reach Hyprland's focus. While a shell surface holds the keyboard the
+overview leaves every key to it, so the launcher opened over it can be
+typed into. The grid's outer margin is per side: `gaps_out` past the
+monitor's reserved area, so no tile sits under the bar or a dock that stays
+out. And each tile shows the work area alone: its picture is cropped (UVs)
+by the reserved edges, which only the shell would fill, and the tiles take
+the cropped picture's shape — `aspectCorrectTileSize` used to take the
+area's, which with per-side margins stretched every picture 12% wide. Both
+scale with how far open the overview is, like the margins, so the current
+tile still fills the screen uncropped as it opens and closes. **A layout
+takes the tiles' shape at the openness of the size it is given**
+(`opennessFor`), never the current one: the zoom's targets are laid out
+ahead of time, and closing from open with the open shape stopped short of
+the tile — the workspace below it stayed on screen until the overview went.
+Nor may the crop read the zoom before it exists: the first tile boxes are
+laid out while the overview is being made, and a nested Hyprland segfaulted
+there. Verified in a nested Hyprland with a stand-in bar and dock — drawn live
+above the tiles and absent from them, hover entering and leaving them, the
+grid clear of both, tiles of the work area's shape with no band where the
+shell was, recorded frame by frame opening, closing and selecting (the same,
+another and the new tile) and switching workspace under it — and in the
+session: a click on the dock opens the launcher over the overview, typing
+reaches it and Escape closes only it; a tile clicked, a number key, Escape
+and a three-finger swipe (a uinput touchpad, see *Testing*) each close it
+with nothing of another workspace left on screen; a window drags between
+tiles; the auto-hiding dock comes up over it on the bottom edge and goes.

@@ -85,6 +85,15 @@ git apply "${apply_args[@]}" "$zoom_patch" || { echo "hyprexpo-tile-zoom-and-add
 swipe_patch="$script_dir/hyprexpo-swipe-open-close.patch"
 git apply "${apply_args[@]}" "$swipe_patch" || { echo "hyprexpo-swipe-open-close.patch no longer applies to ${tag}" >&2; exit 1; }
 
+# The shell stays where it stands: the top and overlay layers -- the bar, the
+# dock, their popups -- are left out of every workspace's picture and drawn
+# live over the overview instead, taking the pointer and, while one of them
+# has it, the keyboard. The grid keeps clear of what the screen's edges
+# reserve, and each tile shows the work area alone, cropped to it and of its
+# shape. Cut against the tree with the three patches above applied.
+shell_patch="$script_dir/hyprexpo-shell-above-overview.patch"
+git apply "${apply_args[@]}" "$shell_patch" || { echo "hyprexpo-shell-above-overview.patch no longer applies to ${tag}" >&2; exit 1; }
+
 make all
 install -Dm755 hyprexpo.so "$dest/hyprexpo.so"
 printf '%s\n' "$hypr_version" > "$stamp"
