@@ -29,8 +29,9 @@ QtObject {
         has to follow the icon rather than stand as a number of its own. */
     readonly property int dockCell: root.dockIcon + root.dockPadding * 2
     readonly property int dockGap: 2
-    /*! How tall the dock is on screen, including the gap under it. It reserves
-        no space — this is only used to position things relative to it. */
+    /*! How tall the dock is on screen, including the gap under it: what it
+        reserves while it is always shown, and what popups and the OSD keep
+        clear of either way. */
     readonly property int dockFootprint: root.dockCell + root.dockPadding * 2 + root.screenGap
     /*! Room kept above the dock inside its window for hover tooltips. */
     readonly property int dockTooltipSpace: 48

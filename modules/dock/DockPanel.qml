@@ -13,12 +13,17 @@ import "root:/services"
     open window, then the application grid. The overview is Super+Tab and the
     three-finger swipe; it has no button here.
 
-    It hides itself when it is not being used and slides back when the pointer
-    reaches the bottom edge. The reveal trigger is a few pixels tall, invisible,
-    and only as wide as the dock; the window reserves no space at all, and input
-    is masked to the dock plus that strip, so everything else on screen stays
-    click-through. The strip stays in the input region while the dock is out, so
-    crossing the gap between them cannot drop the hover and start a hide.
+    By default it hides itself when it is not being used and slides back when
+    the pointer reaches the bottom edge. The reveal trigger is a few pixels
+    tall, invisible, and only as wide as the dock; the window reserves no space
+    at all, and input is masked to the dock plus that strip, so everything else
+    on screen stays click-through. The strip stays in the input region while the
+    dock is out, so crossing the gap between them cannot drop the hover and
+    start a hide.
+
+    With auto-hide off (Settings.dockAutoHide) the dock stays out and reserves
+    its footprint the way the bar does, so windows stop above it rather than
+    sitting under it for good.
 */
 PanelWindow {
     id: root
@@ -61,7 +66,10 @@ PanelWindow {
 
     readonly property int slotStride: Appearance.m.dockCell + Appearance.m.dockGap
 
+    /*! Whether the pointer has called the dock out; it goes on tracking that
+        while auto-hide is off, so turning it back on starts from the truth. */
     property bool revealed: false
+    readonly property bool shown: root.revealed || !Settings.dockAutoHide
 
     /*! How far an icon has to step aside to open a gap where the drag will land. */
     function slideFor(slot: int): real {
@@ -78,7 +86,10 @@ PanelWindow {
     visible: !root.suppressed
     color: "transparent"
     implicitHeight: root.dockHeight + Appearance.m.dockTooltipSpace + Appearance.m.screenGap
-    exclusionMode: ExclusionMode.Ignore
+    // Writing exclusiveZone forces exclusionMode to Normal (Quickshell's own
+    // setter), so the mode is not bound alongside it: whichever was written
+    // last at creation would win. -1 is what ExclusionMode.Ignore sends.
+    exclusiveZone: Settings.dockAutoHide ? -1 : Appearance.m.dockFootprint
     anchors { bottom: true; left: true; right: true }
 
     WlrLayershell.namespace: "shell-dock"
@@ -130,7 +141,7 @@ PanelWindow {
         width: surface.width
         // While the dock is out, the strip stretches up to meet it, so moving
         // between the two never crosses a gap where hover would be lost.
-        height: root.revealed ? Appearance.m.screenGap + 3 : 3
+        height: root.shown ? Appearance.m.screenGap + 3 : 3
 
         HoverHandler { id: triggerHover }
     }
@@ -138,7 +149,7 @@ PanelWindow {
     Tooltip {
         id: tip
         anchorY: surface.y
-        visible: root.revealed && opacity > 0
+        visible: root.shown && opacity > 0
         z: 1
     }
 
@@ -147,7 +158,7 @@ PanelWindow {
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: root.revealed
+        anchors.bottomMargin: root.shown
             ? Appearance.m.screenGap : -(root.dockHeight + Appearance.m.screenGap)
         width: layout.implicitWidth + Appearance.m.dockPadding * 2
         height: root.dockHeight

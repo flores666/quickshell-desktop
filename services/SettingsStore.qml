@@ -10,6 +10,8 @@ JsonAdapter {
     property string theme: "dark"
     property bool doNotDisturb: false
     property bool roundnessFollowsWindows: false
+    /*! Off keeps the dock on screen, reserving its footprint like the bar. */
+    property bool dockAutoHide: true
     property list<string> pinnedApps: []
     /*! Application keys in the order the dock shows them. Keys that are
         neither pinned nor running are ignored, so it never needs pruning. */

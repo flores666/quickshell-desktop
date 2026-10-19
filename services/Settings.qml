@@ -38,6 +38,8 @@ Singleton {
     readonly property string wallpaper: store.wallpaper
     /*! The shell's corners follow Hyprland's window rounding; see Radii. */
     readonly property bool roundnessFollowsWindows: store.roundnessFollowsWindows
+    /*! The dock slides away when unused; off, it stays and reserves its room. */
+    readonly property bool dockAutoHide: store.dockAutoHide
 
     // ------------------------------------------------------------- overrides
     //
@@ -99,6 +101,10 @@ Singleton {
 
     function setRoundnessFollowsWindows(on: bool): void {
         store.roundnessFollowsWindows = on;
+    }
+
+    function setDockAutoHide(on: bool): void {
+        store.dockAutoHide = on;
     }
 
     function setAccentColor(value: string): void {

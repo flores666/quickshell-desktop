@@ -5,8 +5,8 @@ import "root:/config"
 import "root:/components"
 import "root:/services"
 
-/*! The dock: how big its icons are, how far it sits off the screen edge, and
-    how long it waits before it slides away. */
+/*! The dock: whether it hides, how big its icons are, how far it sits off the
+    screen edge, and how long it waits before it slides away. */
 Column {
     id: root
 
@@ -14,6 +14,19 @@ Column {
 
     SettingGroup {
         width: root.width
+
+        MenuRow {
+            width: parent.width
+            flush: true
+            title: qsTr("Auto-hide")
+            subtitle: qsTr("Slide away when not in use; point at the bottom edge to bring it back")
+            onClicked: Settings.setDockAutoHide(!Settings.dockAutoHide)
+
+            ToggleSwitch {
+                checked: Settings.dockAutoHide
+                onToggled: value => Settings.setDockAutoHide(value)
+            }
+        }
 
         SettingRow {
             width: parent.width
@@ -34,9 +47,11 @@ Column {
         }
 
         /*! A timing rather than a size, so the range is the one Dock clamps to
-            rather than anything in Tuning. */
+            rather than anything in Tuning. A dock that never hides has no use
+            for it, so it is not offered then. */
         SettingRow {
             width: parent.width
+            visible: Settings.dockAutoHide
             key: "dockHideDelay"
             label: qsTr("Hide delay")
             min: Dock.hideDelayRange.min
@@ -49,7 +64,9 @@ Column {
 
     Label {
         width: root.width
-        text: qsTr("The dock reserves no space; windows sit under it either way.")
+        text: Settings.dockAutoHide
+            ? qsTr("The dock reserves no space; windows sit under it.")
+            : qsTr("Windows stop above the dock, the way they stop below the bar.")
         role: Label.Role.Caption
         faint: true
         wrapMode: Text.Wrap
