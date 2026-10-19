@@ -75,14 +75,24 @@ Singleton {
         root.dropPopup(n);
         // Transient notifications exist only as a toast; once it is gone, so are
         // they. Anything else stays in history.
-        if (n && n.transient)
+        if (root.isOpen(n) && n.transient)
             n.tracked = false;
+    }
+
+    /*!
+        Whether a notification can still be acted on. One already closed —
+        dismissed, expired or withdrawn by its application — stays drawn while
+        its card plays its way out (NotificationCard holds it), and Quickshell
+        refuses, loudly, to close or invoke it again.
+    */
+    function isOpen(n: var): bool {
+        return !!n && n.tracked;
     }
 
     /*! dismiss() closes the notification and destroys it, so the toast goes
         first and nothing touches it after. */
     function remove(n: var): void {
-        if (!n)
+        if (!root.isOpen(n))
             return;
         root.dropPopup(n);
         n.dismiss();
@@ -102,7 +112,7 @@ Singleton {
     }
 
     function invoke(n: var, action: var): void {
-        if (!n || !action)
+        if (!root.isOpen(n) || !action)
             return;
         root.dropPopup(n);
         // The action closes the notification itself unless it is resident, in

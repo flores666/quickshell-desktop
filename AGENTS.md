@@ -491,6 +491,13 @@ expensive to find.
 - **Centring a child on a container that sizes itself from its children is a
   binding loop** (`MenuRow`'s trailing slot is already centred). This was the
   one "Binding loop detected" every start used to log.
+- **A `Notification` is destroyed the moment it closes** — dismissed,
+  expired, or withdrawn by its application — so a card animating out was
+  left reading null: its icon fell back to the bell. `NotificationCard`
+  holds its notification with a `RetainableLock` until the card goes.
+  Quickshell then refuses to close or invoke the held one again and says so
+  at critical level; `Notifs.isOpen` (its `tracked`) is what the service
+  checks first.
 - **Quickshell gives battery charge and Wi-Fi signal as 0–1 fractions**, not
   the 0–100 UPower and NetworkManager speak. `Power.percentage` converts once;
   `Network.signalIcon` holds the thresholds as fractions.

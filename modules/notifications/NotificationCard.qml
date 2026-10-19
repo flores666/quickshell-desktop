@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import Quickshell.Services.Notifications
 import "root:/config"
 import "root:/components"
@@ -26,6 +27,14 @@ Surface {
     readonly property var actionList: Notifs.actionsOf(root.notification)
 
     signal dismissed
+
+    // A notification is destroyed the moment it is dismissed or its
+    // application closes it, and the card would play its way out empty, its
+    // icon fallen back to the bell. Held until the card itself goes.
+    RetainableLock {
+        object: root.notification
+        locked: true
+    }
 
     // Over the whole card, buttons included, which a Clickable is not: the
     // close button shows only while the pointer is on the card.
