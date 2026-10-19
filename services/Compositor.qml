@@ -86,9 +86,22 @@ Singleton {
         Hyprland.dispatch("hyprexpo:expo toggle");
     }
 
+    /*!
+        Focus a window, on its own workspace and monitor, leaving the pointer
+        where it is.
+
+        `focuswindow` always warps the pointer onto the window, and only
+        cursor:no_warps stops it — for everything, so on for good it would also
+        leave a keyboard `movefocus` with the pointer over the window it left.
+        It is on for this one dispatch: Hyprland runs a batch with nothing in
+        between, and the batch puts it back as it found it.
+    */
     function focusWindow(toplevel: HyprlandToplevel): void {
-        if (toplevel && toplevel.address !== "")
-            Hyprland.dispatch(`focuswindow address:0x${toplevel.address}`);
+        if (!toplevel || toplevel.address === "")
+            return;
+        Quickshell.execDetached(["sh", "-c",
+            'w=$(hyprctl getoption cursor:no_warps | sed -n "s/^int: //p");'
+            + ` hyprctl --batch "keyword cursor:no_warps 1 ; dispatch focuswindow address:0x${toplevel.address} ; keyword cursor:no_warps \${w:-0}" >/dev/null`]);
     }
 
     function closeWindow(toplevel: HyprlandToplevel): void {

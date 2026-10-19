@@ -295,9 +295,9 @@ contents.
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
-| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
+| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`) |
-| `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
+| `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is), `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
@@ -531,6 +531,13 @@ expensive to find.
   The overview's border weight went to `border_size` (this fork's is
   `border_width`) and never took effect. Read a new one back with
   `hyprctl getoption`.
+- **`focuswindow` warps the pointer onto the window it focuses**, and so does a
+  foreign-toplevel activate (`CWindow::activate`, which also marks the window
+  urgent). Only `cursor:no_warps` stops it, and it stops every warp — a
+  keyboard `movefocus` too, which with `follow_mouse = 1` then leaves the
+  pointer over the window focus left. `Compositor.focusWindow` turns it on
+  inside one `hyprctl --batch` around the dispatch and puts the value it read
+  back; Hyprland runs a batch with nothing in between.
 - **Applications are launched with Hyprland's `exec` dispatcher**
   (`Compositor.exec`), never `DesktopEntry.execute()`. Hyprland's
   `misc:initial_workspace_tracking` only follows processes it spawned itself:
