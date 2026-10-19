@@ -17,7 +17,7 @@ Singleton {
     id: root
 
     /*!
-        [{ key, appKey, entry, appId, name, icon, toplevel, pinned, running, active, grouped }]
+        [{ key, appKey, entry, appId, name, icon, toplevel, pinned, running, grouped }]
 
         `toplevel` is null for a pinned application that is not running.
         `key` identifies the icon; `appKey` the application it belongs to, which
@@ -92,12 +92,13 @@ Singleton {
                 toplevel: w,
                 pinned,
                 running: true,
-                active: w.activated,
                 name,
                 // Window titles are deliberately *not* read here: they change
                 // constantly, and this list would be rebuilt on every keystroke
-                // in a terminal. Whoever needs the title reads it off the
-                // toplevel, which only re-evaluates that one binding.
+                // in a terminal. Nor is which window has focus: every focus
+                // change rebuilt every icon, and the one under the pointer lost
+                // its hover, flashing the cursor. Whoever needs either reads it
+                // off the toplevel, which only re-evaluates that one binding.
                 grouped: group.windows.length > 1,
                 icon: group.entry ? group.entry.icon : group.appId
             };
@@ -146,7 +147,6 @@ Singleton {
                 toplevel: null,
                 pinned: true,
                 running: false,
-                active: false,
                 name: pinnedEntry ? pinnedEntry.name : id,
                 grouped: false,
                 icon: pinnedEntry ? pinnedEntry.icon : id

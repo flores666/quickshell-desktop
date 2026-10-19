@@ -414,7 +414,10 @@ expensive to find.
   `Qt.callLater`; the adapter still picks up what is written.
 - **Do not read churny properties in a model.** `Dock.items` used to read window
   titles; every keystroke in a terminal rebuilt the whole dock. Titles are now
-  read per-item off the toplevel. This was worth 0.3% of idle CPU.
+  read per-item off the toplevel. This was worth 0.3% of idle CPU. So is which
+  window has focus: reading `activated` there rebuilt all 28 icons of two docks
+  on every focus change, and the one under the pointer, newly made, had no
+  hover — a click on it flashed the cursor to the arrow and back.
 - **A `Rectangle` with both a `gradient` and a `radius` ignores its parents'
   opacity** (measured: 51% alpha under a 30% parent; a plain fill, or a
   gradient with no radius, comes out at 30%). A popup's fade then leaves it at

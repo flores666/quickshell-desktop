@@ -25,6 +25,8 @@ Clickable {
         const title = String(root.item.toplevel?.title ?? "");
         return title !== "" ? `${root.item.name} — ${title.slice(0, 60)}` : root.item.name;
     }
+    /*! Whether this is the focused window; read here, not in the model, like the title. */
+    readonly property bool active: root.item.toplevel?.activated ?? false
     /*! Reported to the dock, which owns the one shared tooltip. */
     signal hoverChanged(string key, string label, real centerX, bool entered)
 
@@ -53,7 +55,7 @@ Clickable {
     radius: Appearance.r.capsule(Appearance.m.dockCell)
     focusable: false
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-    selected: root.item.active
+    selected: root.active
 
     // Above its neighbours while it is being carried, so it is never clipped by
     // the icon it is passing over.
@@ -122,10 +124,10 @@ Clickable {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 3
-        width: root.item.active ? 14 : root.item.running ? 4 : 0
+        width: root.active ? 14 : root.item.running ? 4 : 0
         height: 3
         radius: 1.5
-        color: root.item.active ? Appearance.c.accent : Appearance.c.textFaint
+        color: root.active ? Appearance.c.accent : Appearance.c.textFaint
 
         Behavior on width {
             NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
