@@ -47,7 +47,7 @@ ShellRoot {
 
     ShellIpc {}
 
-    OverviewTheme {}
+    CompositorTheme {}
 
     QuickSettings {}
 

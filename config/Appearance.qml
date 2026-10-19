@@ -146,19 +146,37 @@ Singleton {
     readonly property Metrics m: Metrics {}
     readonly property Motion t: Motion {}
 
-    /*! Elevation presets consumed by Shadow.qml: offset, blur radius, strength,
-        and `pad` — the room the blurred silhouette needs around the shape. The
-        silhouette is dropped by `y`, so its tail reaches `blur` past that; a
-        surface that budgets only `blur` shears the bottom of its own shadow. */
+    /*!
+        The shadow of everything that floats: every application window, which
+        Hyprland draws (modules/common/CompositorTheme pushes it), and the
+        shell's own floating surfaces — popups, toasts, the OSD, the dock —
+        which are Shadow level 3. macOS's, in CSS drop-shadow terms: a long
+        soft shadow dropped below, and a tight dark edge all round. The same in
+        both themes, as macOS's is. Hyprland draws one shadow per window and
+        cannot drop it far without a hard edge, so a window's is the nearest
+        soft one it draws: dropped a few pixels, shorter below, a little above.
+    */
+    readonly property var windowShadow: [
+        { y: 25, blur: 45, alpha: 0.40 },
+        { y: 0, blur: 2, alpha: 0.50 }
+    ]
+
+    /*! Elevation presets consumed by Shadow.qml, as layers in CSS drop-shadow
+        terms — offset `y`, `blur` (twice the gaussian's σ) and `alpha` — and
+        `pad`, the room the deepest layer needs around the shape: dropped by `y`,
+        its tail reaches 3σ past that, and a surface that budgets less shears
+        the bottom of its own shadow. Resting chrome and raised cards are tuned
+        to each theme's shadowStrength; level 3 is windowShadow as it stands. */
     function shadowFor(level: int): var {
-        let spec;
+        const k = root.c.shadowStrength;
+        let layers;
         switch (level) {
-        case 1: spec = { y: 1, blur: 8, alpha: 0.7 }; break;
-        case 2: spec = { y: 2, blur: 14, alpha: 0.85 }; break;
-        case 3: spec = { y: 3, blur: 22, alpha: 1.0 }; break;
-        default: spec = { y: 0, blur: 0, alpha: 0 }; break;
+        case 1: layers = [{ y: 1, blur: 4, alpha: 0.7 * k }]; break;
+        case 2: layers = [{ y: 2, blur: 6, alpha: 0.85 * k }]; break;
+        case 3: layers = root.windowShadow; break;
+        default: layers = []; break;
         }
-        spec.pad = spec.blur + spec.y;
-        return spec;
+        const pad = Math.max(0, ...layers.map(l => Math.ceil(l.y + l.blur * 1.5)));
+        return { layers, pad };
     }
 }

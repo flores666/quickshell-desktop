@@ -41,15 +41,22 @@ PanelWindow {
     visible: root.shown.length > 0
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
+    /*! Where the stack starts: clear of the bar, since an "ignore exclusive
+        zones" surface starts at the screen edge. */
+    readonly property int stackTop: Appearance.m.barFootprint + Appearance.m.popupGap
+    /*! Room around the stack for the toasts' shadow, as much as the screen
+        leaves, as in ShellOverlay: the surface reaches up over the bar and out
+        to the screen's edge, and the stack sits where it belongs inside it. */
+    readonly property int pad: Appearance.shadowFor(3).pad
+    readonly property int padTop: Math.min(root.pad, root.stackTop)
+
     // The full cap rather than the stack's height: when a toast leaves, the
     // ones below slide up from where they were, and a surface that shrank to
     // the new height at once would cut the bottom one off mid-slide.
-    implicitHeight: 600
-    implicitWidth: 400
+    implicitHeight: root.padTop + 600 + root.pad
+    implicitWidth: root.pad + column.width + Appearance.s.lg
     anchors { top: true; right: true }
-    // Clear the bar: an "ignore exclusive zones" surface starts at the screen edge.
-    margins.top: Appearance.m.barFootprint + Appearance.m.popupGap
-    margins.right: Appearance.s.lg
+    margins.top: root.stackTop - root.padTop
 
     WlrLayershell.namespace: "shell-toasts"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -61,7 +68,9 @@ PanelWindow {
         id: column
 
         anchors.top: parent.top
+        anchors.topMargin: root.padTop
         anchors.right: parent.right
+        anchors.rightMargin: Appearance.s.lg
         width: 372
         spacing: Appearance.s.md
 

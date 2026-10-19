@@ -222,8 +222,18 @@ Every open/close routes through it, which is why the invariant holds by
 construction rather than by every surface remembering to close its siblings.
 
 **Card** — the visible rounded panel inside a popup's window. The window is
-sized to `cardWidth`/`cardHeight` plus `pad` (room for the shadow); input is
-masked to the card alone.
+sized to `cardWidth`/`cardHeight` plus `pad` (room for the shadow) — as much
+of it as the screen leaves above and below, so the card keeps its place under
+the bar and a deep shadow is cut off by the screen's edge; input is masked to
+the card alone.
+
+**Window shadow** — `Appearance.windowShadow`, the one shadow of everything
+that floats, in CSS `drop-shadow` terms (macOS's: dropped 25 px with a 45 px
+blur at 40%, and a 2 px edge at 50%). The shell's floating surfaces cast it as
+`Shadow` level 3; `CompositorTheme` gives windows the nearest soft shadow
+Hyprland draws — one layer, dropped 6 px, since a deeper drop shows as a slab
+(see the Hyprland gotchas) — so a window's shadow is shorter below than a
+popup's and shows a little above.
 
 **Token** — a named design value in `config/`. `Appearance.c.accent`,
 `Appearance.s.lg`, `Appearance.t.fast` and so on.
@@ -292,10 +302,10 @@ contents.
 
 | Service | Owns | Key surface |
 |---|---|---|
-| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `shadowFor(level)`, `seedRange(seed)`, `inSeedRange` |
+| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `windowShadow`, `shadowFor(level)` (layers in CSS `drop-shadow` terms, and `pad`), `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
-| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
+| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's and the windows' shadow — set by `CompositorTheme`) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is), `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
@@ -326,7 +336,7 @@ implemented.
 |---|---|
 | `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation (Space/Enter click; Menu or Shift+F10 right-click). Everything clickable derives from it |
 | `Surface` | a glass panel: `c.chrome` (the surface at `c.glass` opacity), a hairline and a `Shadow`; the compositor blurs what is behind it |
-| `Shadow` | one gaussian-blurred silhouette via `MultiEffect`; `level` 1–3 |
+| `Shadow` | a `RectangularShadow` per layer of `Appearance.shadowFor(level)`; `level` 1–3, 3 being the window shadow |
 | `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
 | `AppIcon` | an application icon from the XDG theme, with fallbacks |
 | `Label` | text with the type scale applied; use instead of bare `Text` |
@@ -344,7 +354,7 @@ implemented.
 | `OverlayCard` | the card inside it: the entry slide, the fade (as one flattened layer), clipping, hover reporting to `Overlay`, and swallowing Escape (the global bind acts on it) |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
-| `OverviewTheme` | pushes the shell's colours into the hyprexpo plugin so the overview matches the theme |
+| `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, and the window shadow |
 | `MenuItemRow` | one row of a popup menu |
 
 ---
@@ -394,6 +404,13 @@ expensive to find.
 - **A file name that matches a singleton shadows it.** `modules/dock/Dock.qml`
   would hide the `Dock` service, which is why the window is `DockPanel.qml` and
   the OSD window is `OsdWindow.qml`. Do not name a module file after a service.
+- **`MultiEffect`'s blur stops at a gaussian of σ ≈ 20** (`blurMax` 64, the
+  most it takes), grows unevenly below that (32 gives σ 6.7, 48 gives 14), and
+  is counted in item pixels, so a smaller `layer.textureSize` does not widen
+  it. `RectangularShadow` (QtQuick.Effects, Qt 6.9) draws a rounded
+  rectangle's shadow analytically, as far as asked: its `blur` falls off like a
+  gaussian of σ = (3 × blur − 4) / 8 (measured, rms 0.01), and its shader
+  honours opacity. `Shadow` is built on it.
 - **`NumberAnimation.finished` never fires inside a `Behavior`.** Never unmap a
   window or free a resource from it. Use a `Timer` whose `running` is a plain
   binding — a binding cannot silently fail to fire.
@@ -528,8 +545,16 @@ expensive to find.
   this machine's is light, which is why `c.glass` is high.
 - **A colour with alpha stringifies as `#aarrggbb`.** Anything handing a
   token to Hyprland builds `rgba(rrggbbaa)` from the channels
-  (`OverviewTheme.rgba`); slicing the string would give the overview white
+  (`CompositorTheme.rgba`); slicing the string would give the overview white
   borders.
+- **Hyprland draws one shadow per window, solid over its own box.** The box
+  is the window moved by `decoration:shadow:offset`; past its edge the alpha
+  falls as ((range − d) / range)^render_power. A dropped shadow is therefore
+  even for the depth of the drop just under the window (measured: 0.27 to
+  within 0.001 of that formula), and that reads as a grey slab with a hard
+  lower edge — plain at a 22 px and a 12 px drop beside a popup's gaussian,
+  gone at 6, where it passes for the window's rim. `decoration:glow` is no
+  second layer: it is an inner glow, drawn over the window.
 - **`hyprctl keyword` answers `ok` for a plugin option that does not exist.**
   The overview's border weight went to `border_size` (this fork's is
   `border_width`) and never took effect. Read a new one back with

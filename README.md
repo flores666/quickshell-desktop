@@ -122,7 +122,7 @@ login: after a Hyprland update it rebuilds the plugin in the background, loads
 it and sends a notification, and otherwise does nothing.
 
 Its layout and gestures live in `hyprland.conf`; its three colours are pushed by
-the shell (`modules/common/OverviewTheme.qml`) so the overview follows the theme.
+the shell (`modules/common/CompositorTheme.qml`) so the overview follows the theme.
 
 ### Event-driven, not polled
 

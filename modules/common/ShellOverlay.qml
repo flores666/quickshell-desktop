@@ -131,6 +131,16 @@ PanelWindow {
     property var subject: null
     /*! Room for the shadow to spread outside the card. */
     readonly property int pad: Appearance.shadowFor(root.elevation).pad + Appearance.s.md
+    /*!
+        How much of that room there is above and below the card: no more than
+        lies between it and the screen's edge. A level-3 shadow is deeper than
+        the bar is tall, and what does not fit is cut off by the screen's edge
+        rather than pushing the card off its place under the bar or above the
+        dock; a negative layer-shell margin would instead push the surface off
+        the edge it is anchored to.
+    */
+    readonly property int padTop: Math.min(root.pad, root.frame.top + Appearance.m.popupGap)
+    readonly property int padBottom: Math.min(root.pad, root.frame.bottom + Appearance.m.popupGap)
 
     /*!
         Keys the popup did not handle itself; OverlayCard has already taken
@@ -142,7 +152,7 @@ PanelWindow {
     visible: root.rendered
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    implicitHeight: root.surfaceHeight + root.pad * 2
+    implicitHeight: root.surfaceHeight + root.padTop + root.padBottom
 
     anchors {
         left: true
@@ -152,11 +162,8 @@ PanelWindow {
     }
 
     margins {
-        // Never negative: a hand-edited settings.json can put the bar closer to
-        // the top than a level-3 shadow is deep, and a negative layer-shell
-        // margin pushes the surface off the edge it is anchored to.
-        top: Math.max(0, root.frame.top + Appearance.m.popupGap - root.pad)
-        bottom: Math.max(0, root.frame.bottom + Appearance.m.popupGap - root.pad)
+        top: root.frame.top + Appearance.m.popupGap - root.padTop
+        bottom: root.frame.bottom + Appearance.m.popupGap - root.padBottom
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
@@ -260,7 +267,7 @@ PanelWindow {
         x: root.cardX
         // Bottom-anchored popups keep their bottom edge against the dock, so the
         // room a resize is holding sits above the card rather than below it.
-        restY: root.pad
+        restY: root.padTop
             + (root.placement === ShellOverlay.Placement.AboveDock
                 ? root.surfaceHeight - root.liveHeight : 0)
         width: root.cardWidth

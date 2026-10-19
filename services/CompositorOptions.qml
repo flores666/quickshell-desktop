@@ -11,8 +11,9 @@ import Quickshell.Hyprland
     borders and rounding, the effects, and how the mouse and touchpad feel.
     And the one way the shell pushes any option into Hyprland: `derived` takes
     the ones that follow the design system instead of a user override (the
-    overview's colours and shape, from modules/common/OverviewTheme — a service
-    cannot read config/), and they ride the same pushes and re-pushes.
+    overview's colours and shape and the windows' shadow, from
+    modules/common/CompositorTheme — a service cannot read config/), and they
+    ride the same pushes and re-pushes.
 
     hyprland.conf stays the source of every default.  A user change is an
     override in Settings like any other, and the shell pushes it with
