@@ -82,10 +82,32 @@ Item {
                 easing.type: Appearance.t.standardEasing
             }
         }
+        // A row leaves the way a toast does, back out to the right as it
+        // fades, and the rows below wait for it before closing the gap.
         remove: Transition {
             NumberAnimation {
+                property: "x"; to: Appearance.m.notificationSlide
+                duration: Appearance.t.resize
+                easing.type: Appearance.t.standardEasing
+            }
+            NumberAnimation {
                 property: "opacity"; to: 0
-                duration: Appearance.t.fast
+                duration: Appearance.t.resize
+                easing.type: Appearance.t.standardEasing
+            }
+        }
+        removeDisplaced: Transition {
+            SequentialAnimation {
+                PauseAnimation { duration: Appearance.t.resize }
+                NumberAnimation {
+                    properties: "y"
+                    duration: Appearance.t.base
+                    easing.type: Appearance.t.standardEasing
+                }
+            }
+            NumberAnimation {
+                property: "opacity"; to: 1
+                duration: Appearance.t.base
                 easing.type: Appearance.t.standardEasing
             }
         }

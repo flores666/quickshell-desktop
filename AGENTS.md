@@ -455,7 +455,9 @@ expensive to find.
 - **`ListView` cannot animate its first row leaving.** Removing row 0 moves
   the view's origin rather than the rows below, so the leaving delegate is
   culled on the first frame and nothing animates. Toasts are a `Column` with a
-  `move` transition and keep their own list of what is still drawn.
+  `move` transition and keep their own list of what is still drawn. (The
+  notification centre's `ListView`, whose `removeDisplaced` waits for the
+  leaving row, does animate its first row out, measured on 6.12.)
 - **A positioner's `move` transition writes `x` as well as `y`**: the x it
   read as the move began — during an earlier move, that move's destination —
   set at once, since the transition does not animate it (6.12.0's

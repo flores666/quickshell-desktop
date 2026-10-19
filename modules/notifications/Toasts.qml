@@ -112,7 +112,7 @@ PanelWindow {
                     id: slide
 
                     NumberAnimation on x {
-                        from: 40
+                        from: Appearance.m.notificationSlide
                         to: 0
                         duration: Appearance.t.base
                         easing.type: Appearance.t.emphasizedEasing
@@ -142,7 +142,7 @@ PanelWindow {
 
                 ParallelAnimation {
                     id: leave
-                    NumberAnimation { target: slide; property: "x"; to: 40; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
+                    NumberAnimation { target: slide; property: "x"; to: Appearance.m.notificationSlide; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
                     NumberAnimation { target: toast; property: "opacity"; to: 0; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
                     onFinished: root.forget(toast.modelData)
                 }

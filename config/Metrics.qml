@@ -45,6 +45,9 @@ QtObject {
     /*! The gap a popup keeps from the panel it opens off — the bar above it or
         the dock below it. Named once so no popup can drift from the others. */
     readonly property int popupGap: 8
+    /*! How far a notification travels sliding in from the screen's edge and
+        back out to it: a toast, and a row leaving the notification centre. */
+    readonly property int notificationSlide: 40
     readonly property int popoverWidth: 372
     readonly property int touchTarget: 32
     /*! How tall a text field stands. Named once so the search fields and the
