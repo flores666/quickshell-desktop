@@ -468,6 +468,13 @@ expensive to find.
   Its width must not change afterwards either: rows narrowed only while
   the scrollbar showed rewrapped just as a row arrived and made it show, so
   `NotificationList` keeps the bar's footprint clear always.
+- **`visible` reads false for everything in a popup while it is closed**: it
+  is the effective visibility, and the popup's window is gone then. A size
+  computed from a part's `visible` changes as the popup closes and again as
+  it reopens. Every notification card collapsed to one line, and grew back
+  while the date menu was applying what had arrived meanwhile — under the
+  first-row rule above, so the row below overlapped it. Size from the
+  condition the part shows on (`bodyText !== ""`), never from `visible`.
 - **A `ListView` row displaced during its `add` transition keeps whatever
   opacity it had reached**: the displacement cuts the add short (Qt documents
   it under *Handling Interrupted Animations*). A burst of notifications into

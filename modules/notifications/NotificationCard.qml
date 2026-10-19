@@ -54,7 +54,9 @@ Surface {
     // Sized by bindings rather than positioners: the body's wrap is only
     // known once the card's width is, and a Column would take that in on the
     // next frame, after the notification centre has placed the row by the
-    // height it had (see AGENTS.md).
+    // height it had (see AGENTS.md). Nor do they read a part's `visible`,
+    // which is false while the date menu is closed: every row collapsed then
+    // and grew back as it reopened.
     Item {
         id: layout
 
@@ -62,7 +64,8 @@ Surface {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: Appearance.s.lg
-        implicitHeight: header.height + (actions.visible ? Appearance.s.sm + actions.implicitHeight : 0)
+        implicitHeight: header.height
+            + (root.actionList.length > 0 ? Appearance.s.sm + actions.implicitHeight : 0)
 
         Item {
             id: header
@@ -87,7 +90,7 @@ Surface {
                 anchors.verticalCenter: parent.verticalCenter
                 x: picture.width + Appearance.s.lg
                 width: parent.width - x - closeButton.width - Appearance.s.sm
-                implicitHeight: body.visible ? body.y + body.implicitHeight : summary.implicitHeight
+                implicitHeight: root.bodyText !== "" ? body.y + body.implicitHeight : summary.implicitHeight
 
                 Row {
                     width: parent.width
