@@ -24,7 +24,7 @@ Item {
         where the card would clip a tooltip above it. */
     property bool below: false
     property int gap: Appearance.s.md
-    property int delayMs: 450
+    property int delayMs: Appearance.t.dwell
     property int edgeMargin: Appearance.s.md
 
     readonly property bool shown: root.show && root.text !== ""

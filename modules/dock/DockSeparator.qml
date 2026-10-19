@@ -3,14 +3,11 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import "root:/config"
 
-Item {
-    implicitWidth: Appearance.s.md
-    implicitHeight: Appearance.m.dockCell
-
-    Rectangle {
-        anchors.centerIn: parent
-        width: 1
-        height: parent.height - Appearance.s.lg
-        color: Appearance.c.border
-    }
+/*! The hairline between the applications and the launcher. The dock draws it
+    in the gap before the launcher's slot, where it takes no room of its own:
+    the launcher stands one step from its neighbour, as every icon does. */
+Rectangle {
+    implicitWidth: 1
+    implicitHeight: Appearance.m.dockDivider
+    color: Appearance.c.border
 }

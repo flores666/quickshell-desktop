@@ -6,28 +6,18 @@ import "root:/config"
 import "root:/components"
 import "root:/services"
 
-/*! One application in the dock, with its running and focused indicators. */
+/*! One application in the dock: its icon in the slot every dock item has
+    (see Metrics), a dot under it for each window it has open, and the slot's
+    highlight while one of them has focus. */
 Clickable {
     id: root
 
     required property var item
     required property ShellScreen screen
 
-    /*!
-        What the hover tooltip says. Several windows of one application need
-        telling apart, so it names the window as well as the application; the
-        title is read here rather than in the dock model so a changing title
-        costs one binding instead of a model rebuild.
-    */
-    readonly property string label: {
-        if (!root.item.grouped)
-            return root.item.name;
-        const title = String(root.item.toplevel?.title ?? "");
-        return title !== "" ? `${root.item.name} — ${title.slice(0, 60)}` : root.item.name;
-    }
-    /*! Whether this is the focused window; read here, not in the model, like the title. */
-    readonly property bool active: root.item.toplevel?.activated ?? false
-    /*! Reported to the dock, which owns the one shared tooltip. */
+    /*! Whether one of its windows has focus; read here, not in the model. */
+    readonly property bool active: root.item.windows.some(w => w?.activated ?? false)
+    /*! Reported to the dock, which owns the tooltip and the preview. */
     signal hoverChanged(string key, string label, real centerX, bool entered)
 
     /*! How far the dock wants this icon shifted to make room for a drag. */
@@ -48,11 +38,11 @@ Clickable {
     signal dragMoved(real dx)
     signal dragEnded
 
-    implicitWidth: Appearance.m.dockCell
-    implicitHeight: Appearance.m.dockCell
-    // Concentric with the dock's round ends: a square wash would put its
-    // corners outside the capsule at either end of the row.
-    radius: Appearance.r.capsule(Appearance.m.dockCell)
+    implicitWidth: Appearance.m.dockSlot
+    implicitHeight: Appearance.m.dockSlot
+    // Round, so at either end of the row the highlight is concentric with the
+    // dock's round edge.
+    radius: Appearance.r.capsule(Appearance.m.dockSlot)
     focusable: false
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     selected: root.active
@@ -103,15 +93,16 @@ Clickable {
         Overlay.openWith(Overlay.dockMenu, root.screen, root.item);
     }
 
-    onHoveredChanged: root.hoverChanged(root.item.key, root.label,
+    onHoveredChanged: root.hoverChanged(root.item.key, root.item.name,
         root.mapToItem(root.parent.parent, root.width / 2, 0).x, root.hovered)
 
     AppIcon {
         id: icon
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: Appearance.m.dockPadding - 1
+        x: Appearance.m.dockInset
+        y: Appearance.m.dockInset
         source: root.item.icon
         size: Appearance.m.dockIcon
+        optical: true
         scale: root.down ? 0.9 : root.hovered ? 1.06 : 1
 
         Behavior on scale {
@@ -119,21 +110,23 @@ Clickable {
         }
     }
 
-    // Running / focused indicator.
-    Rectangle {
+    // A dot for each window, three at most, just under the slot. Which
+    // application has focus is the highlight's to say, so the dots only ever
+    // count.
+    Row {
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 3
-        width: root.active ? 14 : root.item.running ? 4 : 0
-        height: 3
-        radius: 1.5
-        color: root.active ? Appearance.c.accent : Appearance.c.textFaint
+        y: root.height + Appearance.m.dockDotGap
+        spacing: Appearance.s.xs
 
-        Behavior on width {
-            NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
-        }
-        Behavior on color {
-            ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+        Repeater {
+            model: Math.min(root.item.windows.length, 3)
+
+            Rectangle {
+                width: Appearance.m.dockDot
+                height: Appearance.m.dockDot
+                radius: Appearance.m.dockDot / 2
+                color: Appearance.c.text
+            }
         }
     }
 }

@@ -14,21 +14,24 @@ Clickable {
     signal activated
     signal hoverChanged(string key, string label, real centerX, bool entered)
 
-    implicitWidth: Appearance.m.dockCell
-    implicitHeight: Appearance.m.dockCell
-    // Concentric with the dock's round ends: a square wash would put its
-    // corners outside the capsule at either end of the row.
-    radius: Appearance.r.capsule(Appearance.m.dockCell)
+    implicitWidth: Appearance.m.dockSlot
+    implicitHeight: Appearance.m.dockSlot
+    // The slot an application has, highlight and all (see DockItem).
+    radius: Appearance.r.capsule(Appearance.m.dockSlot)
     focusable: false
 
     onClicked: root.activated()
     onHoveredChanged: root.hoverChanged(root.tipText, root.tipText,
         root.mapToItem(root.parent.parent, root.width / 2, 0).x, root.hovered)
 
+    // In an application icon's own box, so as wide as their artwork: the
+    // glyph's dots fill two thirds of its box, about what an icon's artwork
+    // does of its own.
     Icon {
-        anchors.centerIn: parent
+        x: Appearance.m.dockInset
+        y: Appearance.m.dockInset
         name: root.icon
-        size: Appearance.m.iconXl
+        size: Appearance.m.dockIcon
         color: root.selected ? Appearance.c.accent : Appearance.c.text
         scale: root.down ? 0.9 : root.hovered ? 1.06 : 1
 

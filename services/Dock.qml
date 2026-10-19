@@ -8,27 +8,26 @@ import Quickshell
     What the dock shows: the applications the user arranged, then anything
     pinned it has not heard of, then anything else that is running.
 
-    Every open window gets its own icon — three terminals are three icons, each
-    activating its own window. A pinned application collapses to a single
-    launcher icon only while it has no windows open; once it does, its windows
-    take that slot individually.
+    One icon per application, however many windows it has open — three
+    terminals are one icon carrying a count, and the dock's preview tells them
+    apart. A click brings back the one used last.
 */
 Singleton {
     id: root
 
-    /*!
-        [{ key, appKey, entry, appId, name, icon, toplevel, pinned, running, grouped }]
-
-        `toplevel` is null for a pinned application that is not running.
-        `key` identifies the icon; `appKey` the application it belongs to, which
-        is what the dock's arrangement is stored in terms of.
-    */
     /*! How long the dock waits after the pointer leaves before it slides away.
         Long enough by default to cross the gap to a menu it opened. The range
         is also the settings row's. */
     readonly property var hideDelayRange: ({ min: 0, max: 5000, def: 700 })
     readonly property int hideDelay: Settings.pick("dockHideDelay", root.hideDelayRange)
 
+    /*!
+        [{ key, entry, appId, name, icon, windows, pinned, running }]
+
+        `key` is the application, which is what the dock's arrangement is
+        stored in terms of; `windows` its open windows in Hyprland's order,
+        empty for a pinned application that is not running.
+    */
     readonly property var items: {
         const out = [];
         const claimed = ({});
@@ -81,29 +80,6 @@ Singleton {
             byApp[key].windows.push(w);
         }
 
-        function windowEntry(key, group, w, pinned) {
-            const name = group.entry ? group.entry.name
-                : (group.appId !== "" ? group.appId : qsTr("Window"));
-            return {
-                key: `w:${w.address}`,
-                appKey: key,
-                entry: group.entry,
-                appId: group.appId,
-                toplevel: w,
-                pinned,
-                running: true,
-                name,
-                // Window titles are deliberately *not* read here: they change
-                // constantly, and this list would be rebuilt on every keystroke
-                // in a terminal. Nor is which window has focus: every focus
-                // change rebuilt every icon, and the one under the pointer lost
-                // its hover, flashing the cursor. Whoever needs either reads it
-                // off the toplevel, which only re-evaluates that one binding.
-                grouped: group.windows.length > 1,
-                icon: group.entry ? group.entry.icon : group.appId
-            };
-        }
-
         // The application key a pinned id resolves to, so a pin and a running
         // window of the same application land in the same slot. A pin whose
         // application is not installed here is left out, not drawn as an icon
@@ -134,25 +110,24 @@ Singleton {
 
         for (const key of keys) {
             const group = byApp[key];
-            const pinned = key in pinnedKeys;
-            if (group) {
-                for (const w of group.windows)
-                    out.push(windowEntry(key, group, w, pinned));
-                continue;
-            }
-            const id = pinnedKeys[key];
-            const pinnedEntry = Apps.byId(id);
+            const entry = group ? group.entry : Apps.byId(pinnedKeys[key]);
+            const appId = group ? group.appId
+                : (entry.startupClass !== "" ? entry.startupClass : pinnedKeys[key]);
             out.push({
-                key: `p:${key}`,
-                appKey: key,
-                entry: pinnedEntry,
-                appId: pinnedEntry.startupClass !== "" ? pinnedEntry.startupClass : id,
-                toplevel: null,
-                pinned: true,
-                running: false,
-                name: pinnedEntry.name,
-                grouped: false,
-                icon: pinnedEntry.icon
+                key,
+                entry,
+                appId,
+                name: entry ? entry.name : (appId !== "" ? appId : qsTr("Window")),
+                icon: entry ? entry.icon : appId,
+                // Window titles are deliberately *not* read here: they change
+                // constantly, and this list would be rebuilt on every keystroke
+                // in a terminal. Nor is which window has focus: every focus
+                // change rebuilt every icon, and the one under the pointer lost
+                // its hover, flashing the cursor. Whoever needs either reads it
+                // off the toplevel, which only re-evaluates that one binding.
+                windows: group ? group.windows : [],
+                pinned: key in pinnedKeys,
+                running: Boolean(group)
             });
         }
 
@@ -160,25 +135,33 @@ Singleton {
     }
 
     /*! The applications the dock is showing, in the order it shows them. */
-    readonly property var appKeys: {
-        const out = [];
-        for (const item of root.items)
-            if (out.indexOf(item.appKey) === -1)
-                out.push(item.appKey);
-        return out;
-    }
+    readonly property var appKeys: root.items.map(item => item.key)
 
     /*!
-        Move the application an icon belongs to so that it sits where the icon at
-        `to` is now. Stored as an arrangement of applications rather than of
-        icons, because a window's icon lives only as long as its window does.
+        Window addresses, the most recently focused first: which of an
+        application's windows a click on its icon brings back. Kept apart from
+        `items`, which must not change with focus (see there).
     */
+    property var recentWindows: []
+
+    Connections {
+        target: Compositor
+
+        function onActiveToplevelChanged(): void {
+            const address = Compositor.activeToplevel?.address ?? "";
+            if (address !== "")
+                root.recentWindows = [address]
+                    .concat(root.recentWindows.filter(a => a !== address)).slice(0, 64);
+        }
+    }
+
+    /*! Move the application at `from` to where the one at `to` is now. */
     function moveItem(from: int, to: int): void {
         const items = root.items;
         if (from < 0 || to < 0 || from >= items.length || to >= items.length)
             return;
-        const moved = items[from].appKey;
-        const onto = items[to].appKey;
+        const moved = items[from].key;
+        const onto = items[to].key;
         if (moved === onto)
             return;
         const keys = root.appKeys.filter(k => k !== moved);
@@ -187,14 +170,30 @@ Singleton {
         Settings.setDockOrder(keys);
     }
 
-    /*! Focus this item's window, or launch the application if it has none. */
+    /*!
+        Bring an application forward: the window of it used last or, while one
+        of its windows has focus, the next of them, so that clicking again goes
+        round them all. One with no window open is launched.
+    */
     function activate(item: var): void {
         if (!item)
             return;
-        if (item.toplevel)
-            Compositor.focusWindow(item.toplevel);
-        else if (item.entry)
-            Apps.launch(item.entry);
+        const windows = item.windows;
+        if (windows.length === 0) {
+            if (item.entry)
+                Apps.launch(item.entry);
+            return;
+        }
+        const focused = windows.indexOf(Compositor.activeToplevel);
+        if (focused !== -1) {
+            Compositor.focusWindow(windows[(focused + 1) % windows.length]);
+            return;
+        }
+        const rank = w => {
+            const at = root.recentWindows.indexOf(w.address);
+            return at === -1 ? Infinity : at;
+        };
+        Compositor.focusWindow(windows.reduce((best, w) => rank(w) < rank(best) ? w : best));
     }
 
     function launchNew(item: var): void {
@@ -202,9 +201,10 @@ Singleton {
             Apps.launch(item.entry);
     }
 
+    /*! Close every window the application has open. */
     function close(item: var): void {
-        if (item && item.toplevel)
-            Compositor.closeWindow(item.toplevel);
+        for (const w of item?.windows ?? [])
+            Compositor.closeWindow(w);
     }
 
     /*! Pin a desktop entry, or unpin it: from its icon here, or the launcher. */

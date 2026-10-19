@@ -25,6 +25,7 @@ ShellOverlay {
     onRenderedChanged: if (!root.rendered) root.pickingWorkspace = false
     readonly property bool pinned: root.item?.entry ? Settings.isPinned(root.item.entry.id) : false
     readonly property bool launchable: root.item?.entry !== null && root.item?.entry !== undefined
+    readonly property int windowCount: root.item?.windows.length ?? 0
     readonly property string launchLabel: root.item?.running ? qsTr("New Window") : qsTr("Open")
 
     /*!
@@ -71,10 +72,10 @@ ShellOverlay {
                 width: column.width
                 label: qsTr("Workspace %1").arg(wsRow.modelData.name)
                 checkable: true
-                checked: root.item?.toplevel?.workspace?.id === wsRow.modelData.id
+                checked: root.item?.windows[0]?.workspace?.id === wsRow.modelData.id
                 onClicked: {
                     Overlay.close();
-                    Compositor.moveWindowToWorkspace(root.item.toplevel, wsRow.modelData.id);
+                    Compositor.moveWindowToWorkspace(root.item.windows[0], wsRow.modelData.id);
                 }
             }
         }
@@ -108,7 +109,8 @@ ShellOverlay {
 
         MenuItemRow {
             width: parent.width
-            visible: !root.pickingWorkspace && (root.item?.toplevel ?? null) !== null
+            // One window's to move; with several, which would be a guess.
+            visible: !root.pickingWorkspace && root.windowCount === 1
             icon: "grid"
             label: qsTr("Move to Workspace")
             submenu: true
@@ -131,7 +133,7 @@ ShellOverlay {
             visible: !root.pickingWorkspace && (root.item?.running ?? false)
             icon: "close"
             danger: true
-            label: qsTr("Close")
+            label: root.windowCount > 1 ? qsTr("Close %1 Windows").arg(root.windowCount) : qsTr("Close")
             onClicked: {
                 Overlay.close();
                 Dock.close(root.item);

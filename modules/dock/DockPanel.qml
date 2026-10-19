@@ -10,8 +10,9 @@ import "root:/services"
 
 /*!
     The bottom dock: a glass capsule holding the pinned applications and every
-    open window, then the application grid. The overview is Super+Tab and the
-    three-finger swipe; it has no button here.
+    one that has a window open, then the application grid. Resting on the icon
+    of an application with several windows open previews them (DockPreview).
+    The overview is Super+Tab and the three-finger swipe; it has no button here.
 
     By default it hides itself when it is not being used and slides back when
     the pointer reaches the bottom edge. The reveal trigger is a few pixels
@@ -23,7 +24,8 @@ import "root:/services"
 
     With auto-hide off (Settings.dockAutoHide) the dock stays out and reserves
     its footprint the way the bar does, so windows stop above it rather than
-    sitting under it for good.
+    sitting under it for good. With its background off (Settings.dockBackground)
+    the glass, edge and shadow go and the icons stand on their own.
 */
 PanelWindow {
     id: root
@@ -40,12 +42,12 @@ PanelWindow {
 
     readonly property HyprlandMonitor monitor: Compositor.monitorFor(root.modelData)
     readonly property bool suppressed: Compositor.isFullscreenOn(root.monitor)
-    readonly property int dockHeight: Appearance.m.dockCell + Appearance.m.dockPadding * 2
+    readonly property int dockHeight: Appearance.m.dockHeight
 
     /*! Which dock child the pointer is on, so hiding is never ambiguous. */
     property string hoveredKey: ""
 
-    readonly property bool pointerNear: dockHover.hovered || triggerHover.hovered
+    readonly property bool pointerNear: dockHover.hovered || triggerHover.hovered || preview.hovered
     /*! Stay out while a menu of ours is up, or a drag is in progress. */
     readonly property bool held: Overlay.isOpen(Overlay.dockMenu) || root.drag !== null
 
@@ -64,11 +66,29 @@ PanelWindow {
     */
     property var drag: null
 
-    readonly property int slotStride: Appearance.m.dockCell + Appearance.m.dockGap
+    readonly property int slotStride: Appearance.m.dockSlot + Appearance.m.dockGap
 
     /*! Whether the pointer has called the dock out; it goes on tracking that
         while auto-hide is off, so turning it back on starts from the truth. */
     property bool revealed: false
+
+    /*! The background, eased as it comes and goes: `glass` fades it, its edge
+        and its shadow together, and `frame` and `base` (Metrics) move on the
+        clock the dock's height does, so the icons settle with it. A theme
+        change still recolours the glass at once, like any other surface. */
+    property real glass: Settings.dockBackground ? 1 : 0
+    property real frame: Appearance.m.dockFrame
+    property real base: Appearance.m.dockBase
+
+    Behavior on glass {
+        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.standardEasing }
+    }
+    Behavior on frame {
+        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
+    }
+    Behavior on base {
+        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
+    }
     readonly property bool shown: root.revealed || !Settings.dockAutoHide
 
     /*! How far an icon has to step aside to open a gap where the drag will land. */
@@ -85,7 +105,14 @@ PanelWindow {
     screen: root.modelData
     visible: !root.suppressed
     color: "transparent"
-    implicitHeight: root.dockHeight + Appearance.m.dockTooltipSpace + Appearance.m.screenGap
+    // Room above the dock for the preview and the tooltip, kept whether or not
+    // either shows: input is masked down to what is there, and a window that
+    // grew to show one would draw its first frame before the compositor had
+    // made it any bigger. For the same reason it is the room of the dock with
+    // its background, whichever it has: a window that changed size with that
+    // switch made the icons jump about while the dock eased.
+    implicitHeight: Appearance.m.dockSlot + Appearance.m.dockClearance * 2
+        + Appearance.m.screenGap + preview.room
     // Writing exclusiveZone forces exclusionMode to Normal (Quickshell's own
     // setter), so the mode is not bound alongside it: whichever was written
     // last at creation would win. -1 is what ExclusionMode.Ignore sends.
@@ -98,6 +125,7 @@ PanelWindow {
     mask: Region {
         item: trigger
         Region { item: surface }
+        Region { item: preview.visible ? preview : null }
     }
 
     onPointerNearChanged: {
@@ -120,15 +148,27 @@ PanelWindow {
         onTriggered: if (!root.pointerNear && !root.held) root.revealed = false
     }
 
+    /*! An application with several windows previews them; anything else is
+        named by the tooltip. */
     function onChildHover(key: string, label: string, centerX: real, entered: bool): void {
-        if (entered) {
-            root.hoveredKey = key;
-            tip.text = label;
-            tip.anchorX = surface.x + centerX;
-            tip.show = true;
-        } else if (root.hoveredKey === key) {
-            root.hoveredKey = "";
+        const x = surface.x + centerX;
+        if (!entered) {
+            preview.leave(key);
+            if (root.hoveredKey === key) {
+                root.hoveredKey = "";
+                tip.show = false;
+            }
+            return;
+        }
+        root.hoveredKey = key;
+        if (preview.offers(Dock.items.find(i => i.key === key) ?? null)) {
             tip.show = false;
+            preview.enter(key, x);
+        } else {
+            preview.close();
+            tip.text = label;
+            tip.anchorX = x;
+            tip.show = true;
         }
     }
 
@@ -146,6 +186,14 @@ PanelWindow {
         HoverHandler { id: triggerHover }
     }
 
+    DockPreview {
+        id: preview
+        dockTop: surface.y
+        screen: root.modelData
+        suppressed: root.held || !root.shown
+        z: 1
+    }
+
     Tooltip {
         id: tip
         anchorY: surface.y
@@ -160,16 +208,19 @@ PanelWindow {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.shown
             ? Appearance.m.screenGap : -(root.dockHeight + Appearance.m.screenGap)
-        width: layout.implicitWidth + Appearance.m.dockPadding * 2
+        width: layout.implicitWidth + root.frame * 2
         height: root.dockHeight
         radius: Appearance.r.capsule(root.dockHeight)
+        // Without its background the dock is only its icons, with nothing
+        // drawn behind them. Faded by its own alpha, so it never passes
+        // through another colour on the way.
+        color: Qt.alpha(Appearance.c.chrome, Appearance.c.chrome.a * root.glass)
+        borderColor: Qt.alpha(Appearance.c.border, Appearance.c.border.a * root.glass)
+        shadowOpacity: root.glass
         elevation: 3
 
         Behavior on anchors.bottomMargin {
-            NumberAnimation {
-                duration: Appearance.t.base
-                easing.type: Appearance.t.emphasizedEasing
-            }
+            NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
         }
 
         Behavior on height {
@@ -179,17 +230,27 @@ PanelWindow {
             // derived from that height, and if only one of the two eased, the
             // difference between them would open and close — the dock peeking
             // up over the bottom edge and sliding back for no reason.
-            NumberAnimation {
-                duration: Appearance.t.base
-                easing.type: Appearance.t.emphasizedEasing
-            }
+            NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
         }
 
         HoverHandler { id: dockHover }
 
+        // Midway across the gap before the launcher, level with the icons'
+        // centres; outside the row, so it adds nothing to its spacing.
+        DockSeparator {
+            visible: Dock.items.length > 0
+            x: layout.x + launcher.x - Math.round((Appearance.m.dockGap + width) / 2)
+            y: layout.y + Math.round((Appearance.m.dockSlot - height) / 2)
+        }
+
         Row {
             id: layout
-            anchors.centerIn: parent
+            // Held to the bottom rather than centred: without a background
+            // there is room below the slots for their dots and none above, and
+            // from the bottom the row moves only as far as that room changes.
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: root.base
             spacing: Appearance.m.dockGap
 
             Repeater {
@@ -203,6 +264,7 @@ PanelWindow {
                     screen: root.modelData
                     slide: root.slideFor(this.index)
                     rearranging: root.drag !== null
+                    onClicked: preview.close()
                     onHoverChanged: (key, label, centerX, entered) =>
                         root.onChildHover(key, label, centerX, entered)
 
@@ -222,9 +284,8 @@ PanelWindow {
                 }
             }
 
-            DockSeparator { visible: Dock.items.length > 0 }
-
             DockButton {
+                id: launcher
                 icon: "apps"
                 tipText: qsTr("Applications")
                 selected: Overlay.isOpen(Overlay.launcher)

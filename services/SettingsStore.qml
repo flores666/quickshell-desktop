@@ -12,6 +12,8 @@ JsonAdapter {
     property bool roundnessFollowsWindows: false
     /*! Off keeps the dock on screen, reserving its footprint like the bar. */
     property bool dockAutoHide: true
+    /*! Off draws the dock's icons with no glass behind them. */
+    property bool dockBackground: true
     property list<string> pinnedApps: []
     /*! Application keys in the order the dock shows them. Keys that are
         neither pinned nor running are ignored, so it never needs pruning. */
@@ -35,7 +37,6 @@ JsonAdapter {
     property int barGap: -1
     property int barSideGap: -1
     property int dockIcon: -1
-    property int screenGap: -1
     property int border: -1
     property int roundness: -1
     property int fontScale: -1

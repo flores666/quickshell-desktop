@@ -5,8 +5,8 @@ import "root:/config"
 import "root:/components"
 import "root:/services"
 
-/*! The dock: whether it hides, how big its icons are, how far it sits off the
-    screen edge, and how long it waits before it slides away. */
+/*! The dock: whether it hides, whether it has a background, how big its icons
+    are, and how long it waits before it slides away. */
 Column {
     id: root
 
@@ -28,6 +28,19 @@ Column {
             }
         }
 
+        MenuRow {
+            width: parent.width
+            flush: true
+            title: qsTr("Background")
+            subtitle: qsTr("The glass panel behind the icons")
+            onClicked: Settings.setDockBackground(!Settings.dockBackground)
+
+            ToggleSwitch {
+                checked: Settings.dockBackground
+                onToggled: value => Settings.setDockBackground(value)
+            }
+        }
+
         SettingRow {
             width: parent.width
             key: "dockIcon"
@@ -35,15 +48,6 @@ Column {
             min: Tuning.spec.dockIcon.min
             max: Tuning.spec.dockIcon.max
             value: Appearance.m.dockIcon
-        }
-
-        SettingRow {
-            width: parent.width
-            key: "screenGap"
-            label: qsTr("Gap from the edge")
-            min: Tuning.spec.screenGap.min
-            max: Tuning.spec.screenGap.max
-            value: Appearance.m.screenGap
         }
 
         /*! A timing rather than a size, so the range is the one Dock clamps to

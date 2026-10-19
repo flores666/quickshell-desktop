@@ -21,12 +21,16 @@ Item {
     property int elevation: 2
     property bool bordered: true
     property color borderColor: Appearance.c.border
+    /*! How much of its shadow it casts: one fading its glass out fades this
+        with it. */
+    property real shadowOpacity: 1
     default property alias content: inner.data
 
     Shadow {
         anchors.fill: parent
         radius: root.radius
         level: root.elevation
+        opacity: root.shadowOpacity
     }
 
     Rectangle {

@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import "root:/services"
 
 /*! Structural sizes: the dimensions of the shell's own furniture.
     The user-settable ones and their limits live in Tuning. */
@@ -22,25 +23,55 @@ QtObject {
     /*! How much of the screen the bar occupies, including the gap above it. */
     readonly property int barFootprint: root.barHeight + root.barGap
 
+    /*!
+        The dock, from the inside out. Every application, and the launcher,
+        stands in one round slot: its icon, inset all round by `dockInset`.
+        The slot is also its highlight — hover, press and the focused
+        application alike — and its window dots sit just under it.
+
+        With its background the dock keeps `dockClearance` of glass round
+        every slot and centres its round ends on the first and last ones, so a
+        highlight is concentric with them and stands as far from the dock's
+        edge everywhere, and every icon as far from the top as from the
+        bottom. Without one there is no edge to keep clear of, and the dock is
+        only as big as its slots and the dots under them — which is what it
+        reserves, and what popups keep clear of. Only the icon is the user's;
+        the rest is fixed, so the proportions hold across its whole range.
+    */
     readonly property int dockIcon: Tuning.pick("dockIcon")
-    readonly property int dockPadding: 5
-    /*! The icon plus its padding. DockItem hangs the icon a pixel high of centre
-        and spends what is left at the bottom on the running indicator, so this
-        has to follow the icon rather than stand as a number of its own. */
-    readonly property int dockCell: root.dockIcon + root.dockPadding * 2
-    readonly property int dockGap: 2
+    readonly property int dockInset: 2
+    readonly property int dockClearance: 8
+    /*! A window dot: round, this across, and how far under its slot. */
+    readonly property int dockDot: 3
+    readonly property int dockDotGap: 2
+    /*! Between neighbouring slots, so their icons stand 12px apart. */
+    readonly property int dockGap: 8
+    readonly property int dockSlot: root.dockIcon + root.dockInset * 2
+    /*! The room the dock keeps above its slots and at either end, and below
+        them: the clearance while it has its background, and without one
+        nothing above and only the dots below. */
+    readonly property int dockFrame: Settings.dockBackground ? root.dockClearance : 0
+    readonly property int dockBase: Settings.dockBackground
+        ? root.dockClearance : root.dockDotGap + root.dockDot
+    readonly property int dockHeight: root.dockFrame + root.dockSlot + root.dockBase
+    /*! The divider before the launcher, as a share of an icon: shorter than
+        the icons, it reads as a pause rather than a wall. */
+    readonly property int dockDivider: Math.round(root.dockIcon * 0.6)
     /*! How tall the dock is on screen, including the gap under it: what it
         reserves while it is always shown, and what popups and the OSD keep
         clear of either way. */
-    readonly property int dockFootprint: root.dockCell + root.dockPadding * 2 + root.screenGap
-    /*! Room kept above the dock inside its window for hover tooltips. */
-    readonly property int dockTooltipSpace: 48
+    readonly property int dockFootprint: root.dockHeight + root.screenGap
+    /*! A window's picture in the dock's preview: the box it is fitted into,
+        this tall and as wide as its screen's shape makes it. */
+    readonly property int dockPreview: 140
 
     /*! The hairline around every Surface. Zero is a legitimate choice, which is
         why the unset marker for it is -1 and not 0. */
     readonly property int border: Tuning.pick("border")
 
-    readonly property int screenGap: Tuning.pick("screenGap")
+    /*! The gap under the dock, to the screen's bottom edge. Fixed, not one
+        of the user's: the same at every icon size. */
+    readonly property int screenGap: 6
     /*! The keyboard focus ring: never the hairline above, which may be zero. */
     readonly property int focusRing: 2
     /*! The gap a popup keeps from the panel it opens off — the bar above it or

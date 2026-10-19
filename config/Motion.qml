@@ -21,6 +21,13 @@ QtObject {
     /*! A whole popup changing size — a bigger move than any control makes. */
     readonly property int resize: 320
 
+    /*! How long the pointer rests on something before more of it shows: a
+        tooltip, the dock's preview of an application's windows. */
+    readonly property int dwell: 450
+    /*! How long the dock's preview stays once the pointer has left it and the
+        icons, so a path that strays off them for a moment does not close it. */
+    readonly property int linger: 250
+
     /*! Fades and colour: gentle at both ends, so nothing pops on or off. */
     readonly property int standardEasing: Easing.InOutQuad
     /*! Movement: leaves briskly and settles slowly, without the near-instant

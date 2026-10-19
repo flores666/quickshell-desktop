@@ -40,6 +40,8 @@ Singleton {
     readonly property bool roundnessFollowsWindows: store.roundnessFollowsWindows
     /*! The dock slides away when unused; off, it stays and reserves its room. */
     readonly property bool dockAutoHide: store.dockAutoHide
+    /*! The glass behind the dock's icons; off, they stand on their own. */
+    readonly property bool dockBackground: store.dockBackground
 
     // ------------------------------------------------------------- overrides
     //
@@ -54,7 +56,6 @@ Singleton {
     readonly property int barGap: store.barGap
     readonly property int barSideGap: store.barSideGap
     readonly property int dockIcon: store.dockIcon
-    readonly property int screenGap: store.screenGap
     readonly property int border: store.border
     readonly property int roundness: store.roundness
     readonly property int fontScale: store.fontScale
@@ -79,8 +80,8 @@ Singleton {
 
     /*! Every key `setOverride` accepts, and everything `resetOverrides` clears. */
     readonly property var overrideKeys: [
-        "barHeight", "barGap", "barSideGap", "dockIcon", "screenGap",
-        "border", "roundness", "fontScale", "notificationTimeout", "dockHideDelay",
+        "barHeight", "barGap", "barSideGap", "dockIcon", "border",
+        "roundness", "fontScale", "notificationTimeout", "dockHideDelay",
         "hyprGapsIn", "hyprGapsOut", "hyprBorder", "hyprRounding", "hyprBlur",
         "hyprAnimations", "hyprActiveOpacity", "hyprInactiveOpacity", "hyprMouseSpeed",
         "hyprMouseAccel", "hyprTouchpadSpeed", "hyprNaturalScroll", "hyprTapToClick",
@@ -105,6 +106,10 @@ Singleton {
 
     function setDockAutoHide(on: bool): void {
         store.dockAutoHide = on;
+    }
+
+    function setDockBackground(on: bool): void {
+        store.dockBackground = on;
     }
 
     function setAccentColor(value: string): void {
