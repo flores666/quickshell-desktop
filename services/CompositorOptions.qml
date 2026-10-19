@@ -111,6 +111,14 @@ Singleton {
 
     /*! Option name to the value Hyprland should hold, as hyprctl spells it. */
     property var derived: ({})
+    /*!
+        What the shell sets on hardware it finds rather than from a token or an
+        override: a touchpad keeps libinput's adaptive acceleration, whatever
+        flat profile hyprland.conf gives the mouse — without it a touchpad
+        crawls, and the project names no machine's touchpad.
+    */
+    readonly property var detected: root.hasTouchpad
+        ? ({ [`device[${root.touchpad}]:accel_profile`]: "adaptive" }) : ({})
     // One push for the several colours a theme switch changes in one go.
     onDerivedChanged: Qt.callLater(root.sync)
 
@@ -141,10 +149,11 @@ Singleton {
             }
         }
         root.applied = next;
-        for (const option in root.derived)
-            if (root.appliedDerived[option] !== root.derived[option])
-                root.pending.push(`keyword ${option} ${root.derived[option]}`);
-        root.appliedDerived = root.derived;
+        const wanted = Object.assign({}, root.derived, root.detected);
+        for (const option in wanted)
+            if (root.appliedDerived[option] !== wanted[option])
+                root.pending.push(`keyword ${option} ${wanted[option]}`);
+        root.appliedDerived = wanted;
         root.flush();
     }
 

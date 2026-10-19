@@ -27,12 +27,30 @@ mkdir -p "$profile"
 # systemFontBefore is this machine's GTK font from before the shell set its
 # own, which only means something here. A wallpaper in the folder is saved by
 # its name alone, which Wallpaper.current finds in the next machine's folder.
-python3 - "$settings" "$profile/settings.json" "$wallpapers" <<'EOF'
-import json, os, sys
-source, target, folder = sys.argv[1:]
+# The dock keeps only the applications the project installs: a pin or a place
+# for any other is this user's own, and the dock on the next machine would
+# have nothing to launch for it.
+python3 - "$settings" "$profile/settings.json" "$wallpapers" "$repo" <<'EOF'
+import json, os, subprocess, sys
+source, target, folder, repo = sys.argv[1:]
 with open(source) as f:
     settings = json.load(f)
 settings["systemFontBefore"] = ""
+
+packages = set()
+for name in ("packages.txt", "packages-aur.txt"):
+    with open(os.path.join(repo, name)) as f:
+        packages.update(l.strip() for l in f if l.strip() and not l.lstrip().startswith("#"))
+data_dirs = (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+def installed_by_project(app):
+    for d in data_dirs:
+        path = os.path.join(d, "applications", app + ".desktop")
+        if os.path.exists(path):
+            owner = subprocess.run(["pacman", "-Qqo", path], capture_output=True, text=True).stdout.strip()
+            return owner in packages
+    return False
+for key in ("pinnedApps", "dockOrder"):
+    settings[key] = [app for app in settings.get(key, []) if installed_by_project(app)]
 if os.path.dirname(settings.get("wallpaper", "")) == folder:
     settings["wallpaper"] = os.path.basename(settings["wallpaper"])
 with open(target, "w") as f:

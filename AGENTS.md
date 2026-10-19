@@ -157,11 +157,11 @@ something new, the change also records it here.** Concretely:
 | a font, icon or cursor theme | its package, in one of the lists — never a file copied into `~/.local/share/fonts` | as above |
 | a config of another application | its own directory or file in the project (`hypr/`, `terminal/`, `nvim/`, …) | links it into place: one `link` line |
 | a script a config or bind runs | `bin/`; refer to it by bare name (kitty finds `~/.local/bin` itself; Hyprland binds use `~/.local/bin/<name>`) | links every file in `bin/` into `~/.local/bin` |
-| a system or user service | the package; enabling it is a line in `install.sh` | enables it if it is off |
+| a system or user service | the package; enabling it is a line in `install.sh` — or, for one that needs the graphical session, an `exec-once` in `hypr/conf.d/20-autostart.conf` (the polkit agent) | enables it if it is off |
 | a setting that lives in dconf | its directory in `tools/save-profile.sh`'s `gtk` list, then run that | writes each key the machine still has at its default |
 | a colour in the terminal, the prompt or neovim | `terminal/palette.conf`, by name | nothing: all three read it |
-| a setting for one particular monitor or input device | its rule keyed by the device itself (`desc:` for a monitor, `name` in a `device` block), never by connector, in `hypr/conf.d` | nothing: a rule for a device a machine lacks matches nothing there |
-| the shell's preferences | nothing new: run `tools/save-profile.sh` and commit `profile/` | `Settings` starts from `profile/settings.json` on a machine with none |
+| a setting for one particular monitor or input device | nothing in the project: screens are detected (`highres, auto, auto`) and a touchpad by the shell. One machine's arrangement or tuning goes in its own `~/.config/hypr/hyprland.conf`, after the `source` line, keyed by the device (`desc:`, a `device` block's `name`) | nothing |
+| the shell's preferences | nothing new: run `tools/save-profile.sh` and commit `profile/`; it keeps only pins and dock places of applications the package lists install | `Settings` starts from `profile/settings.json` on a machine with none |
 
 How it fits together:
 
@@ -186,6 +186,12 @@ How it fits together:
 - **`install.sh` never loses a file.** Whatever has to make way is kept beside
   itself as `<name>.bak-<date>`. Every step checks first, so running it twice
   changes nothing the second time.
+- **Nothing that is one user's or one machine's.** The project is the
+  desktop, not this computer: no monitor layout, no particular mouse, no
+  applications of the user's own, no optional extras such as a login
+  manager. Hardware is found where it is used — screens by Hyprland, a
+  touchpad by `CompositorOptions`, the rest by the services' availability
+  flags — and what one machine wants on top lives in its own Hyprland file.
 - **Never secrets.** fish's universal variables (`fish_variables`) hold
   database credentials and stay out; so do NetworkManager's connections and
   the rest of dconf (Wi-Fi credentials, proxies, window sizes), which is why

@@ -52,8 +52,14 @@ Singleton {
         return group !== undefined && root.filedUnder(entry, group);
     }
 
+    /*!
+        The entry with this desktop id, or null. DesktopEntries.byId is a plain
+        call that no binding can watch, so the index is read first: whatever
+        asks — the dock's pins — is re-evaluated when an application is
+        installed or removed.
+    */
     function byId(id: string): var {
-        if (!id)
+        if (!id || DesktopEntries.applications.values.length === 0)
             return null;
         return DesktopEntries.byId(id) ?? null;
     }

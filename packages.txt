@@ -9,6 +9,9 @@ xdg-desktop-portal-hyprland
 quickshell
 qt6-imageformats
 polkit
+# asks for the password when an application needs administrator rights
+# (mounting a disk in nautilus); started in hypr/conf.d/20-autostart.conf
+hyprpolkitagent
 
 # what the shell's services read: sound, network, power, Bluetooth
 pipewire

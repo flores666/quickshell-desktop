@@ -12,12 +12,7 @@
     "dockOrder": [
         "firefox",
         "kitty",
-        "Happ",
-        "org.telegram.desktop",
-        "org.gnome.Nautilus",
-        "jetbrains-rider",
-        "libreoffice-startcenter",
-        "jetbrains-datagrip"
+        "org.gnome.Nautilus"
     ],
     "fontFamily": "",
     "fontScale": 96,
@@ -54,9 +49,7 @@
     "notificationTimeout": -1,
     "pinnedApps": [
         "firefox",
-        "Happ",
-        "org.gnome.Nautilus",
-        "jetbrains-datagrip"
+        "org.gnome.Nautilus"
     ],
     "pinnedColors": [],
     "recentColors": [

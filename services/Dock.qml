@@ -105,11 +105,15 @@ Singleton {
         }
 
         // The application key a pinned id resolves to, so a pin and a running
-        // window of the same application land in the same slot.
+        // window of the same application land in the same slot. A pin whose
+        // application is not installed here is left out, not drawn as an icon
+        // that launches nothing — pins travel with the profile, and come back
+        // when the application does.
         const pinnedKeys = ({});
         for (const id of Settings.pinnedApps) {
             const pinnedEntry = Apps.byId(id);
-            pinnedKeys[pinnedEntry ? pinnedEntry.id : id] = id;
+            if (pinnedEntry)
+                pinnedKeys[pinnedEntry.id] = id;
         }
 
         // Whatever the user dragged into place first, then pins it has not been
@@ -142,14 +146,13 @@ Singleton {
                 key: `p:${key}`,
                 appKey: key,
                 entry: pinnedEntry,
-                appId: pinnedEntry && pinnedEntry.startupClass !== ""
-                    ? pinnedEntry.startupClass : id,
+                appId: pinnedEntry.startupClass !== "" ? pinnedEntry.startupClass : id,
                 toplevel: null,
                 pinned: true,
                 running: false,
-                name: pinnedEntry ? pinnedEntry.name : id,
+                name: pinnedEntry.name,
                 grouped: false,
-                icon: pinnedEntry ? pinnedEntry.icon : id
+                icon: pinnedEntry.icon
             });
         }
 

@@ -40,6 +40,15 @@ name, comes back once one of that name is there. Anything `install.sh` has to re
 `<name>.bak-<date>`, and it is safe to re-run. Then log in again, or start the
 shell with `qs -c shell`.
 
+Only the desktop is in the project, not one computer or one person's things.
+Screens are detected — each at its highest resolution and that resolution's
+highest refresh rate, placed and scaled automatically — and the shell finds
+the touchpad, the battery, the backlight and the Bluetooth adapter where there
+are any. A machine that wants more, say one monitor above another, puts it in
+its own `~/.config/hypr/hyprland.conf` after the line that sources the project.
+The saved dock keeps only applications the project installs, and a login
+manager is left to each machine.
+
 ## What is where
 
 ```
@@ -195,7 +204,8 @@ pixel around it stays click-through.
 
 Each open window gets its own icon — three terminals are three icons, each
 activating its own window and carrying its own focused state. A pinned
-application collapses to one launcher icon only while it has no windows open.
+application collapses to one launcher icon only while it has no windows open,
+and one that is not installed on this machine is not shown.
 
 ## Interaction
 
