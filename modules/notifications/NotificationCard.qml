@@ -27,6 +27,10 @@ Surface {
 
     signal dismissed
 
+    // Over the whole card, buttons included, which a Clickable is not: the
+    // close button shows only while the pointer is on the card.
+    HoverHandler { id: pointer }
+
     implicitHeight: layout.implicitHeight + Appearance.s.lg * 2
     color: root.standalone ? Appearance.c.chrome : Appearance.c.raised
     radius: root.standalone ? Appearance.r.lg : Appearance.r.md
@@ -37,6 +41,8 @@ Surface {
         anchors.fill: parent
         radius: root.radius
         focusable: false
+        // The card is not a link; its buttons are what point.
+        cursorShape: Qt.ArrowCursor
         onClicked: Notifs.activate(root.notification)
     }
 
@@ -135,6 +141,9 @@ Surface {
                 size: 24
                 iconSize: Appearance.m.iconSm
                 focusable: false
+                // Faded rather than hidden, so it keeps its room and the
+                // text beside it never rewraps; Clickable eases the fade.
+                opacity: pointer.hovered ? 1 : 0
                 onClicked: root.dismissed()
             }
         }
