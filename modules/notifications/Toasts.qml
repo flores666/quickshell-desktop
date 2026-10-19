@@ -103,12 +103,20 @@ PanelWindow {
                     onTriggered: Notifs.dismissPopup(toast.modelData)
                 }
 
-                // The card slides in from the edge it appears at...
-                NumberAnimation on x {
-                    from: 40
-                    to: 0
-                    duration: Appearance.t.base
-                    easing.type: Appearance.t.emphasizedEasing
+                // The card slides in from the edge it appears at... On a
+                // Translate rather than its own x, which the column's move
+                // transition writes too, with the x it read as the move began:
+                // a card still sliding in when another left was put back there
+                // and stayed (see AGENTS.md).
+                transform: Translate {
+                    id: slide
+
+                    NumberAnimation on x {
+                        from: 40
+                        to: 0
+                        duration: Appearance.t.base
+                        easing.type: Appearance.t.emphasizedEasing
+                    }
                 }
                 NumberAnimation on opacity {
                     id: arrive
@@ -134,7 +142,7 @@ PanelWindow {
 
                 ParallelAnimation {
                     id: leave
-                    NumberAnimation { target: toast; property: "x"; to: 40; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
+                    NumberAnimation { target: slide; property: "x"; to: 40; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
                     NumberAnimation { target: toast; property: "opacity"; to: 0; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
                     onFinished: root.forget(toast.modelData)
                 }

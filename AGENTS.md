@@ -456,6 +456,14 @@ expensive to find.
   the view's origin rather than the rows below, so the leaving delegate is
   culled on the first frame and nothing animates. Toasts are a `Column` with a
   `move` transition and keep their own list of what is still drawn.
+- **A positioner's `move` transition writes `x` as well as `y`**: the x it
+  read as the move began — during an earlier move, that move's destination —
+  set at once, since the transition does not animate it (6.12.0's
+  `QQuickItemViewTransitionJob::startTransition`). An item's own animation
+  of `x` that ends in between is undone, and the item stays where the move
+  caught it: toasts arriving 0.3 s apart, each pushing an older one out,
+  rested up to 33 px off to the right. Slide a positioned item on a
+  `Translate`, never on its own `x` or `y`.
 - **`ListView` drops a height change of its first row while a view
   transition runs on that row** — `add`, or `displaced` as a row above it
   goes (`itemGeometryChanged` returns early, in 6.12.0's source), so the
