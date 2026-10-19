@@ -16,6 +16,8 @@ FocusScope {
     signal escaped
     /*! Arrow keys and Tab are forwarded so a results list can own navigation. */
     signal navigate(int key)
+    /*! The keyboard's right click (Clickable's keys), for the selected result. */
+    signal menuRequested
 
     implicitWidth: 320
     implicitHeight: Appearance.m.fieldHeight
@@ -72,8 +74,14 @@ FocusScope {
                     event.accepted = true;
                     break;
                 default:
-                    if (event.text !== "")
+                    if (event.key === Qt.Key_Menu
+                            || (event.key === Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))) {
                         InputMode.keyboardUsed();
+                        root.menuRequested();
+                        event.accepted = true;
+                    } else if (event.text !== "") {
+                        InputMode.keyboardUsed();
+                    }
                     break;
                 }
             }

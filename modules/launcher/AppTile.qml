@@ -3,17 +3,29 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import "root:/config"
 import "root:/components"
+import "root:/services"
 
-/*! One application in the launcher grid. */
+/*! One application in the launcher grid. A right click, or the keyboard's
+    from the search field, opens its menu: pinning it to the dock. */
 Clickable {
     id: root
 
     required property var entry
     property bool current: false
 
+    function openMenu(): void {
+        const entry = root.entry;
+        Overlay.openMenu(root, [
+            { label: Settings.isPinned(entry.id) ? qsTr("Unpin from Dock") : qsTr("Pin to Dock"),
+              icon: "pin", run: () => Dock.togglePinned(entry) }
+        ]);
+    }
+
     radius: Appearance.r.md
     focusable: false
     selected: root.current
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
+    onRightClicked: root.openMenu()
     /*!
         A tile keeps the press it was given. The grid is a Flickable, so without
         this it steals the press as soon as the pointer moves a few pixels and

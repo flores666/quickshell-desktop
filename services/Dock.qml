@@ -207,17 +207,19 @@ Singleton {
             Compositor.closeWindow(item.toplevel);
     }
 
-    function togglePinned(item: var): void {
-        if (!item || !item.entry)
+    /*! Pin a desktop entry, or unpin it: from its icon here, or the launcher. */
+    function togglePinned(entry: var): void {
+        if (!entry)
             return;
-        if (Settings.isPinned(item.entry.id)) {
-            Settings.unpin(item.entry.id);
+        if (Settings.isPinned(entry.id)) {
+            Settings.unpin(entry.id);
             return;
         }
         // Freeze the arrangement first: pinning would otherwise promote the
         // application ahead of everything unpinned, and its icon would jump out
-        // from under the pointer that just asked for it.
+        // from under the pointer that just asked for it. An application
+        // pinned from the launcher with no window open joins the end.
         Settings.setDockOrder(root.appKeys);
-        Settings.pin(item.entry.id);
+        Settings.pin(entry.id);
     }
 }

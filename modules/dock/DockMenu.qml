@@ -122,7 +122,7 @@ ShellOverlay {
             label: root.pinned ? qsTr("Unpin from Dock") : qsTr("Pin to Dock")
             onClicked: {
                 Overlay.close();
-                Dock.togglePinned(root.item);
+                Dock.togglePinned(root.item.entry);
             }
         }
 

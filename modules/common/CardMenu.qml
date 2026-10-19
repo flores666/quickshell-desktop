@@ -13,7 +13,12 @@ import "root:/services"
     popup is ever open, and it sits above the card's content rather than in it
     because the content clips: a menu opened near the edge of a pane would be
     cut off by the very list it belongs to. While it is up, a press anywhere
-    else on the card only closes it, which is how a menu behaves anywhere.
+    else on the card only closes it, which is how a menu behaves anywhere, and
+    nothing under it is hovered.
+
+    It is the one panel drawn over the shell's own content, where the
+    compositor's blur does not reach: so it is opaque, not glass, and edged
+    and shadowed like a window to stand off the card it lies on.
 */
 Item {
     id: root
@@ -27,12 +32,29 @@ Item {
 
     visible: root.open
 
-    onOpenChanged: if (root.open && InputMode.keyboard)
-        Qt.callLater(() => rows.itemAt(0)?.forceActiveFocus())
+    /*! What had the keyboard when the menu took it, given back as it closes:
+        its rows go with it, and the keyboard would be left with nothing. */
+    property Item returnFocus: null
+
+    onOpenChanged: {
+        if (root.open && InputMode.keyboard) {
+            root.returnFocus = root.Window.activeFocusItem;
+            Qt.callLater(() => rows.itemAt(0)?.forceActiveFocus());
+        } else if (!root.open) {
+            root.returnFocus?.forceActiveFocus();
+            root.returnFocus = null;
+        }
+    }
 
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
+        // Takes the hover from what lies under the menu (Qt hovers the topmost
+        // item and its ancestors, never the siblings beneath), so crossing to a
+        // row lights nothing on the way — a launcher tile under the pointer
+        // would also take the selection. A MouseArea passes hover on to its
+        // ancestors, so the card still knows the pointer is over it.
+        hoverEnabled: true
         onPressed: Overlay.closeMenu()
         // The scroll still reaches the pane underneath (hard rule 6); the menu
         // only gets out of the way, since what it was opened beside is moving.
@@ -60,7 +82,9 @@ Item {
         width: Appearance.m.menuWidth
         height: column.implicitHeight + Appearance.s.xs * 2
         radius: Appearance.r.md
-        elevation: 2
+        color: Appearance.c.surface
+        borderColor: Appearance.c.borderStrong
+        elevation: 3
 
         Column {
             id: column

@@ -126,6 +126,10 @@ ShellOverlay {
             onAccepted: root.launchCurrent()
             onEscaped: Overlay.close()
             onNavigate: key => grid.navigate(key)
+            onMenuRequested: {
+                grid.positionViewAtIndex(root.selectedIndex, GridView.Contain);
+                (grid.itemAtIndex(root.selectedIndex) as AppTile)?.openMenu();
+            }
         }
 
         GridView {
