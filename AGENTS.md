@@ -464,6 +464,11 @@ expensive to find.
   its width, and a notification arriving with the centre open overlapped the
   one below it. A delegate's height is therefore a binding over what it
   holds, final when the delegate is made; `NotificationCard` is built so.
+- **A `ListView` row displaced during its `add` transition keeps whatever
+  opacity it had reached**: the displacement cuts the add short (Qt documents
+  it under *Handling Interrupted Animations*). A burst of notifications into
+  the open centre left every row but the newest invisible, so `displaced`
+  animates opacity to 1 as well as `y`.
 - **Centring a child on a container that sizes itself from its children is a
   binding loop** (`MenuRow`'s trailing slot is already centred). This was the
   one "Binding loop detected" every start used to log.

@@ -91,6 +91,14 @@ Item {
                 duration: Appearance.t.base
                 easing.type: Appearance.t.standardEasing
             }
+            // A row displaced while it is still fading in has its add
+            // transition cut short, and would stay as faint as it had got:
+            // in a burst, every row but the newest stayed invisible.
+            NumberAnimation {
+                property: "opacity"; to: 1
+                duration: Appearance.t.base
+                easing.type: Appearance.t.standardEasing
+            }
         }
     }
 

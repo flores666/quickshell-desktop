@@ -111,6 +111,7 @@ PanelWindow {
                     easing.type: Appearance.t.emphasizedEasing
                 }
                 NumberAnimation on opacity {
+                    id: arrive
                     from: 0
                     to: 1
                     duration: Appearance.t.base
@@ -119,8 +120,15 @@ PanelWindow {
 
                 // ...and back out to it. A plain animation rather than a
                 // Behavior, so its end can be relied on to free the slot.
+                // One pushed out by a burst before it has finished arriving
+                // was never really seen and goes at once: played out, each
+                // would hold its slot and push the ones shown down the screen.
                 onLeavingChanged: {
-                    if (toast.leaving)
+                    if (!toast.leaving)
+                        return;
+                    if (arrive.running)
+                        root.forget(toast.modelData);
+                    else
                         leave.start();
                 }
 
