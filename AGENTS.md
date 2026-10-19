@@ -648,7 +648,14 @@ expensive to find.
   `WAYLAND_DISPLAY=<its socket> grim -o <name>`. `hyprexpo:kb_selecti N`
   chooses a tile and closes the overview onto it without any input; inside
   the nested instance `hyprctl -i <instance> dispatch movecursor` does move
-  the overview's hover. Kill it by PID.
+  the overview's hover. Kill it by PID — the PID of the instance just
+  started, told apart from any left running by comparing `hyprctl instances`
+  before and after. **Never copy a plugin over the `.so` a running instance
+  has loaded**: it crashes that instance later, on its way out, with no
+  backtrace and no plugins listed, which reads as a shutdown crash of the
+  plugin's own. `debug:disable_logs` is on by default and the log only
+  opens at startup, so a nested instance to be traced needs it off in its
+  config.
 - **Trackpad gestures can be synthesised, but only in the session**: a
   nested compositor gets no touchpad. A `/dev/uinput` device with
   `BTN_TOOL_FINGER`…`BTN_TOOL_TRIPLETAP`, MT slots, axis resolutions and
@@ -699,10 +706,11 @@ only on a difference rebuilds, loads the result into the running Hyprland
 and sends a notification. Its output is in `journalctl --user -t hyprexpo`.
 `master` chases hyprland-git and will not compile against a release.
 
-Four patches are applied, in order, all relative to the source directory:
+Five patches are applied, in order, all relative to the source directory:
 `hyprexpo-real-wallpaper-bg.patch` (the real wallpaper, blurred, behind the
 tiles), `hyprexpo-tile-zoom-and-add-tile.patch`,
-`hyprexpo-swipe-open-close.patch` and `hyprexpo-shell-above-overview.patch`. The second highlights a
+`hyprexpo-swipe-open-close.patch`, `hyprexpo-shell-above-overview.patch` and
+`hyprexpo-key-zoom.patch`. The second highlights a
 tile with a focus zoom instead of a border, so the shell pushes
 `border_width` 0: the tile under the pointer or the keyboard keeps its size
 and the workspace in it grows 2% inside the tile's rounded edge (a crop of
@@ -776,3 +784,32 @@ reaches it and Escape closes only it; a tile clicked, a number key, Escape
 and a three-finger swipe (a uinput touchpad, see *Testing*) each close it
 with nothing of another workspace left on screen; a window drags between
 tiles; the auto-hiding dock comes up over it on the bottom edge and goes.
+
+The fifth gives **every zoom one pace** — Super+Tab, a tile chosen, a swipe
+let go of. On `windowsMove` (easeOutQuint here) a zoom always took the whole
+479 ms and left at five times its average pace: measured, the first frame of
+an open already stood a third of the way there, and a swipe let go of early
+shot across the rest. Now a whole zoom takes four fifths of `windowsMove`'s
+time (380 ms here), and any part of one that part of it, so the overview
+moves as fast whether a swipe is let go of a fifth of the way or four fifths
+(`zoomTo`). A zoom from rest — a key, a close taken back — eases in on
+Material's standard curve (2% in its first frame, 90% at about 215 ms); a
+swipe's release is already moving and leaves at twice its average pace,
+slowing to a stop. Each overview has its own animation config, timed per
+zoom, with the curves registered with Hyprland's animation manager — and
+again after a config reload, which drops every curve — and on or off with
+`windowsMove`. A close starts its zoom after the captures it takes, so its
+clock starts when frames can follow. **Stepping the zoom from the frames
+instead does not work**: a frame asked for from `render.pre` is taken by the
+one being drawn, and once nothing else animated the zoom crawled on whatever
+else happened to draw — a terminal's cursor blink. And the toggle, pressed
+while the overview is still closing (it looks shut well before its zoom
+ends), opens it back from where it stands (`reopenClosingOverviews`); a
+close that changed workspace cannot be taken back, so that one is finished
+and the overview opened afresh. Before, a close under way was the toggle's
+to close again and the press was lost, and after a swipe's release closed it
+`isSwiping` stayed set and refused it outright. Verified in a nested
+Hyprland with this desktop's animations, frame by frame from a trace: an
+open or close 380 ms, 90% at 217 ms, 2% in the first frame, no frame missed;
+a close taken back from a third open in 250 ms; with animations off it
+jumps.

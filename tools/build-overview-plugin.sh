@@ -94,6 +94,14 @@ git apply "${apply_args[@]}" "$swipe_patch" || { echo "hyprexpo-swipe-open-close
 shell_patch="$script_dir/hyprexpo-shell-above-overview.patch"
 git apply "${apply_args[@]}" "$shell_patch" || { echo "hyprexpo-shell-above-overview.patch no longer applies to ${tag}" >&2; exit 1; }
 
+# Every zoom at one pace -- Super+Tab, a tile chosen, a swipe let go of: a
+# whole one in four fifths of windowsMove's time and a part of one in that
+# part of it, easing in from rest and slowing from a swipe's motion. Pressed
+# again while the overview is still closing, the toggle opens it back. Cut
+# against the tree with the four patches above applied.
+key_patch="$script_dir/hyprexpo-key-zoom.patch"
+git apply "${apply_args[@]}" "$key_patch" || { echo "hyprexpo-key-zoom.patch no longer applies to ${tag}" >&2; exit 1; }
+
 make all
 install -Dm755 hyprexpo.so "$dest/hyprexpo.so"
 printf '%s\n' "$hypr_version" > "$stamp"

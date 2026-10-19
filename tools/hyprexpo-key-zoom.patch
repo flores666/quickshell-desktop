@@ -1,0 +1,277 @@
+diff --git a/Dispatchers.cpp b/Dispatchers.cpp
+index 0df7ff5..45e05a1 100644
+--- a/Dispatchers.cpp
++++ b/Dispatchers.cpp
+@@ -490,6 +490,19 @@ static SDispatchResult onExpoDispatcher(std::string arg) {
+     }
+ 
+     if (arg == "toggle") {
++        // quickshell-desktop: pressed while the overview is still closing --
++        // as it looks shut, its zoom has a while to run -- the toggle opens it
++        // again: from where it stands, or, from a close it cannot take back
++        // (one that changed workspace), afresh. A close already under way was
++        // the toggle's to close again, and the press was lost.
++        if (overviewOpen() && reopenClosingOverviews())
++            return {};
++        bool allClosing = overviewOpen();
++        forEachOverview([&](IOverviewSession& overview) { allClosing = allClosing && overview.closeCommitted(); });
++        if (allClosing) {
++            destroyAllOverviews();
++            return openOverviews(ALL_MONITORS);
++        }
+         if (overviewOpen())
+             closeOverviews(false);
+         else
+diff --git a/IOverviewSession.hpp b/IOverviewSession.hpp
+index ca7ba7c..c38813e 100644
+--- a/IOverviewSession.hpp
++++ b/IOverviewSession.hpp
+@@ -29,6 +29,10 @@ class IOverviewSession {
+     virtual void setClosing(bool closing) = 0;
+     virtual void beginCancelSwipe() = 0;
+     virtual bool closeCommitted() const = 0;
++    // quickshell-desktop: whether a close under way can be taken back, and
++    // taking it back -- the toggle pressed again while the overview closes.
++    virtual bool canReopen() const { return false; }
++    virtual bool reopen() { return false; }
+     virtual bool shouldRenderOverviewForMonitor(const PHLMONITOR& monitor) const = 0;
+     virtual void onWindowMoveToWorkspace(const PHLWINDOW& window, const PHLWORKSPACE& workspace) = 0;
+ 
+@@ -82,6 +86,7 @@ std::vector<uint64_t> liveOverviewMonitorKeys();
+ bool moveOverviewFocusAcrossMonitors(IOverviewSession* source, Hyprexpo::EDirection direction);
+ void closeOverviewsSelecting(IOverviewSession* selecting);
+ void closeOverviews(bool switchToSelection);
++bool reopenClosingOverviews();
+ void forEachOverview(const std::function<void(IOverviewSession&)>& fn);
+ void destroyOverview(IOverviewSession* overview);
+ void destroyAllOverviews();
+diff --git a/Overview.cpp b/Overview.cpp
+index c02254f..47126fd 100644
+--- a/Overview.cpp
++++ b/Overview.cpp
+@@ -889,6 +889,21 @@ void closeOverviewsSelecting(IOverviewSession* selecting) {
+     forEachOverview([selecting](IOverviewSession& overview) { overview.close(&overview == selecting); });
+ }
+ 
++// quickshell-desktop: the toggle pressed again while every overview is still
++// closing opens them back from where they stand, if each can be. False when
++// there is nothing of the kind to take back.
++bool reopenClosingOverviews() {
++    bool any = false, all = true;
++    forEachOverview([&](IOverviewSession& overview) {
++        any = true;
++        all = all && overview.closeCommitted() && overview.canReopen();
++    });
++    if (!any || !all)
++        return false;
++    forEachOverview([](IOverviewSession& overview) { overview.reopen(); });
++    return true;
++}
++
+ void closeOverviews(bool switchToSelection) {
+     resetOverviewDrag(Hyprexpo::EOverviewDragEventType::AllClose);
+     g_keyboardOverviewMonitor.reset();
+@@ -1437,12 +1452,9 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+     size->setUpdateCallback(damageMonitor);
+     pos->setUpdateCallback(damageMonitor);
+ 
+-    if (!swipe) {
+-        *size = pMonitor->m_size;
+-        *pos  = {0, 0};
+-
+-        size->setCallbackOnEnd([this](auto) { redrawAll(true); });
+-    }
++    // quickshell-desktop: zoomed open from rest (zoomTo).
++    if (!swipe)
++        zoomTo(pMonitor->m_size, {0, 0}, true, [this](auto) { redrawAll(true); });
+ 
+     openedID = currentid;
+ 
+diff --git a/Overview.hpp b/Overview.hpp
+index dd4a4cf..5b36729 100644
+--- a/Overview.hpp
++++ b/Overview.hpp
+@@ -53,6 +53,8 @@ class COverview final : public IOverviewSession {
+     bool closeCommitted() const override {
+         return m_closeCommitted;
+     }
++    bool canReopen() const override;
++    bool reopen() override;
+     bool shouldRenderOverviewForMonitor(const PHLMONITOR& monitor) const;
+     // Animation callbacks are handed the variable that fired, not the owner.
+     // With several overviews alive the owner has to be resolved from it.
+@@ -181,11 +183,23 @@ class COverview final : public IOverviewSession {
+ 
+     PHLWORKSPACE                 startedOn;
+ 
++    // quickshell-desktop: the zoom's own timing (zoomTo), before size and pos
++    // so it outlives them.
++    SP<Hyprutils::Animation::SAnimationPropertyConfig> zoomConfig;
+     PHLANIMVAR<Vector2D>         size;
+     PHLANIMVAR<Vector2D>         pos;
+ 
+     bool                         closing = false;
+     bool                         m_closeCommitted = false;
++    // quickshell-desktop: a close a swipe's release made, which leaves in
++    // motion; and one that changed workspace, which reopen cannot take back.
++    bool                         m_closeFromSwipe = false;
++    bool                         m_switchedOnClose = false;
++
++    // quickshell-desktop: every zoom of the overview's, opened, closed or let
++    // go of (zoomTo).
++    void                         zoomTo(const Vector2D& toSize, const Vector2D& toPos, bool fromRest,
++                                        std::function<void(WP<Hyprutils::Animation::CBaseAnimatedVariable>)> onEnd);
+     uint64_t                     m_sessionGeneration = 0;
+     bool                         externalWorkspaceMoveDuringClose = false;
+ 
+diff --git a/OverviewInteraction.cpp b/OverviewInteraction.cpp
+index dc01e9d..d81e811 100644
+--- a/OverviewInteraction.cpp
++++ b/OverviewInteraction.cpp
+@@ -12,6 +12,8 @@
+ #include <hyprland/src/managers/KeybindManager.hpp>
+ #include <hyprland/src/state/WorkspaceState.hpp>
+ #include <hyprland/src/config/shared/actions/ConfigActions.hpp>
++#include <hyprland/src/config/shared/animation/AnimationTree.hpp>
++#include <hyprland/src/animation/AnimationManager.hpp>
+ #include <algorithm>
+ #include <chrono>
+ #include <cmath>
+@@ -671,12 +673,82 @@ void COverview::resetSwipe() {
+     swipeWasCommenced = false;
+ }
+ 
++// quickshell-desktop: every zoom -- Super+Tab, a tile chosen, a swipe let go
++// of -- at one pace: a whole zoom takes four fifths of windowsMove's time
++// (380 ms here) and a part of one that part of it, so the overview moves as
++// fast whether a swipe is let go of a fifth of the way or four fifths. On
++// windowsMove, a zoom always took its whole time: with much left, a release
++// shot off; and easeOutQuint leaves at five times its average pace -- the
++// first frame of an open stood a third of the way there. A zoom from rest
++// eases in (Material's standard curve: 2% in its first frame, 90% in 205 ms);
++// a swipe's release is already moving, and leaves at twice its average pace,
++// slowing to a stop. Hyprland's animations still, whose clock keeps the frames
++// coming -- a zoom stepped from the frames lost them a third of the way in --
++// and only while windowsMove is on, the shell's Animations setting.
++static const char* ZOOM_FROM_REST   = "hyprexpoZoomFromRest";
++static const char* ZOOM_FROM_MOTION = "hyprexpoZoomFromMotion";
++
++void COverview::zoomTo(const Vector2D& toSize, const Vector2D& toPos, bool fromRest,
++                       std::function<void(WP<Hyprutils::Animation::CBaseAnimatedVariable>)> onEnd) {
++    // A config reload drops every curve, these with it: put back before use.
++    if (!Animation::mgr()->bezierExists(ZOOM_FROM_REST))
++        Animation::mgr()->addBezierWithName(ZOOM_FROM_REST, Vector2D{0.2, 0.0}, Vector2D{0.0, 1.0});
++    if (!Animation::mgr()->bezierExists(ZOOM_FROM_MOTION))
++        Animation::mgr()->addBezierWithName(ZOOM_FROM_MOTION, Vector2D{0.25, 0.5}, Vector2D{0.25, 1.0});
++
++    if (!zoomConfig) {
++        zoomConfig             = makeShared<Hyprutils::Animation::SAnimationPropertyConfig>();
++        zoomConfig->overridden = true;
++        zoomConfig->pValues    = zoomConfig;
++    }
++
++    const auto MOVE   = Config::animationTree()->getAnimationPropertyConfig("windowsMove");
++    const auto VALUES = MOVE ? MOVE->pValues.lock() : nullptr;
++    // In tenths of a second, as Hyprland counts animation speed.
++    const double WHOLE = (VALUES ? VALUES->internalSpeed : 4.0) * 0.8;
++    const double SHARE = std::abs(opennessFor(toSize) - openness());
++
++    zoomConfig->internalBezier  = fromRest ? ZOOM_FROM_REST : ZOOM_FROM_MOTION;
++    zoomConfig->internalEnabled = VALUES ? VALUES->internalEnabled : 1;
++    zoomConfig->internalStyle   = VALUES ? VALUES->internalStyle : "";
++    zoomConfig->internalSpeed   = std::max(0.8, WHOLE * SHARE);
++
++    size->setConfig(zoomConfig);
++    pos->setConfig(zoomConfig);
++    // From wherever the zoom stands: a close taken back turns round on it.
++    *size = toSize;
++    *pos  = toPos;
++    pos->setCallbackOnEnd(nullptr);
++    size->setCallbackOnEnd(std::move(onEnd));
++}
++
++// quickshell-desktop: a close is taken back -- the toggle pressed again while
++// the overview closes -- unless it changed workspace.
++bool COverview::canReopen() const {
++    return closing && !m_switchedOnClose && pMonitor.lock();
++}
++
++bool COverview::reopen() {
++    if (!canReopen())
++        return false;
++
++    const auto MON   = pMonitor.lock();
++    closing          = false;
++    m_closeCommitted = false;
++    closeOnID        = -1;
++    m_closeFromSwipe = false;
++    enterSubmapIfEnabled();
++    zoomTo(MON->m_size, {0, 0}, true, [this](auto) { redrawAll(true); });
++    return true;
++}
++
+ void COverview::onSwipeUpdate(double delta) {
+     // Once the close animation is committed, ignore further swipe input so a
+     // re-grabbed gesture can't warp size/pos back and replay the close.
+     if (m_closeCommitted)
+         return;
+ 
++
+     m_isSwiping = true;
+ 
+     const auto MON = pMonitor.lock();
+@@ -728,17 +800,18 @@ void COverview::onSwipeEnd(bool switchToSelection) {
+         return;
+     }
+     const auto PERC    = (size->value() - SIZEMIN).x / span.x;
++    // quickshell-desktop: let go of, the zoom goes on from where the fingers
++    // left it, in motion (zoomTo); and the swipe is over either way -- left
++    // set, it refused the toggle while the release closed.
++    m_isSwiping = false;
+     if (PERC > 0.5) {
++        m_closeFromSwipe = true;
+         close(switchToSelection);
+         return;
+     }
+-    *size = MON->m_size;
+-    *pos  = {0, 0};
+-
+-    size->setCallbackOnEnd([this](WP<Hyprutils::Animation::CBaseAnimatedVariable> thisptr) { redrawAll(true); });
++    zoomTo(MON->m_size, {0, 0}, false, [this](auto) { redrawAll(true); });
+ 
+     swipeWasCommenced = true;
+-    m_isSwiping       = false;
+ }
+ 
+ // The submap is compositor-global, but every overview enters and leaves it
+diff --git a/OverviewRender.cpp b/OverviewRender.cpp
+index fb22111..f1ba79c 100644
+--- a/OverviewRender.cpp
++++ b/OverviewRender.cpp
+@@ -153,8 +153,7 @@ void COverview::close(bool switchToSelection) {
+     const auto& TILE   = images[SAFEID];
+ 
+     const auto targetSize = zoomSizeForCurrentGrid(MON->m_size);
+-    *size = targetSize;
+-    *pos  = -(tilePosForID(SAFEID, targetSize, 0.0) * MON->m_scale);
++    const auto targetPos  = -(tilePosForID(SAFEID, targetSize, 0.0) * MON->m_scale);
+ 
+     closing = true;
+ 
+@@ -203,10 +202,14 @@ void COverview::close(bool switchToSelection) {
+             Animation::Workspace::startAnimation(OLDWS, Animation::Workspace::ANIMATION_TYPE_OUT, false, true);
+         }
+ 
+-        startedOn = MON->m_activeWorkspace;
++        startedOn         = MON->m_activeWorkspace;
++        m_switchedOnClose = true;
+     }
+ 
+-    size->setCallbackOnEnd(removeOverview);
++    // quickshell-desktop: the zoom (zoomTo), after the captures above so that
++    // its clock starts when the frames can follow -- in motion from a swipe's
++    // release, from rest otherwise.
++    zoomTo(targetSize, targetPos, !m_closeFromSwipe, removeOverview);
+ }
+ 
+ void COverview::onPreRender() {
