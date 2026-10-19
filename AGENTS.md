@@ -456,14 +456,18 @@ expensive to find.
   the view's origin rather than the rows below, so the leaving delegate is
   culled on the first frame and nothing animates. Toasts are a `Column` with a
   `move` transition and keep their own list of what is still drawn.
-- **`ListView` drops a height change of its first row while that row's `add`
-  transition runs** (`itemGeometryChanged` returns early, in 6.12.0's
-  source), so the rows below keep the place the old height gave them. A
-  positioner (`Column`, `Row`) in a delegate lays out again only on the next
-  frame, which is exactly then: a wrapped body is measured once the card has
-  its width, and a notification arriving with the centre open overlapped the
+- **`ListView` drops a height change of its first row while a view
+  transition runs on that row** — `add`, or `displaced` as a row above it
+  goes (`itemGeometryChanged` returns early, in 6.12.0's source), so the
+  rows below keep the place the old height gave them. A positioner
+  (`Column`, `Row`) in a delegate lays out again only on the next frame,
+  which is exactly then: a wrapped body is measured once the card has its
+  width, and a notification arriving with the centre open overlapped the
   one below it. A delegate's height is therefore a binding over what it
   holds, final when the delegate is made; `NotificationCard` is built so.
+  Its width must not change afterwards either: rows narrowed only while
+  the scrollbar showed rewrapped just as a row arrived and made it show, so
+  `NotificationList` keeps the bar's footprint clear always.
 - **A `ListView` row displaced during its `add` transition keeps whatever
   opacity it had reached**: the displacement cuts the add short (Qt documents
   it under *Handling Interrupted Animations*). A burst of notifications into

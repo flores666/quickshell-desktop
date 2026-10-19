@@ -66,7 +66,11 @@ Item {
         delegate: NotificationCard {
             required property var modelData
 
-            width: list.width
+            // Clear of the scrollbar whether it shows or not: a width that
+            // followed it would rewrap the rows as it came and went, while a
+            // new or removed row's transition runs, and ListView ignores the
+            // first row's change of height then (see AGENTS.md).
+            width: list.width - scrollbar.footprint
             notification: this.modelData
             onDismissed: Notifs.remove(this.modelData)
         }
@@ -121,5 +125,5 @@ Item {
         }
     }
 
-    ThinScrollBar { flickable: list }
+    ThinScrollBar { id: scrollbar; flickable: list }
 }
