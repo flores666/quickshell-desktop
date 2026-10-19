@@ -296,8 +296,8 @@ contents.
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockCell`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's — set by `OverviewTheme`) |
-| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup) |
-| `Compositor` | Hyprland's workspaces, monitors and windows | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview` |
+| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`) |
+| `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `Dock` | the dock's model: pinned apps + one entry per open window | `items`, `hideDelay`, `activate`, `launchNew`, `close`, `togglePinned` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
@@ -309,7 +309,7 @@ contents.
 | `Notifs` | the notification server, toast queue and history | `history`, `count`, `popups`, `remove`, `clearAll`, `plainBody`, `relativeLabel`, `timeoutFor` |
 | `Keyboard` | the active XKB layout | `available`, `code` (e.g. `EN`), `cycle` (every keyboard at once) |
 | `Osd` | the transient volume/mic/brightness indicator, listening to each source only once it holds a true reading | `shown`, `kind`, `value`, `icon`, `text`, `holdTime` |
-| `Screenshot` | screen capture through grim/slurp | `capture`, `captureRegion` |
+| `Screenshot` | screen capture through grim/slurp; a region is dragged out over the screen frozen by hyprpicker | `capture`, `captureRegion` |
 | `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current` (always a path: a saved bare name is that picture in the folder, empty until it is there), `set` |
 | `Fonts` | the font families Qt found, and applying the chosen one to applications — the GTK interface font and a fontconfig file the shell owns (`conf.d/50-quickshell-font.conf`); *Default* restores the GTK font it first replaced | `families`, `available`, `chosen`, `search` |
 | `Session` | lock, suspend, logout, reboot, shutdown | `lock` (raises `lockRequested`), `suspend`, `logout`, … |
@@ -430,6 +430,14 @@ expensive to find.
   the view's origin rather than the rows below, so the leaving delegate is
   culled on the first frame and nothing animates. Toasts are a `Column` with a
   `move` transition and keep their own list of what is still drawn.
+- **`ListView` drops a height change of its first row while that row's `add`
+  transition runs** (`itemGeometryChanged` returns early, in 6.12.0's
+  source), so the rows below keep the place the old height gave them. A
+  positioner (`Column`, `Row`) in a delegate lays out again only on the next
+  frame, which is exactly then: a wrapped body is measured once the card has
+  its width, and a notification arriving with the centre open overlapped the
+  one below it. A delegate's height is therefore a binding over what it
+  holds, final when the delegate is made; `NotificationCard` is built so.
 - **Centring a child on a container that sizes itself from its children is a
   binding loop** (`MenuRow`'s trailing slot is already centred). This was the
   one "Binding loop detected" every start used to log.
@@ -504,6 +512,13 @@ expensive to find.
   (`canMatch()` in the 0.56.2 source). The namespace is a regex that must match
   the *whole* namespace (`RE2::FullMatch`), so `shell-.*`, not `^shell-`.
   `hyprland.conf`'s first two rules once sat without one.
+- **A layer rule's `order` puts a higher number *beneath*.** Within one layer
+  Hyprland draws surfaces sorted by descending `order`, creation order among
+  equals (`arrangeLayersForMonitor` in the 0.56.2 source): the screenshot
+  freeze is −1 and slurp −2, so slurp is on top and a toast (0) is under both.
+- **A layer surface's fade-out is in a capture taken right after it unmaps.**
+  grim run the moment slurp exited took slurp's fading border, a black frame
+  around every region shot. `no_anim` drops the snapshot that fades.
 - **Layer blur follows the surface's alpha** (`ignore_alpha`). A popup's
   surface spans the screen but is mostly transparent, and only its card is
   blurred behind. Hyprland's blur strength is global (`decoration:blur`), and

@@ -51,16 +51,22 @@ Surface {
         color: Appearance.c.danger
     }
 
-    Column {
+    // Sized by bindings rather than positioners: the body's wrap is only
+    // known once the card's width is, and a Column would take that in on the
+    // next frame, after the notification centre has placed the row by the
+    // height it had (see AGENTS.md).
+    Item {
         id: layout
 
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: Appearance.s.lg
-        spacing: Appearance.s.sm
+        implicitHeight: header.height + (actions.visible ? Appearance.s.sm + actions.implicitHeight : 0)
 
         Item {
+            id: header
+
             width: parent.width
             height: Math.max(picture.height, headline.implicitHeight)
 
@@ -75,19 +81,20 @@ Surface {
 
             // Centred on the icon when it is the shorter of the two, as a
             // one-line toast is; a longer one hangs from the top beside it.
-            Column {
+            Item {
                 id: headline
 
                 anchors.verticalCenter: parent.verticalCenter
                 x: picture.width + Appearance.s.lg
                 width: parent.width - x - closeButton.width - Appearance.s.sm
-                spacing: 1
+                implicitHeight: body.visible ? body.y + body.implicitHeight : summary.implicitHeight
 
                 Row {
                     width: parent.width
                     spacing: Appearance.s.sm
 
                     Label {
+                        id: summary
                         width: Math.min(implicitWidth, parent.width - age.implicitWidth - Appearance.s.sm)
                         text: Notifs.summaryOf(root.notification)
                         font.weight: Font.DemiBold
@@ -103,6 +110,8 @@ Surface {
                 }
 
                 Label {
+                    id: body
+                    y: summary.implicitHeight + 1
                     width: parent.width
                     visible: root.bodyText !== ""
                     text: root.bodyText
@@ -128,6 +137,8 @@ Surface {
         }
 
         Row {
+            id: actions
+            y: header.height + Appearance.s.sm
             visible: root.actionList.length > 0
             width: parent.width
             spacing: Appearance.s.md

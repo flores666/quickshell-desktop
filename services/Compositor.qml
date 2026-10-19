@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 
 /*!
     A normalised view of Hyprland's workspaces and windows.
@@ -135,5 +136,61 @@ Singleton {
     /*! True when the given monitor is showing a fullscreen window right now. */
     function isFullscreenOn(monitor: HyprlandMonitor): bool {
         return Boolean(monitor?.activeWorkspace?.hasFullscreen ?? false);
+    }
+
+    /*!
+        Whether something other than the shell covers a whole screen on the
+        overlay layer, the popups' own: slurp dragging out a screenshot over
+        hyprpicker's freeze, or any picker like them. Every press and key is
+        its while it is up, wherever the pointer is.
+    */
+    property bool covered: false
+
+    function readLayers(): void {
+        if (layers.running)
+            layers.stale = true;
+        else
+            layers.running = true;
+    }
+
+    Component.onCompleted: root.readLayers()
+
+    Process {
+        id: layers
+
+        // A layer that opens or closes while the last reading is under way is
+        // read again after it, not lost.
+        property bool stale
+
+        command: ["hyprctl", "-j", "layers"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const monitors = JSON.parse(this.text);
+                    root.covered = Quickshell.screens.some(s => (monitors[s.name]?.levels["3"] ?? []).some(l =>
+                        !l.namespace.startsWith("shell-") && l.w >= s.width && l.h >= s.height));
+                } catch (e) {
+                    root.covered = false;
+                }
+            }
+        }
+        onExited: {
+            if (stale) {
+                stale = false;
+                running = true;
+            }
+        }
+    }
+
+    Connections {
+        target: Hyprland
+
+        // Hyprland names the layer that opened or closed and nothing more, so
+        // a foreign one has them all read; the shell's own, which open with
+        // every popup and toast, are skipped.
+        function onRawEvent(event: HyprlandEvent): void {
+            if ((event.name === "openlayer" || event.name === "closelayer") && !event.data.startsWith("shell-"))
+                root.readLayers();
+        }
     }
 }

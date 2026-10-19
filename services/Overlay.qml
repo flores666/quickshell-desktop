@@ -62,10 +62,12 @@ Singleton {
 
         Hyprland reports these through a non-consuming bind, so the click still
         reaches whatever is under it; all this has to decide is whether it
-        happened outside the popup.
+        happened outside the popup. A press on something covering the screen —
+        slurp, dragging out a screenshot of the popup — is on top of it, not
+        outside it, though the shell has lost the pointer to it.
     */
     function dismissOnOutsideClick(): void {
-        if (root.anyOpen && !root.pointerOverShell)
+        if (root.anyOpen && !root.pointerOverShell && !Compositor.covered)
             root.close();
     }
 
@@ -130,8 +132,13 @@ Singleton {
         root.menu = null;
     }
 
-    /*! Escape: a context menu goes first, and the popup only once none is up. */
+    /*!
+        Escape: a context menu goes first, and the popup only once none is up.
+        Escape into something covering the screen is its own.
+    */
     function dismissOnEscape(): void {
+        if (Compositor.covered)
+            return;
         if (root.menu !== null)
             root.closeMenu();
         else

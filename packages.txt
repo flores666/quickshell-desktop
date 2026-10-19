@@ -19,9 +19,11 @@ upower
 power-profiles-daemon
 bluez
 
-# what the shell runs: screenshots, the clipboard, notifications, settings
+# what the shell runs: screenshots (hyprpicker freezes the screen under a
+# region shot), the clipboard, notifications, settings
 grim
 slurp
+hyprpicker
 wl-clipboard
 libnotify
 dconf
