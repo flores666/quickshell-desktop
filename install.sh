@@ -100,8 +100,9 @@ done
 
 link "$repo" "$shell_dir"
 
-# Built when missing or built against another Hyprland; hyprland.conf runs
-# the same check at every login, so an update rebuilds it by itself.
+# Built when missing, or built against another Hyprland or other patches;
+# hyprland.conf runs the same check at every login, so an update rebuilds it
+# by itself.
 if pkg-config --exists hyprland 2>/dev/null; then
     "$repo/tools/build-overview-plugin.sh" --if-stale
 fi

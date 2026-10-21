@@ -705,11 +705,13 @@ and is absent from its `v0.56.0` release. The build script uses the maintained
 matching the installed Hyprland. **Hyprland refuses to load a plugin built
 against different headers**, so it must be rebuilt after every Hyprland update,
 and `hyprland.conf` does that by itself: an `exec-once` runs the build script
-with `--if-stale` at every login, which compares the Hyprland the plugin was
-built against (`built-for`, written beside it) with the installed one, and
-only on a difference rebuilds, loads the result into the running Hyprland
-(unless one is loaded, or the binary was replaced on disk — see *Testing*)
-and sends a notification. Its output is in `journalctl --user -t hyprexpo`.
+with `--if-stale` at every login, which compares what the plugin was built
+from (`built-for`, written beside it: the Hyprland and a hash of the patches)
+with what is installed and checked out, and only on a difference rebuilds,
+loads the result into the running Hyprland (unless one is loaded — a patch
+change then takes effect at the next login — or the binary was replaced on
+disk, see *Testing*) and sends a notification. install.sh runs the same
+check, so a patch changed after the plugin was built is not missed. Its output is in `journalctl --user -t hyprexpo`.
 `master` chases hyprland-git and will not compile against a release.
 
 Five patches are applied, in order, all relative to the source directory:

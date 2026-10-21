@@ -129,8 +129,9 @@ hyprexpo was dropped from the official hyprland-plugins repo as unmaintained, so
 [sandwichfarm fork](https://github.com/sandwichfarm/hyprexpo), picking the tag
 that matches the installed Hyprland. Hyprland refuses to load a plugin built
 against different headers, so `hyprland.conf` runs it with `--if-stale` at every
-login: after a Hyprland update it rebuilds the plugin in the background, loads
-it and sends a notification, and otherwise does nothing.
+login: after a Hyprland update, or a change to its patches, it rebuilds the
+plugin in the background, loads it and sends a notification, and otherwise
+does nothing.
 
 Its layout and gestures live in `hyprland.conf`; its three colours are pushed by
 the shell (`modules/common/CompositorTheme.qml`) so the overview follows the theme.

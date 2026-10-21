@@ -6,19 +6,23 @@
 # the installed Hyprland. Hyprland refuses to load a plugin built against
 # different headers, so it has to be rebuilt after every Hyprland update:
 # with --if-stale this does nothing unless the plugin is missing or was built
-# against another Hyprland, and hyprland.conf runs that at every login.
+# against another Hyprland or other patches, and hyprland.conf runs that at
+# every login.
 set -euo pipefail
 
 # Resolved before the cd into the build tree, so `patch` below still points here.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo=https://github.com/sandwichfarm/hyprexpo.git
 dest="${XDG_DATA_HOME:-$HOME/.local/share}/hyprexpo"
-# The Hyprland the installed plugin was built against, written after each build.
+# What the installed plugin was built from, written after each build: the
+# Hyprland it was built against and the patches below, so that a patch changed
+# in the project rebuilds it as an update of Hyprland does.
 stamp="$dest/built-for"
 hypr_version="$(pkg-config --modversion hyprland)"
+built_for="$hypr_version $(cat "$script_dir"/hyprexpo-*.patch | sha256sum | cut -d' ' -f1)"
 
 if [[ "${1:-}" == --if-stale ]]; then
-    [[ -e "$dest/hyprexpo.so" && "$(cat "$stamp" 2>/dev/null)" == "$hypr_version" ]] && exit 0
+    [[ -e "$dest/hyprexpo.so" && "$(cat "$stamp" 2>/dev/null)" == "$built_for" ]] && exit 0
     notify() { notify-send -a Overview "$@" 2>/dev/null || true; }
     # At login the network may still be coming up, and the build clones.
     nm-online -q -t 60 2>/dev/null || true
@@ -27,15 +31,19 @@ if [[ "${1:-}" == --if-stale ]]; then
             "See journalctl --user -t hyprexpo, or run tools/build-overview-plugin.sh."
         exit 1
     fi
-    # Into the running Hyprland, unless one is loaded already or its binary was
-    # replaced on disk, which no plugin can load into; the next login does.
+    # Into the running Hyprland, unless one is loaded already (built from older
+    # patches) or its binary was replaced on disk, which no plugin can load
+    # into; the next login does.
     hyprland="$(pidof -s Hyprland || true)"
     if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" && -n "$hyprland" ]] \
         && ! hyprctl plugin list | grep -q '^Plugin hyprexpo ' \
         && [[ "$(readlink "/proc/$hyprland/exe")" != *"(deleted)" ]]; then
         hyprctl plugin load "$dest/hyprexpo.so" >/dev/null
+        notify "The overview was rebuilt for Hyprland ${hypr_version}"
+    else
+        notify "The overview was rebuilt for Hyprland ${hypr_version}" \
+            "It takes effect at the next login."
     fi
-    notify "The overview was rebuilt for Hyprland ${hypr_version}"
     exit 0
 fi
 
@@ -104,6 +112,6 @@ git apply "${apply_args[@]}" "$key_patch" || { echo "hyprexpo-key-zoom.patch no 
 
 make all
 install -Dm755 hyprexpo.so "$dest/hyprexpo.so"
-printf '%s\n' "$hypr_version" > "$stamp"
+printf '%s\n' "$built_for" > "$stamp"
 echo "installed -> $dest/hyprexpo.so"
 echo "reload with: hyprctl plugin unload $dest/hyprexpo.so; hyprctl plugin load $dest/hyprexpo.so"
