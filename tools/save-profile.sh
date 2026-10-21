@@ -25,7 +25,8 @@ settings="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/by-shell/$id/settings
 mkdir -p "$profile"
 
 # systemFontBefore is this machine's GTK font from before the shell set its
-# own, which only means something here. A wallpaper in the folder is saved by
+# own, which only means something here; so do vpnConnections, the names of
+# this machine's NetworkManager profiles. A wallpaper in the folder is saved by
 # its name alone, which Wallpaper.current finds in the next machine's folder.
 # The dock keeps only the applications the project installs: a pin or a place
 # for any other is this user's own, and the dock on the next machine would
@@ -36,6 +37,7 @@ source, target, folder, repo = sys.argv[1:]
 with open(source) as f:
     settings = json.load(f)
 settings["systemFontBefore"] = ""
+settings["vpnConnections"] = []
 
 packages = set()
 for name in ("packages.txt", "packages-aur.txt"):

@@ -72,16 +72,6 @@ Singleton {
         return out;
     }
 
-    /*!
-        A VPN or tunnel device that NetworkManager reports as up.  These arrive
-        as devices Quickshell does not classify as wired or Wi-Fi, so they are
-        matched by kernel interface name.
-    */
-    readonly property bool vpnActive: root.devices.some(d => d
-        && d.type === DeviceType.None
-        && d.connected
-        && /^(tun|tap|wg|ppp|ipsec|proton|nordlynx)/.test(d.name))
-
     readonly property bool limited: root.available && Networking.canCheckConnectivity
         && Networking.connectivityCheckEnabled
         && (Networking.connectivity === NetworkConnectivity.Portal

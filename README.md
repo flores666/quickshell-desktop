@@ -63,7 +63,7 @@ components/               reusable widgets built on one interaction primitive
 modules/                  the surfaces themselves
   bar/                    top panel
   dock/                   bottom dock
-  panels/                 quick settings, date menu, tray menu
+  panels/                 quick settings, date menu, tray menu, VPN menu
     qs/                     quick-settings sub-pages
   launcher/               application launcher
   notifications/          toasts and the notification centre
@@ -101,13 +101,15 @@ D-Bus, PipeWire or Hyprland directly, and never duplicates a derivation.
 | `Wallpaper` | `~/Pictures/Wallpapers` + hyprpaper IPC | no pictures, and the strip says where they go |
 | `Fonts` | Qt's font database | the shell's own family, alone |
 | `Keyboard` | Hyprland `activelayout` events | indicator hidden |
+| `Vpn` | `nmcli monitor` (the profiles `vpnConnections` names) | no rows; VPN button hidden without v2rayN either |
+| `V2rayn` | v2rayN's config and database; in TUN mode its core's Clash API | no row; without TUN mode, no switch |
 | `Dock` | `Compositor` + `Settings` | pinned entries only |
 | `Session`, `Settings`, `Time`, `Osd`, `Overlay`, `InputMode` | — | — |
 
 Two of these deserve a note:
 
 - **`Overlay`** is the arbiter for full-screen surfaces. The launcher, overview,
-  quick settings, date menu and the two popup menus all route their open/close
+  quick settings, date menu, VPN menu and the two popup menus all route their open/close
   through it, which is what makes "only one at a time" true by construction
   rather than by everyone remembering to close everyone else.
 - **`Settings`** is the only writable state, persisted as JSON under
@@ -140,11 +142,14 @@ clock at minute precision, shared by every monitor. Everything else is push-driv
 PipeWire and NetworkManager signals, the Hyprland event socket, inotify on the
 settings file and the backlight.
 
-Two bounded exceptions, both deliberate:
+Three bounded exceptions, all deliberate:
 
 - The media seek bar polls MPRIS position once a second, and only while the date
   menu is open and something is actually playing. MPRIS does not signal position.
 - Wi-Fi scanning and Bluetooth discovery run only while their page is on screen.
+- The VPN menu's latencies are measured every five minutes, and only while
+  there is a VPN to measure; nothing signals a change in round-trip time. A
+  connection coming up, or v2rayN changing server, is measured at once.
 
 Two things are asked for once at startup because no event carries them until
 they change: the backlight device, and the current keyboard layout.

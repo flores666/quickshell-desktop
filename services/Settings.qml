@@ -35,6 +35,9 @@ Singleton {
     /*! The GTK interface font as it was before the shell first set it, so that
         going back to Default can give it back; empty while the shell has not. */
     readonly property string systemFontBefore: store.systemFontBefore
+    /*! NetworkManager connections the VPN menu offers; set by hand in
+        settings.json, since which of the profiles belong there is the user's. */
+    readonly property var vpnConnections: store.vpnConnections
     readonly property string wallpaper: store.wallpaper
     /*! The shell's corners follow Hyprland's window rounding; see Radii. */
     readonly property bool roundnessFollowsWindows: store.roundnessFollowsWindows

@@ -20,6 +20,7 @@ Singleton {
     readonly property string quickSettings: "quickSettings"
     readonly property string dateMenu: "dateMenu"
     readonly property string trayMenu: "trayMenu"
+    readonly property string vpnMenu: "vpnMenu"
     readonly property string dockMenu: "dockMenu"
     readonly property string settings: "settings"
 

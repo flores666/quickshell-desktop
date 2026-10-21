@@ -31,6 +31,13 @@ wl-clipboard
 libnotify
 dconf
 xdg-user-dirs
+# the VPN menu's latency (ping through a tunnel, curl through v2rayN's proxy),
+# v2rayN's server name, read from its database, its switch (curl to its
+# core's API) and its TUN coming up (ip monitor)
+iputils
+iproute2
+curl
+sqlite
 
 # fonts and icons: the shell's face, the terminal's, the applications' icons
 adwaita-fonts

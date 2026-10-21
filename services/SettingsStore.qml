@@ -28,6 +28,8 @@ JsonAdapter {
     /*! Empty means the built-in font family. */
     property string fontFamily: ""
     property string systemFontBefore: ""
+    /*! NetworkManager connections the bar's VPN menu offers, by name. */
+    property list<string> vpnConnections: []
     /*! A path, or a bare name for a picture in the wallpaper folder (see
         Wallpaper.current); empty means the shell has never set the wallpaper
         and leaves whatever the wallpaper daemon was configured with alone. */

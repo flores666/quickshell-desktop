@@ -110,6 +110,11 @@ PanelWindow {
                 visible: tray.visible
             }
 
+            VpnButton {
+                anchors.verticalCenter: parent.verticalCenter
+                screen: root.modelData
+            }
+
             KeyboardLayout {
                 anchors.verticalCenter: parent.verticalCenter
             }

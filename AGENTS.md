@@ -67,9 +67,11 @@ compositor do the right thing". Use the real session:
    you need a value that does not exist, add it to the right token file.
 2. **No full-screen surfaces that take input.** Ever. See *Popups* below.
 3. **Event-driven, never polled.** There is exactly one periodic timer in normal
-   operation (`Time`, one tick per minute, shared by all monitors). Two bounded
-   exceptions are documented in the code. If you add a `Timer` with `repeat`,
-   justify it in a comment.
+   operation (`Time`, one tick per minute, shared by all monitors). Three bounded
+   exceptions are documented in the code; one is the VPN menu's latency
+   (`Vpn`'s tick, which measures every row), every five minutes while there is
+   a VPN to measure, since nothing signals a change in round-trip time. If you
+   add a `Timer` with `repeat`, justify it in a comment.
 4. **Every widget's interaction states come from `Clickable`.** Do not
    re-implement hover/press/selected/disabled/focus.
 5. **Degrade, never fake.** If hardware or a service is absent, the control is
@@ -176,8 +178,9 @@ How it fits together:
   change as the desktop is used, and a link would put every slider move into
   git and fight the next machine's own changes. `save-profile.sh` snapshots
   them; `install.sh` gives them only to a machine that has none, so a re-run
-  never takes back a change made since. `systemFontBefore` is machine state
-  and is saved empty.
+  never takes back a change made since. `systemFontBefore` and
+  `vpnConnections` (names of this machine's NetworkManager profiles) are
+  machine state and are saved empty.
 - **The pictures are not in the repository.** It is public, and every save
   would have grown its history by megabytes. The wallpaper choice is saved by
   its bare name when the picture is in the folder, and `Wallpaper.current`
@@ -220,7 +223,8 @@ persistent ones (bar, dock) and transient ones (popups, OSD, toasts). Every
 surface has a `WlrLayershell.namespace` of `shell-<name>`, which is how you
 identify it in `hyprctl layers`.
 
-**Popup** — launcher, quick settings, settings, date menu, tray menu, dock menu.
+**Popup** — launcher, quick settings, settings, date menu, tray menu, dock menu,
+VPN menu.
 All share `ShellOverlay`. Exactly one can be open at a time.
 
 **Overlay (the service)** — the arbiter that enforces "one popup at a time".
@@ -312,14 +316,16 @@ usable, and are left out of the workspaces' pictures.
 |---|---|---|
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `windowShadow`, `shadowFor(level)` (layers in CSS `drop-shadow` terms, and `pad`), `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockBackground`, `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockBackground`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's and the windows' shadow — set by `CompositorTheme`) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is), `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (the window used last; while one has focus, the next), `launchNew`, `close` (every window), `togglePinned` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
-| `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `vpnActive`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `setScanning`, `restartWifi`, `restarting`, `passwordRequested`, `failure` |
+| `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `setScanning`, `restartWifi`, `restarting`, `passwordRequested`, `failure` |
+| `Vpn` | the VPN menu: the NetworkManager connections `Settings.vpnConnections` names (states from `nmcli monitor`, switched with `nmcli`, latency a ping to the tunnel's far end), whether anything in the menu is up, and the one five-minute tick that measures every row | `available`, `anyActive`, `connections`, `states`, `isActive`, `status`, `toggle` |
+| `V2rayn` | v2rayN, from the files it writes: the active server, its latency (a request through v2rayN's proxy), and in TUN mode a switch — the TUN core's Clash API mode, Rule or Direct, so no root is needed and the TUN stays up. Measured again when `ip monitor` sees the TUN come up | `available`, `active`, `status`, `canSwitch`, `direct`, `toggle`, `measure` |
 | `Bt` | BlueZ adapter and devices | `available`, `enabled`, `listed`, `icon`, `label`, `setEnabled`, `toggleConnection` |
 | `Power` | UPower battery and power-profiles-daemon | `hasBattery`, `percentage`, `icon`, `timeLabel`, `hasProfiles`, `profile`, `setProfile` |
 | `Brightness` | the backlight: read and watched in sysfs, written through logind | `available` (once read), `value`, `set`, `step` |

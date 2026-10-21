@@ -10,8 +10,8 @@ import "root:/services"
     The right-hand status group, and the button that opens quick settings.
 
     Only indicators that mean something on this machine appear: no battery on a
-    desktop, no Bluetooth without an adapter, and the microphone and VPN glyphs
-    only while they are actually in use.
+    desktop, no Bluetooth without an adapter, and the microphone glyph only
+    while it is actually in use. VPNs have a button of their own (VpnButton).
 */
 BarButton {
     id: root
@@ -24,14 +24,6 @@ BarButton {
     onClicked: {
         Overlay.anchorX = root.windowCenterX();
         Overlay.toggle(Overlay.quickSettings, root.screen);
-    }
-
-    Icon {
-        anchors.verticalCenter: parent.verticalCenter
-        visible: Network.vpnActive
-        name: "vpn"
-        size: Appearance.m.iconSm
-        color: Appearance.c.success
     }
 
     Icon {
