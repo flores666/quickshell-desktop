@@ -7,8 +7,9 @@ import "root:/services"
 import "root:/modules/common"
 
 /*!
-    The dock's context menu: launch another window, pin or unpin, and close what
-    is running.  Entries that cannot apply are simply not shown.
+    The dock's context menu: launch another window, show or hide the title bar,
+    pin or unpin, and close what is running.  Entries that cannot apply are
+    simply not shown.
 */
 ShellOverlay {
     id: root
@@ -23,10 +24,16 @@ ShellOverlay {
     property bool pickingWorkspace: false
 
     onRenderedChanged: if (!root.rendered) root.pickingWorkspace = false
+    // Set afresh each time the menu opens.
+    onItemChanged: if (root.item) TitleBars.read(root.item.windows)
     readonly property bool pinned: root.item?.entry ? Settings.isPinned(root.item.entry.id) : false
     readonly property bool launchable: root.item?.entry !== null && root.item?.entry !== undefined
     readonly property int windowCount: root.item?.windows.length ?? 0
     readonly property string launchLabel: root.item?.running ? qsTr("New Window") : qsTr("Open")
+    /*! Whether the application has a title bar to show or hide: only where
+        the window plugin gave its windows one, not where it draws its own. */
+    readonly property bool hasTitleBar: (root.item?.windows ?? []).some(w => TitleBars.byWindow[w.address] === true)
+    readonly property bool titleBarHidden: Settings.isTitleBarHidden(root.item?.appId ?? "")
 
     /*!
         The entry's own actions, minus any that just duplicate the primary one —
@@ -115,6 +122,17 @@ ShellOverlay {
             label: qsTr("Move to Workspace")
             submenu: true
             onClicked: root.pickingWorkspace = true
+        }
+
+        MenuItemRow {
+            width: parent.width
+            visible: !root.pickingWorkspace && root.hasTitleBar
+            icon: root.titleBarHidden ? "reveal" : "conceal"
+            label: root.titleBarHidden ? qsTr("Show Title Bar") : qsTr("Hide Title Bar")
+            onClicked: {
+                Overlay.close();
+                Settings.toggleTitleBar(root.item.appId);
+            }
         }
 
         MenuItemRow {

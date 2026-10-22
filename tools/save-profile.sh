@@ -30,7 +30,8 @@ mkdir -p "$profile"
 # its name alone, which Wallpaper.current finds in the next machine's folder.
 # The dock keeps only the applications the project installs: a pin or a place
 # for any other is this user's own, and the dock on the next machine would
-# have nothing to launch for it.
+# have nothing to launch for it. So do the hidden title bars, by app id, which
+# is the desktop entry's name wherever an application keeps to the convention.
 python3 - "$settings" "$profile/settings.json" "$wallpapers" "$repo" <<'EOF'
 import json, os, subprocess, sys
 source, target, folder, repo = sys.argv[1:]
@@ -51,7 +52,7 @@ def installed_by_project(app):
             owner = subprocess.run(["pacman", "-Qqo", path], capture_output=True, text=True).stdout.strip()
             return owner in packages
     return False
-for key in ("pinnedApps", "dockOrder"):
+for key in ("pinnedApps", "dockOrder", "hiddenTitleBars"):
     settings[key] = [app for app in settings.get(key, []) if installed_by_project(app)]
 if os.path.dirname(settings.get("wallpaper", "")) == folder:
     settings["wallpaper"] = os.path.basename(settings["wallpaper"])

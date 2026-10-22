@@ -19,6 +19,7 @@ Singleton {
     readonly property bool doNotDisturb: store.doNotDisturb
     readonly property var pinnedApps: store.pinnedApps
     readonly property var dockOrder: store.dockOrder
+    readonly property var hiddenTitleBars: store.hiddenTitleBars
     readonly property string accentColor: store.accentColor
     readonly property string backgroundLight: store.backgroundLight
     readonly property string backgroundDark: store.backgroundDark
@@ -227,6 +228,18 @@ Singleton {
         if (!root.isPinned(id))
             return;
         store.pinnedApps = store.pinnedApps.filter(x => x !== id);
+    }
+
+    function isTitleBarHidden(appId: string): bool {
+        return appId !== "" && store.hiddenTitleBars.indexOf(appId) !== -1;
+    }
+
+    function toggleTitleBar(appId: string): void {
+        if (appId === "")
+            return;
+        store.hiddenTitleBars = root.isTitleBarHidden(appId)
+            ? store.hiddenTitleBars.filter(x => x !== appId)
+            : store.hiddenTitleBars.concat([appId]);
     }
 
     /*! The order the user dragged the dock into, as application keys. */

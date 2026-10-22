@@ -25,6 +25,7 @@ qs -c shell ipc call shell <action>   # drive it; see ShellIpc.actions
 ./tools/lint.sh                   # qmllint over the whole tree
 python3 tools/genicons.py         # regenerate components/Icons.qml
 ./tools/build-overview-plugin.sh  # rebuild the hyprexpo plugin (--if-stale: only if out of date)
+./tools/build-windows-plugin.sh   # rebuild the window plugin (--if-stale: likewise)
 ```
 
 **Always run `./tools/lint.sh` and check the runtime log before claiming done.**
@@ -117,14 +118,15 @@ modules/             the surfaces themselves
 tools/               generators, the lint wrapper and save-profile.sh; not
                      loaded at runtime
 hyprland.conf        the shell's Hyprland integration, sourced from
-                     hypr/conf.d/90-quickshell.conf: the plugin, the shell's
+                     hypr/conf.d/90-quickshell.conf: the plugins, the shell's
                      global binds, the bindn dismissal binds
 
 install.sh           sets a computer up as this desktop. Safe to re-run
 packages.txt         every package from the official repositories
 packages-aur.txt     every package from the AUR
 hypr/                the Hyprland config (hyprland.conf sources conf.d/*.conf
-                     in name order) and hyprpaper.conf
+                     in name order) and hyprpaper.conf; windows/ is the
+                     window plugin's source (see *The window plugin*)
 terminal/            kitty.conf (the whole kitty config, in the Soft Surface
                      look), prompt.fish, and palette.conf: the terminal's
                      colours, written there only — kitty takes them through
@@ -310,16 +312,28 @@ keyboard navigation only, tracked by the `InputMode` service.
 contents. The shell's own surfaces stay where they stand above it, live and
 usable, and are left out of the workspaces' pictures.
 
+**Title bar** — the macOS-style bar on every window whose client does not draw
+its own frame, unless the user hid it for that application from the dock's
+menu. **Not a shell surface** either: it is the `windows` compositor
+plugin, built from `hypr/windows`, a window decoration Hyprland positions,
+draws and offers input to. **Minimized** is a window on `special:minimized`,
+since Hyprland has no such state.
+
+**Placement** of a window (not a popup's, above) — windows open floating, and
+each application as it was last left: tiled, or floating at its size. Also
+the `windows` plugin; see *The window plugin*.
+
 ## Services (`services/`, all `pragma Singleton`)
 
 | Service | Owns | Key surface |
 |---|---|---|
 | `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `windowShadow`, `shadowFor(level)` (layers in CSS `drop-shadow` terms, and `pad`), `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockBackground`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockBackground`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's and the windows' shadow — set by `CompositorTheme`) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`) |
-| `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is), `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
+| `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
+| `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (the window used last; while one has focus, the next), `launchNew`, `close` (every window), `togglePinned` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
@@ -369,7 +383,7 @@ implemented.
 | `OverlayCard` | the card inside it: the entry slide, the fade (as one flattened layer), clipping, hover reporting to `Overlay`, and swallowing Escape (the global bind acts on it) |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
-| `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, and the window shadow |
+| `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, the title bars' colours, and the window shadow |
 | `MenuItemRow` | one row of a popup menu |
 
 ---
@@ -603,6 +617,12 @@ expensive to find.
   lower edge — plain at a 22 px and a 12 px drop beside a popup's gaussian,
   gone at 6, where it passes for the window's rim. `decoration:glow` is no
   second layer: it is an inner glow, drawn over the window.
+- **`hyprctl keyword` applies no option's refresh bits.** A plugin's
+  `SColorValueOptions{.refresh = …}` take effect on a config reload only; a
+  keyword gets just the side effects `dispatchKeyword` hard-codes by name
+  (`decoration:` damages every monitor, `windowrule` reloads the rules), and no
+  plugin hears that its option changed. A change a plugin has to act on goes
+  through a dispatcher (`windows:hidden_for`).
 - **`hyprctl keyword` answers `ok` for a plugin option that does not exist.**
   The overview's border weight went to `border_size` (this fork's is
   `border_width`) and never took effect. Read a new one back with
@@ -821,3 +841,187 @@ Hyprland with this desktop's animations, frame by frame from a trace: an
 open or close 380 ms, 90% at 217 ms, 2% in the first frame, no frame missed;
 a close taken back from a third open in 250 ms; with animations off it
 jumps.
+
+### The window plugin
+
+`hypr/windows` is the project's own plugin for how windows behave: the title
+bars (`TitleBar`) and where a window opens (`Placement`). `main.cpp` wires both
+to Hyprland's event bus. `tools/build-windows-plugin.sh` builds it from the
+checkout (no clone, no patches) into `~/.local/share/hypr-windows`, with the
+overview's `--if-stale` stamp and login hook; its log is
+`journalctl --user -t hypr-windows`.
+
+**Unloading must leave no bar behind.** A plugin's decorations are destroyed
+with their window, through a vtable into the plugin: one that outlives
+`dlclose` takes the compositor down when its window goes (measured: SIGILL,
+then SIGSEGV, in a nested Hyprland). Hyprland removes a plugin's decorations
+after `PLUGIN_EXIT`, but only from the windows it still lists, and from a
+closing or hidden one only queues the removal (`updateWindowDecos` skips it),
+while a closed window can stay alive in the last frame's render pass. So the
+plugin keeps a weak reference to every window it gave a bar and strips the
+bars itself in `PLUGIN_EXIT`. A plugin loaded with `hyprctl plugin load` is not
+unloaded by a config reload that drops its line, so changing the `.so`'s path
+in a running session loads the new one beside it.
+
+#### Title bars
+
+The decoration is the project's own, not upstream `hyprbars`. It takes
+hyprbars' approach — an `IHyprWindowDecoration` drawn in Hyprland's render
+pass — but hyprbars reserves space on every window, takes clicks by cancelling
+them on the event bus, and knows nothing of client-side decorations.
+
+**Who gets one**: every window but one whose client said it draws its own
+frame. Hyprland answers every xdg-decoration request with server-side mode, so
+the answer tells nothing; the request does. Chromium and Electron windows that
+draw their own controls ask for client-side mode (VS Code, Claude: no bar); Qt,
+and kitty with decorations (`terminal/kitty.conf`; `hide_window_decorations
+yes` asks for client-side), ask for server-side (a bar). GTK never makes the
+object and gets one too: its header bars carry no window buttons on this
+desktop (`button-layout=':'`, `profile/gtk.dconf`), so the bar is where they
+are. An X11 window cannot say — Hyprland does not read `_MOTIF_WM_HINTS`, and
+reading it would be a round trip to Xwayland from the compositor's thread — so
+every X11 application window gets one (`_NET_WM_WINDOW_TYPE` normal, dialog or
+none; not a menu, a tooltip or a splash), and one that draws its own frame as
+well is the user's to hide. The protocol keeps the objects private:
+`CTitleBar::wanted` reads them through an explicit instantiation rather than
+`#define private public`, and maps each key back with the public
+`fromResource`, since the toplevel's own resource is private too. Decided when
+the window maps.
+
+**Hidden per application.** The dock's menu offers *Hide Title Bar* (then
+*Show Title Bar*) on an application whose windows have one; the choice is
+`Settings.hiddenTitleBars`, by app id. `TitleBars` hands the list to the
+plugin with the `windows:hidden_for` dispatcher, comma-separated, whenever it
+changes and after every config reload (loading the plugin raises one), and the
+plugin places every bar again. A dispatcher, not an option: `hyprctl keyword`
+tells no plugin its option changed, and a bar hidden above a floating window
+kept the 28 px it had reserved, which the window's shadow — solid over the
+window's box with its decorations — filled as a dark band. A hidden bar is
+kept, not removed, so it can come back while the window is open. Whether a
+window has one only the plugin knows, so the menu asks as it opens:
+`hyprctl decorations` lists `TitleBar` (`TitleBars.byWindow`).
+
+**Where it is.** Floating, a STICKY top decoration that reserves its 28 px,
+drawn on the UNDER layer as part of the window (the shadow takes it in): the
+window's rounding at the top, and the two corners under it filled so that the
+window's own rounding leaves no notch. Tiled, STICKY on all four edges with
+nothing reserved — its box is the window's — so the window keeps its whole
+tile, and the bar is drawn on the OVER layer over its top only while the
+pointer is there: it comes out in the window's top 4 px and stays while the
+pointer is on it. Fullscreen, none: Hyprland draws no decoration on a
+fullscreen window, and the bar takes no input there. `window.floating` moves
+it between the two (a dragged tile is floated by the same call). A window
+Hyprland places floating is moved down, and shortened if it must be, until its
+bar is in the work area: `newTarget` centres a window by its own box, and one
+floated from a full-height tile had its bar off the screen. One dragged there
+stays there.
+
+**Input.** Clicks come through `onInputOnDeco`, which Hyprland calls after the
+binds and before the client, so a `bindn` (the popups' dismissal) still sees
+the click and a mouse bind (Super+drag) still wins; cancelling
+`input.mouse.button` on the bus, as hyprbars does, takes it before either.
+The bar's box over a tiled window is the whole window, so it claims
+`DECORATION_ALLOWS_MOUSE_INPUT` only while shown. A button acts on release
+over the button it was pressed on; a press on the background becomes a move
+once the pointer moves (`beginDragTarget`, as a mouse bind starts one), which
+for a tile is Hyprland's own tile drag. Hover is the one listener on
+`input.mouse.move`, and it skips an event another plugin cancelled — the
+overview takes the pointer while it is open — so the title bars' `plugin =`
+line comes after the overview's. No bar newly takes the pointer while a
+button is held (counted from `input.mouse.button`, never cancelled): a
+selection dragged up to a tile's edge would otherwise bring a bar over it
+that took its release.
+
+**The buttons**: close (`Config::Actions::closeWindow`), minimize
+(`movetoworkspacesilent special:minimized`) and zoom (`fullscreenWindow` with
+`FSMODE_MAXIMIZED`, the toggle `fullscreen 1` is; a maximized window keeps its
+bar). Grey in a window without focus, coloured with their glyphs under the
+pointer. `Compositor.focusWindow`, which the dock goes through, brings a
+minimized window back to the focused workspace before focusing it; focusing it
+where it is would show the whole special workspace.
+
+**Colours** are `plugin:windows:bar_color` and `text_color`, pushed by
+`CompositorTheme` (`c.surface`, `c.text`), and read as each bar draws. The
+title is set in fontconfig's sans-serif, which `Fonts` points at the chosen
+family. The `decorate = off` window rule leaves one window without a bar.
+
+**Limitations**, each because the way round it is worse:
+
+- An X11 window that draws its own frame (Steam, JetBrains IDEs, GTK on X11)
+  has two until the user hides one, for the reason above.
+- A GTK header bar keeps its title, so a GTK window that shows one shows it
+  twice.
+- The request is read when the window maps; a client that changes its mode
+  later keeps what it had.
+- Under a tiled window's bar the client keeps pointer focus: it shows its
+  hover effects and sets its cursor (a text cursor over a terminal's bar).
+  Taking focus there would mean cancelling pointer motion, which also skips
+  focus-follows-mouse. Clicks are the bar's.
+- The corners filled under a floating bar show through a window drawn
+  translucent (`inactive_opacity` below 1).
+
+Verified in a nested Hyprland with kitty, dolphin (Qt), VS Code (Electron) and
+GNOME Calculator (GTK): who gets a bar; floating, tiled (no size change while
+it shows), maximized and fullscreen; each button; dragging a floating window,
+and a tile into the other half; floating ↔ tiled both ways; colours pushed
+with no pointer motion; the held-button selection; unload and reload; the
+overview loaded first, with nothing of a hidden bar in its tiles. In the
+session: the theme toggle redraws the bars, and Quickshell's model names a
+window moved to `special:minimized` by that workspace. Since every window
+gets one (nested): GNOME Text Editor (GTK, no object) and kitty asking
+server-side with a bar, kitty asking client-side without, GNOME Calculator
+under `GDK_BACKEND=x11` with one; `windows:hidden_for` hiding and showing the
+bars of two applications and not a third's, the reserved room going and
+coming back, an empty list over the socket clearing it.
+
+#### Placement
+
+**Floating by default** is a window rule, not code: `float-by-default`, first
+in `hypr/conf.d/80-window-rules.conf`, so any later rule overrides it. It has
+to be a rule. Hyprland sends a new Wayland window its predicted *tiled* size
+in the first configure unless a float rule already applies
+(`CWindow::commitWindow`), so a window floated any later had drawn its first
+buffer at a tile's size, and that was all its "own" size ever was.
+
+**The rest is the plugin**, at `window.openEarly`: after Hyprland has read
+the rules, before the layout places the window. A window it manages is one
+the default rule matches, with an app id, no parent, not fixed-size or a
+dialog (`shouldBeFloated`), not asking for fullscreen, and no other matching
+rule (exec rules included, `exec [float; size …] app`) with a `float`, `tile`,
+`size`, `move`, `center`, `fullscreen`, `fullscreenstate` or `maximize`
+effect — told apart from the default by its name. For one, it sets what a
+`size` and a `move` rule would: `m_isFloating` false if the app was last left
+tiled, or else `static_.size` and `static_.position`, which the floating
+algorithm reads on the first map. So Hyprland places the window itself,
+animation and all; nothing moves it after it maps.
+
+**The size**: the one the app was last left at, floating and not maximized or
+fullscreen; else its own (the first commit's geometry), cut down to 70% × 80%
+of the work area, the title bar counting towards the height; else, if it asks
+for none, that share. Measured on this desktop: Nautilus asks 957×518,
+Dolphin 760×620, Text Editor 954×622, Calculator 360×616, pavucontrol
+500×400, all kept; kitty and apps that saved a tiled size ask for the whole
+screen, and get the cap. Centred in the work area with its bar. The space's
+work area is a cache refreshed on Hyprland's schedule (a first window after
+an output change was placed by the old one), so it is rechecked first. A
+window the user floats from a tile gets the same box, rather than Hyprland's
+pick from the tile; the float a dragged tile goes through is the drag's.
+
+**Remembered**, by app id, in `~/.local/state/hypr-windows/remembered` (one
+line each: floating, width, height, id; written whole through a rename):
+when a window closes, when it is floated or tiled (outside a drag, whose drop
+re-tiles it), and for every window at `exit`, since a logout may close none.
+Machine state, so not in `profile/`.
+
+**Limits**: the position is not remembered — every window opens centred, two
+of one app on top of each other. Windows of one app share one memory, the
+last closed wins. A remembered size reaches the app after it maps, as a
+`size` rule's does: its first frame is the size it asked for.
+
+Verified in a nested Hyprland with its own `XDG_STATE_HOME`: kitty (with a
+size asked of it), Nautilus, Calculator, Text Editor under a `size` rule:
+first launch at their own size or the cap, centred; resized, closed, and
+reopened at that size, after a restart too; tiled and reopened tiled;
+floated again at the remembered size; a bad entry (a 0 height) falls back to
+the default; the ruled window neither placed nor remembered; unload with a
+closed, barred window still held, then that window freed.

@@ -29,6 +29,8 @@ ShellRoot {
               Brightness.available, Players.any, Apps.all.length, Notifs.count,
               Compositor.workspaces.length, Settings.ready, Osd.shown, Keyboard.available,
               Vpn.available, V2rayn.available,
+              // Likewise: this hands the window plugin the hidden title bars.
+              TitleBars.hidden,
               // Not for the sake of a first paint: this is what puts the
               // remembered wallpaper back up after the daemon restarted.
               Wallpaper.available,

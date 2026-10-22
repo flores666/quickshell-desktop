@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Set a computer up as this desktop: the packages it needs, the Quickshell
-# config "shell", the overview plugin, and the configs of Hyprland, hyprpaper,
-# kitty, fish and neovim, the scripts in bin/, and the preferences and GTK
-# settings saved in profile/ (tools/save-profile.sh). The wallpapers are the
-# one thing to bring by hand, into the Pictures folder's Wallpapers.
+# config "shell", the overview and window plugins, and the configs of
+# Hyprland, hyprpaper, kitty, fish and neovim, the scripts in bin/, and the
+# preferences and GTK settings saved in profile/ (tools/save-profile.sh). The
+# wallpapers are the one thing to bring by hand, into the Pictures folder's
+# Wallpapers.
 #
 # The configs are links into the project, so an edit to one lands in the
 # project and the next machine gets it. Each goes through the one link to the
@@ -100,11 +101,15 @@ done
 
 link "$repo" "$shell_dir"
 
-# Built when missing, or built against another Hyprland or other patches;
-# hyprland.conf runs the same check at every login, so an update rebuilds it
-# by itself.
+# The compositor plugins: the overview, and the windows' (title bars, and
+# windows that open floating where they were left). Each is built when
+# missing, or built against another Hyprland or from other sources;
+# hyprland.conf runs the same check at every login, so an update rebuilds them
+# by itself. What the window plugin remembers is this machine's own, kept in
+# ~/.local/state, and not saved to profile/: sizes are one screen's.
 if pkg-config --exists hyprland 2>/dev/null; then
     "$repo/tools/build-overview-plugin.sh" --if-stale
+    "$repo/tools/build-windows-plugin.sh" --if-stale
 fi
 
 # ------------------------------------------------------------------- configs

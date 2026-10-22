@@ -20,6 +20,10 @@ Singleton {
     readonly property HyprlandWorkspace focusedWorkspace: Hyprland.focusedWorkspace
     readonly property HyprlandToplevel activeToplevel: Hyprland.activeToplevel
 
+    /*! Where a title bar's minimize button puts a window (hypr/windows):
+        Hyprland has no minimized state, and a special workspace is its idiom. */
+    readonly property string minimizedWorkspace: "special:minimized"
+
     readonly property var workspaces: Hyprland.workspaces.values.filter(w => w && w.id > 0)
     readonly property var toplevels: Hyprland.toplevels.values.filter(t => t)
 
@@ -95,13 +99,20 @@ Singleton {
         leave a keyboard `movefocus` with the pointer over the window it left.
         It is on for this one dispatch: Hyprland runs a batch with nothing in
         between, and the batch puts it back as it found it.
+
+        A minimized window comes back to the workspace in front of you first;
+        focusing it where it is would bring its whole special workspace over
+        the screen instead.
     */
     function focusWindow(toplevel: HyprlandToplevel): void {
         if (!toplevel || toplevel.address === "")
             return;
+        const address = `address:0x${toplevel.address}`;
+        const restore = toplevel.workspace?.name === root.minimizedWorkspace && root.focusedWorkspace
+            ? `dispatch movetoworkspacesilent ${root.focusedWorkspace.id},${address} ; ` : "";
         Quickshell.execDetached(["sh", "-c",
             'w=$(hyprctl getoption cursor:no_warps | sed -n "s/^int: //p");'
-            + ` hyprctl --batch "keyword cursor:no_warps 1 ; dispatch focuswindow address:0x${toplevel.address} ; keyword cursor:no_warps \${w:-0}" >/dev/null`]);
+            + ` hyprctl --batch "keyword cursor:no_warps 1 ; ${restore}dispatch focuswindow ${address} ; keyword cursor:no_warps \${w:-0}" >/dev/null`]);
     }
 
     function closeWindow(toplevel: HyprlandToplevel): void {

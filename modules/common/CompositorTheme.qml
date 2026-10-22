@@ -6,13 +6,14 @@ import "root:/services"
 
 /*!
     The design system's share of Hyprland's options: the hyprexpo overview's
-    colours and shape, and the shadow under every window.
+    colours and shape, the title bars' colours, and the shadow under every
+    window.
 
-    Both are drawn by the compositor, so their look lives in Hyprland's options
+    All are drawn by the compositor, so their look lives in Hyprland's options
     rather than in the design system. Rather than let the two drift, the options
     that matter are derived from the tokens here and handed to
     CompositorOptions, which pushes whatever changed and all of them again
-    after every config reload — loading the plugin raises one too, so they
+    after every config reload — loading a plugin raises one too, so they
     land even when the shell is up before the plugin is.
 
     Everything else about the overview (grid shape, gestures) is static and
@@ -63,6 +64,9 @@ Binding {
         "plugin:hyprexpo:border_width": "0",
         // A workspace tile is a card like any other, so it takes the one
         // panel radius, which follows the roundness setting or the windows.
-        "plugin:hyprexpo:tile_rounding": String(Appearance.r.panel)
+        "plugin:hyprexpo:tile_rounding": String(Appearance.r.panel),
+        // A title bar is part of its window, not floating chrome: opaque.
+        "plugin:windows:bar_color": root.rgba(Appearance.c.surface),
+        "plugin:windows:text_color": root.rgba(Appearance.c.text)
     }, root.windowShadow)
 }
