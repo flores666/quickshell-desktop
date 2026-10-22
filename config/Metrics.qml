@@ -64,6 +64,10 @@ QtObject {
     /*! A window's picture in the dock's preview: the box it is fitted into,
         this tall and as wide as its screen's shape makes it. */
     readonly property int dockPreview: 140
+    /*! An application in the window switcher: its icon, and the room round
+        it that its highlight fills. */
+    readonly property int switcherIcon: 64
+    readonly property int switcherInset: 10
 
     /*! The hairline around every Surface. Zero is a legitimate choice, which is
         why the unset marker for it is -1 and not 0. */

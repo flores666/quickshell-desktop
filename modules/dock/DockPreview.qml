@@ -12,9 +12,10 @@ import "root:/services"
     that window forward; its button closes it. One window needs no telling
     apart, so an application with one has the tooltip instead.
 
-    It opens once the pointer has rested on the icon, moves straight to the
-    next such application the pointer reaches while it is open, and closes
-    a moment after the pointer has left both it and the icons. It lives in the
+    It opens once the pointer has rested on the icon, or at once on a click
+    on it, moves straight to the next such application the pointer reaches
+    while it is open, and closes a moment after the pointer has left both it
+    and the icons. It lives in the
     dock's window, as the tooltip does, and reaches down over the gap to the
     icons, so moving up from an icon onto it never leaves its hover.
 */
@@ -75,6 +76,14 @@ Item {
             root.key = key;
             root.anchorX = x;
         }
+    }
+
+    /*! A click on the icon of an application it offers: shown at once. */
+    function show(key: string, x: real): void {
+        root.enter(key, x);
+        dwell.stop();
+        root.key = key;
+        root.anchorX = x;
     }
 
     /*! An icon lost the pointer. */

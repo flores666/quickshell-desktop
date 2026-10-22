@@ -1,5 +1,5 @@
 diff --git a/OverviewRender.cpp b/OverviewRender.cpp
-index e73c8f6..c902c55 100644
+index 13ae39d..2354a3a 100644
 --- a/OverviewRender.cpp
 +++ b/OverviewRender.cpp
 @@ -15,6 +15,9 @@
@@ -10,9 +10,9 @@ index e73c8f6..c902c55 100644
 +#include <hyprland/src/protocols/core/Compositor.hpp>
 +#include <hyprland/protocols/wlr-layer-shell-unstable-v1.hpp>
  #include <hyprland/src/state/WorkspaceState.hpp>
- #undef private
- #undef protected
-@@ -270,11 +273,51 @@ void COverview::fullRender() {
+ #include <hyprland/src/state/MonitorState.hpp>
+ #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
+@@ -343,11 +346,51 @@ void COverview::fullRender() {
      const auto SHAPE   = currentGridShape();
  
      clearWithColor(BG_COLOR.stripA());
@@ -66,4 +66,4 @@ index e73c8f6..c902c55 100644
 +        }
      }
  
-     static auto* const* PTILEROUND  = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:tile_rounding")->getDataStaticPtr();
+     auto* const* PTILEROUND  = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:tile_rounding")->getDataStaticPtr();

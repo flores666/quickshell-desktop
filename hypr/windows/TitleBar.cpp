@@ -1,5 +1,7 @@
 #include "TitleBar.hpp"
+#include "Style.hpp"
 
+#include <hyprland/src/animation/AnimationManager.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
@@ -10,33 +12,25 @@
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/layout/space/Space.hpp>
 #include <hyprland/src/layout/target/Target.hpp>
-#include <hyprland/src/output/Monitor.hpp>
+#include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/render/Renderer.hpp>
-#include <hyprland/src/render/pass/RectPassElement.hpp>
-#include <hyprland/src/render/pass/TexPassElement.hpp>
 
 #include <linux/input-event-codes.h>
 
-namespace {
-    // macOS's proportions, in logical pixels.
-    constexpr double HEIGHT = CTitleBar::HEIGHT, BUTTON = 12, GAP = 8, INSET = 12;
-    // How far into a tiled window's top the pointer has to come to bring its
-    // bar out: thin, since what is under it there is the application's.
-    constexpr double EDGE = 4;
-    constexpr int    TITLE_PT = 10, TITLE_WEIGHT = 600, GLYPH_PT = 8;
+CTitleBar::CTitleBar(PHLWINDOW window) : IHyprWindowDecoration(window), m_window(window) {
+    Animation::mgr()->createAnimation(0.F, m_reveal, Style::fade(), AVARDAMAGE_NONE);
+    Animation::mgr()->createAnimation(0.F, m_hover, Style::hover(), AVARDAMAGE_NONE);
+    Animation::mgr()->createAnimation(0.F, m_focus, Style::fade(), AVARDAMAGE_NONE);
+    Animation::mgr()->createAnimation(Style::system(), m_color, Style::fade(), AVARDAMAGE_NONE);
+    const auto DAMAGE = [this](auto) { damageEntire(); };
+    m_reveal->setUpdateCallback(DAMAGE);
+    m_hover->setUpdateCallback(DAMAGE);
+    m_focus->setUpdateCallback(DAMAGE);
+    m_color->setUpdateCallback(DAMAGE);
 
-    // Close, minimize, zoom.
-    const std::array<CHyprColor, 3>   LIGHTS = {CHyprColor{0xFFFF5F57}, CHyprColor{0xFFFEBC2E}, CHyprColor{0xFF28C840}};
-    const std::array<std::string, 3>  GLYPHS = {"×", "−", "+"};
-    const CHyprColor                  GLYPH_COLOR{0x99000000};
-
-    CHyprColor                        withAlpha(CHyprColor color, float a) {
-        color.a *= a;
-        return color;
-    }
+    if (const auto SURFACE = window->resource())
+        m_commit = SURFACE->m_events.commit.listen([this] { resample(); });
 }
-
-CTitleBar::CTitleBar(PHLWINDOW window) : IHyprWindowDecoration(window), m_window(window) {}
 
 CTitleBar* CTitleBar::of(PHLWINDOW window) {
     for (const auto& deco : window->m_windowDecorations)
@@ -52,15 +46,31 @@ bool CTitleBar::decorated() const {
     return validMapped(W) && W->m_ruleApplicator->decorate().valueOrDefault() && !hiddenFor(W);
 }
 
+bool CTitleBar::usable() const {
+    return decorated();
+}
+
+static bool fullscreen(PHLWINDOW window) {
+    return window && Fullscreen::controller()->getFullscreenModes(window).internal == Fullscreen::FSMODE_FULLSCREEN;
+}
+
+bool CTitleBar::above() const {
+    return m_above;
+}
+
 bool CTitleBar::shown() const {
-    const auto W = m_window.lock();
-    return decorated() && Fullscreen::controller()->getFullscreenModes(W).internal != Fullscreen::FSMODE_FULLSCREEN &&
-        (m_above || g_state->hovered.lock() == W);
+    return usable() && (m_above || g_state->revealed.lock() == m_window.lock());
 }
 
 SDecorationPositioningInfo CTitleBar::getPositioningInfo() {
-    const auto W = m_window.lock();
-    m_above      = W && W->m_isFloating && decorated();
+    const auto W         = m_window.lock();
+    const bool WAS_ABOVE = m_above;
+    // Fullscreen, a floating window's bar is over it as a tiled one's is.
+    m_above = W && W->m_isFloating && decorated() && !fullscreen(W);
+    // Above a window the bar is always out, and over one only when brought
+    // out: moved between the two, it is at once what it now is.
+    if (m_above != WAS_ABOVE)
+        m_reveal->setValueAndWarp(m_above ? 1.F : 0.F);
 
     SDecorationPositioningInfo info;
     info.policy = DECORATION_POSITION_STICKY;
@@ -126,93 +136,35 @@ CBox CTitleBar::buttonBox(int button) const {
     return {BAR.x + INSET + button * (BUTTON + GAP), BAR.y + (HEIGHT - BUTTON) / 2, BUTTON, BUTTON};
 }
 
-bool CTitleBar::hoverableAt(const Vector2D& pos, bool hovered) const {
-    if (!decorated() || Fullscreen::controller()->getFullscreenModes(m_window.lock()).internal == Fullscreen::FSMODE_FULLSCREEN)
-        return false;
-    auto box = barBox();
-    if (!m_above && !hovered)
-        box.h = EDGE;
-    return box.containsPoint(pos);
+bool CTitleBar::onBar(const Vector2D& pos) const {
+    return usable() && barBox().containsPoint(pos);
+}
+
+bool CTitleBar::revealsAt(const Vector2D& pos) const {
+    return usable() && !m_above && barBox().containsPoint(pos);
 }
 
 int CTitleBar::buttonAt(const Vector2D& pos) const {
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < Style::BUTTONS; ++i)
         // Up to halfway into each gap, so the row has no dead spots.
         if (buttonBox(i).expand(GAP / 2).containsPoint(pos))
             return i;
     return -1;
 }
 
-void CTitleBar::draw(PHLMONITOR monitor, float const& a) {
-    if (!shown())
+void CTitleBar::animate() {
+    const auto W = m_window.lock();
+    if (!W)
         return;
-
-    const auto  W       = m_window.lock();
-    const float SCALE   = monitor->m_scale;
-    const auto  BAR     = barBox();
-    const auto  ROUND   = W->rounding();
-    const auto  toLocal = [&](CBox box) { return box.translate(-monitor->m_position + W->m_floatingOffset).scale(SCALE).round(); };
-
-    // The window's rounding at the top. A shape taller than the bar by twice
-    // the rounding has its lower corners well out of the way, and is cut down
-    // to what is drawn: the bar and, under a bar above the window, the two
-    // corners the window's own rounding would leave open.
-    const auto SHAPE = toLocal({BAR.x, BAR.y, BAR.w, HEIGHT + 2 * ROUND});
-    std::vector<CBox> parts = {toLocal(BAR)};
-    if (m_above) {
-        parts.push_back(toLocal({BAR.x, BAR.y + HEIGHT, ROUND, ROUND}));
-        parts.push_back(toLocal({BAR.x + BAR.w - ROUND, BAR.y + HEIGHT, ROUND, ROUND}));
-    }
-    for (const auto& clip : parts) {
-        CRectPassElement::SRectData data;
-        data.box           = SHAPE;
-        data.clipBox       = clip;
-        data.color         = withAlpha(CHyprColor{sc<uint64_t>(g_state->barColor->value())}, a);
-        data.round         = std::round(ROUND * SCALE);
-        data.roundingPower = W->roundingPower();
-        g_pHyprRenderer->addPassElement(makeUnique<CRectPassElement>(data));
-    }
-
-    const auto TEXT    = CHyprColor{sc<uint64_t>(g_state->textColor->value())};
-    const bool ACTIVE  = Desktop::focusState()->window() == W;
-    const bool POINTED = g_state->hovered.lock() == W && g_state->overButtons;
-
-    // Grey in a window without focus, as on macOS, until the pointer is on
-    // them; their glyphs show only then.
-    auto& glyphs = g_state->glyphs[SCALE];
-    for (int i = 0; i < 3; ++i) {
-        CRectPassElement::SRectData data;
-        data.box   = toLocal(buttonBox(i));
-        data.color = withAlpha(ACTIVE || POINTED ? LIGHTS[i] : withAlpha(TEXT, 0.2F), a);
-        data.round = std::round(BUTTON * SCALE / 2);
-        g_pHyprRenderer->addPassElement(makeUnique<CRectPassElement>(data));
-
-        if (!POINTED)
-            continue;
-        if (!glyphs[i])
-            glyphs[i] = g_pHyprRenderer->renderText(GLYPHS[i], GLYPH_COLOR, std::round(GLYPH_PT * SCALE), false, "sans-serif");
-        CTexPassElement::SRenderData glyph;
-        glyph.tex = glyphs[i];
-        glyph.box = CBox{data.box.middle() - glyphs[i]->m_size / 2, glyphs[i]->m_size}.round();
-        glyph.a   = a;
-        g_pHyprRenderer->addPassElement(makeUnique<CTexPassElement>(std::move(glyph)));
-    }
-
-    // Centred on the window, and kept clear of the buttons on both sides.
-    const int ROOM = std::floor((BAR.w - 2 * (INSET + 3 * BUTTON + 3 * GAP)) * SCALE);
-    if (W->m_title.empty() || ROOM <= 0)
-        return;
-    const auto KEY = std::format("{}\n{}\n{}\n{:x}", W->m_title, SCALE, ROOM, g_state->textColor->value());
-    if (!m_title || KEY != m_titleKey) {
-        m_title    = g_pHyprRenderer->renderText(W->m_title, TEXT, std::round(TITLE_PT * SCALE), false, "sans-serif", ROOM, TITLE_WEIGHT);
-        m_titleKey = KEY;
-    }
-    const auto                   LOCAL = toLocal(BAR);
-    CTexPassElement::SRenderData title;
-    title.tex = m_title;
-    title.box = CBox{LOCAL.middle() - m_title->m_size / 2, m_title->m_size}.round();
-    title.a   = ACTIVE ? a : a * 0.5F;
-    g_pHyprRenderer->addPassElement(makeUnique<CTexPassElement>(std::move(title)));
+    const auto EASE = [](PHLANIMVAR<float>& var, float to, const SP<Style::Config>& config) {
+        if (var->goal() == to)
+            return;
+        var->setConfig(config);
+        *var = to;
+    };
+    EASE(m_reveal, shown() ? 1.F : 0.F, Style::fade());
+    EASE(m_hover, g_state->hovered.lock() == W && g_state->overButtons ? 1.F : 0.F, Style::hover());
+    EASE(m_focus, Desktop::focusState()->window() == W ? 1.F : 0.F, Style::fade());
 }
 
 bool CTitleBar::onInputOnDeco(const eInputType type, const Vector2D& pos, std::any data) {
@@ -259,6 +211,8 @@ void CTitleBar::act(int button) {
             break;
         }
         case 2: (void)Config::Actions::fullscreenWindow(Fullscreen::FSMODE_MAXIMIZED, true, W); break;
+        // Placed as it would open (Placement), and remembered so.
+        case 3: (void)Config::Actions::floatWindow(Config::Actions::TOGGLE_ACTION_TOGGLE, W); break;
     }
 }
 
@@ -282,13 +236,15 @@ void CTitleBar::damageEntire() {
 
 eDecorationLayer CTitleBar::getDecorationLayer() {
     // Above the window it is under the surface, so that the window covers the
-    // corners drawn beneath it; over a tiled window it is over the surface.
-    return m_above ? DECORATION_LAYER_UNDER : DECORATION_LAYER_OVER;
+    // corners drawn beneath it. Over a tiled or fullscreen window it is on the
+    // overlay layer, the one Hyprland still draws on a fullscreen window
+    // (renderWindow skips the others there).
+    return m_above ? DECORATION_LAYER_UNDER : DECORATION_LAYER_OVERLAY;
 }
 
 uint64_t CTitleBar::getDecorationFlags() {
-    // Over a tiled window the bar's box is the whole window, so it takes input
-    // only while it is shown: a hidden one must not stand in for the window
+    // Over a tiled or fullscreen window the bar's box is the whole window, so
+    // it takes input only while it is out: a hidden one must not stand in for the window
     // where Hyprland asks whether the pointer is on a decoration.
     return DECORATION_PART_OF_MAIN_WINDOW | (m_above || shown() ? DECORATION_ALLOWS_MOUSE_INPUT : 0);
 }

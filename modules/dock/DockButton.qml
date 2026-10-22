@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import "root:/config"
 import "root:/components"
 
@@ -21,8 +22,9 @@ Clickable {
     focusable: false
 
     onClicked: root.activated()
+    // Its middle across the dock's window, as a DockItem reports it.
     onHoveredChanged: root.hoverChanged(root.tipText, root.tipText,
-        root.mapToItem(root.parent.parent, root.width / 2, 0).x, root.hovered)
+        root.QsWindow.contentItem ? root.mapToItem(root.QsWindow.contentItem, root.width / 2, 0).x : 0, root.hovered)
 
     // In an application icon's own box, so as wide as their artwork: the
     // glyph's dots fill two thirds of its box, about what an icon's artwork

@@ -47,10 +47,6 @@ Clickable {
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     selected: root.active
 
-    // Above its neighbours while it is being carried, so it is never clipped by
-    // the icon it is passing over.
-    z: root.dragging ? 1 : 0
-
     transform: Translate {
         x: root.dragging ? root.dragX : root.slide
 
@@ -85,16 +81,20 @@ Clickable {
         onCentroidChanged: if (dragging_.active) root.dragMoved(root.dragX)
     }
 
-    onClicked: Dock.activate(root.item)
+    /*! Its middle, across the dock's window: where a tooltip, the preview
+        or the menu is centred. A click is the dock's to act on (DockPanel). */
+    function centerX(): real {
+        const surface = root.QsWindow.contentItem;
+        return surface ? root.mapToItem(surface, root.width / 2, 0).x : 0;
+    }
+
     onMiddleClicked: Dock.launchNew(root.item)
     onRightClicked: {
-        const surface = root.QsWindow.contentItem;
-        Overlay.anchorX = surface ? root.mapToItem(surface, root.width / 2, 0).x : 0;
+        Overlay.anchorX = root.centerX();
         Overlay.openWith(Overlay.dockMenu, root.screen, root.item);
     }
 
-    onHoveredChanged: root.hoverChanged(root.item.key, root.item.name,
-        root.mapToItem(root.parent.parent, root.width / 2, 0).x, root.hovered)
+    onHoveredChanged: root.hoverChanged(root.item.key, root.item.name, root.centerX(), root.hovered)
 
     AppIcon {
         id: icon
@@ -112,20 +112,37 @@ Clickable {
 
     // A dot for each window, three at most, just under the slot. Which
     // application has focus is the highlight's to say, so the dots only ever
-    // count.
+    // count. Each comes and goes with its window, in a place of its own with
+    // half the gap either side, so the row stays centred while one grows.
     Row {
         anchors.horizontalCenter: parent.horizontalCenter
         y: root.height + Appearance.m.dockDotGap
-        spacing: Appearance.s.xs
 
         Repeater {
-            model: Math.min(root.item.windows.length, 3)
+            model: 3
 
-            Rectangle {
-                width: Appearance.m.dockDot
+            Item {
+                id: dot
+
+                required property int index
+                property real presence: dot.index < root.item.windows.length ? 1 : 0
+
+                Behavior on presence {
+                    NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
+                }
+
+                width: (Appearance.m.dockDot + Appearance.s.xs) * dot.presence
                 height: Appearance.m.dockDot
-                radius: Appearance.m.dockDot / 2
-                color: Appearance.c.text
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: Appearance.m.dockDot
+                    height: Appearance.m.dockDot
+                    radius: Appearance.m.dockDot / 2
+                    color: Appearance.c.text
+                    opacity: dot.presence
+                    scale: dot.presence
+                }
             }
         }
     }

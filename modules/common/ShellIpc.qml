@@ -23,7 +23,8 @@ QtObject {
         "brightnessUp", "brightnessDown",
         "screenshot", "screenshotRegion",
         "playPause", "next", "previous",
-        "toggleTheme", "toggleDnd"
+        "toggleTheme", "toggleDnd",
+        "switcherNext", "switcherBack", "switcherCommit", "switcherCancel"
     ]
 
     function run(action: string): void {
@@ -67,6 +68,10 @@ QtObject {
 
         case "toggleTheme": Settings.toggleTheme(); break;
         case "toggleDnd": Settings.setDoNotDisturb(!Settings.doNotDisturb); break;
+        case "switcherNext": Switcher.step(1); break;
+        case "switcherBack": Switcher.step(-1); break;
+        case "switcherCommit": Switcher.commit(); break;
+        case "switcherCancel": Switcher.cancel(); break;
         }
     }
 
@@ -100,6 +105,10 @@ QtObject {
 
         function toggleTheme(): void { root.run("toggleTheme"); }
         function toggleDnd(): void { root.run("toggleDnd"); }
+        function switcherNext(): void { root.run("switcherNext"); }
+        function switcherBack(): void { root.run("switcherBack"); }
+        function switcherCommit(): void { root.run("switcherCommit"); }
+        function switcherCancel(): void { root.run("switcherCancel"); }
     }
 
     readonly property Instantiator shortcuts: Instantiator {
@@ -111,7 +120,11 @@ QtObject {
             appid: "shell"
             name: this.modelData
             description: `Shell action: ${this.modelData}`
-            onPressed: root.run(this.modelData)
+            // The switcher commits as Alt is let go of: a release bind, which
+            // Hyprland reports as a release alone.
+            readonly property bool onRelease: this.modelData === "switcherCommit"
+            onPressed: if (!this.onRelease) root.run(this.modelData)
+            onReleased: if (this.onRelease) root.run(this.modelData)
         }
     }
 }

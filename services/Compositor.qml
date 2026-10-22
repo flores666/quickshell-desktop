@@ -102,7 +102,8 @@ Singleton {
 
         A minimized window comes back to the workspace in front of you first;
         focusing it where it is would bring its whole special workspace over
-        the screen instead.
+        the screen instead. And it is raised: only a click raises a window in
+        Hyprland, so a floating one focused under another stayed hidden.
     */
     function focusWindow(toplevel: HyprlandToplevel): void {
         if (!toplevel || toplevel.address === "")
@@ -112,7 +113,7 @@ Singleton {
             ? `dispatch movetoworkspacesilent ${root.focusedWorkspace.id},${address} ; ` : "";
         Quickshell.execDetached(["sh", "-c",
             'w=$(hyprctl getoption cursor:no_warps | sed -n "s/^int: //p");'
-            + ` hyprctl --batch "keyword cursor:no_warps 1 ; ${restore}dispatch focuswindow ${address} ; keyword cursor:no_warps \${w:-0}" >/dev/null`]);
+            + ` hyprctl --batch "keyword cursor:no_warps 1 ; ${restore}dispatch focuswindow ${address} ; dispatch alterzorder top,${address} ; keyword cursor:no_warps \${w:-0}" >/dev/null`]);
     }
 
     function closeWindow(toplevel: HyprlandToplevel): void {

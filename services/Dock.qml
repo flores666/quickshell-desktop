@@ -10,7 +10,7 @@ import Quickshell
 
     One icon per application, however many windows it has open — three
     terminals are one icon carrying a count, and the dock's preview tells them
-    apart. A click brings back the one used last.
+    apart, on a click as on a hover.
 */
 Singleton {
     id: root
@@ -137,24 +137,6 @@ Singleton {
     /*! The applications the dock is showing, in the order it shows them. */
     readonly property var appKeys: root.items.map(item => item.key)
 
-    /*!
-        Window addresses, the most recently focused first: which of an
-        application's windows a click on its icon brings back. Kept apart from
-        `items`, which must not change with focus (see there).
-    */
-    property var recentWindows: []
-
-    Connections {
-        target: Compositor
-
-        function onActiveToplevelChanged(): void {
-            const address = Compositor.activeToplevel?.address ?? "";
-            if (address !== "")
-                root.recentWindows = [address]
-                    .concat(root.recentWindows.filter(a => a !== address)).slice(0, 64);
-        }
-    }
-
     /*! Move the application at `from` to where the one at `to` is now. */
     function moveItem(from: int, to: int): void {
         const items = root.items;
@@ -171,29 +153,18 @@ Singleton {
     }
 
     /*!
-        Bring an application forward: the window of it used last or, while one
-        of its windows has focus, the next of them, so that clicking again goes
-        round them all. One with no window open is launched.
+        Bring an application forward: its window, brought back first if it was
+        minimized (Compositor.focusWindow), or the application launched if it
+        has none. One with several has the dock's preview to pick from; asked
+        anyway, the first of them comes.
     */
     function activate(item: var): void {
         if (!item)
             return;
-        const windows = item.windows;
-        if (windows.length === 0) {
-            if (item.entry)
-                Apps.launch(item.entry);
-            return;
-        }
-        const focused = windows.indexOf(Compositor.activeToplevel);
-        if (focused !== -1) {
-            Compositor.focusWindow(windows[(focused + 1) % windows.length]);
-            return;
-        }
-        const rank = w => {
-            const at = root.recentWindows.indexOf(w.address);
-            return at === -1 ? Infinity : at;
-        };
-        Compositor.focusWindow(windows.reduce((best, w) => rank(w) < rank(best) ? w : best));
+        if (item.windows.length > 0)
+            Compositor.focusWindow(item.windows[0]);
+        else if (item.entry)
+            Apps.launch(item.entry);
     }
 
     function launchNew(item: var): void {

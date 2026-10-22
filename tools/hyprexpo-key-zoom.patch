@@ -23,10 +23,10 @@ index 0df7ff5..45e05a1 100644
              closeOverviews(false);
          else
 diff --git a/IOverviewSession.hpp b/IOverviewSession.hpp
-index ca7ba7c..c38813e 100644
+index 82fa022..aeea08a 100644
 --- a/IOverviewSession.hpp
 +++ b/IOverviewSession.hpp
-@@ -29,6 +29,10 @@ class IOverviewSession {
+@@ -30,6 +30,10 @@ class IOverviewSession {
      virtual void setClosing(bool closing) = 0;
      virtual void beginCancelSwipe() = 0;
      virtual bool closeCommitted() const = 0;
@@ -37,7 +37,7 @@ index ca7ba7c..c38813e 100644
      virtual bool shouldRenderOverviewForMonitor(const PHLMONITOR& monitor) const = 0;
      virtual void onWindowMoveToWorkspace(const PHLWINDOW& window, const PHLWORKSPACE& workspace) = 0;
  
-@@ -82,6 +86,7 @@ std::vector<uint64_t> liveOverviewMonitorKeys();
+@@ -83,6 +87,7 @@ std::vector<uint64_t> liveOverviewMonitorKeys();
  bool moveOverviewFocusAcrossMonitors(IOverviewSession* source, Hyprexpo::EDirection direction);
  void closeOverviewsSelecting(IOverviewSession* selecting);
  void closeOverviews(bool switchToSelection);
@@ -46,10 +46,10 @@ index ca7ba7c..c38813e 100644
  void destroyOverview(IOverviewSession* overview);
  void destroyAllOverviews();
 diff --git a/Overview.cpp b/Overview.cpp
-index c02254f..47126fd 100644
+index f49c044..a75ad52 100644
 --- a/Overview.cpp
 +++ b/Overview.cpp
-@@ -889,6 +889,21 @@ void closeOverviewsSelecting(IOverviewSession* selecting) {
+@@ -897,6 +897,21 @@ void closeOverviewsSelecting(IOverviewSession* selecting) {
      forEachOverview([selecting](IOverviewSession& overview) { overview.close(&overview == selecting); });
  }
  
@@ -71,7 +71,7 @@ index c02254f..47126fd 100644
  void closeOverviews(bool switchToSelection) {
      resetOverviewDrag(Hyprexpo::EOverviewDragEventType::AllClose);
      g_keyboardOverviewMonitor.reset();
-@@ -1437,12 +1452,9 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1453,12 +1468,9 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
      size->setUpdateCallback(damageMonitor);
      pos->setUpdateCallback(damageMonitor);
  
@@ -88,10 +88,10 @@ index c02254f..47126fd 100644
      openedID = currentid;
  
 diff --git a/Overview.hpp b/Overview.hpp
-index dd4a4cf..5b36729 100644
+index 198dc68..2b3efd5 100644
 --- a/Overview.hpp
 +++ b/Overview.hpp
-@@ -53,6 +53,8 @@ class COverview final : public IOverviewSession {
+@@ -54,6 +54,8 @@ class COverview final : public IOverviewSession {
      bool closeCommitted() const override {
          return m_closeCommitted;
      }
@@ -100,7 +100,7 @@ index dd4a4cf..5b36729 100644
      bool shouldRenderOverviewForMonitor(const PHLMONITOR& monitor) const;
      // Animation callbacks are handed the variable that fired, not the owner.
      // With several overviews alive the owner has to be resolved from it.
-@@ -181,11 +183,23 @@ class COverview final : public IOverviewSession {
+@@ -185,11 +187,23 @@ class COverview final : public IOverviewSession {
  
      PHLWORKSPACE                 startedOn;
  
@@ -125,19 +125,19 @@ index dd4a4cf..5b36729 100644
      bool                         externalWorkspaceMoveDuringClose = false;
  
 diff --git a/OverviewInteraction.cpp b/OverviewInteraction.cpp
-index dc01e9d..d81e811 100644
+index b6c1a13..5a0c480 100644
 --- a/OverviewInteraction.cpp
 +++ b/OverviewInteraction.cpp
-@@ -12,6 +12,8 @@
- #include <hyprland/src/managers/KeybindManager.hpp>
+@@ -14,6 +14,8 @@
  #include <hyprland/src/state/WorkspaceState.hpp>
  #include <hyprland/src/config/shared/actions/ConfigActions.hpp>
+ #include <hyprland/src/config/shared/workspace/WorkspaceRuleManager.hpp>
 +#include <hyprland/src/config/shared/animation/AnimationTree.hpp>
 +#include <hyprland/src/animation/AnimationManager.hpp>
  #include <algorithm>
  #include <chrono>
  #include <cmath>
-@@ -671,12 +673,82 @@ void COverview::resetSwipe() {
+@@ -697,12 +699,82 @@ void COverview::resetSwipe() {
      swipeWasCommenced = false;
  }
  
@@ -220,7 +220,7 @@ index dc01e9d..d81e811 100644
      m_isSwiping = true;
  
      const auto MON = pMonitor.lock();
-@@ -728,17 +800,18 @@ void COverview::onSwipeEnd(bool switchToSelection) {
+@@ -754,17 +826,18 @@ void COverview::onSwipeEnd(bool switchToSelection) {
          return;
      }
      const auto PERC    = (size->value() - SIZEMIN).x / span.x;
@@ -245,11 +245,11 @@ index dc01e9d..d81e811 100644
  
  // The submap is compositor-global, but every overview enters and leaves it
 diff --git a/OverviewRender.cpp b/OverviewRender.cpp
-index fb22111..f1ba79c 100644
+index ad5bd5f..dccaead 100644
 --- a/OverviewRender.cpp
 +++ b/OverviewRender.cpp
-@@ -153,8 +153,7 @@ void COverview::close(bool switchToSelection) {
-     const auto& TILE   = images[SAFEID];
+@@ -225,8 +225,7 @@ void COverview::close(bool switchToSelection) {
+     }
  
      const auto targetSize = zoomSizeForCurrentGrid(MON->m_size);
 -    *size = targetSize;
@@ -258,7 +258,7 @@ index fb22111..f1ba79c 100644
  
      closing = true;
  
-@@ -203,10 +202,14 @@ void COverview::close(bool switchToSelection) {
+@@ -275,10 +274,14 @@ void COverview::close(bool switchToSelection) {
              Animation::Workspace::startAnimation(OLDWS, Animation::Workspace::ANIMATION_TYPE_OUT, false, true);
          }
  

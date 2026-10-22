@@ -27,9 +27,20 @@ QtObject {
     /*! How long the dock's preview stays once the pointer has left it and the
         icons, so a path that strays off them for a moment does not close it. */
     readonly property int linger: 250
+    /*! How long the pointer rests where a tiled or fullscreen window's title
+        bar would be before it comes out: half the dwell, since the bar is
+        what the pointer went up there for. */
+    readonly property int reveal: 225
+    /*! How long Alt is held after Alt+Tab before the window switcher shows:
+        a quick Alt+Tab goes back to the window before without flashing it,
+        as macOS's Command-Tab does. */
+    readonly property int glance: 150
 
     /*! Fades and colour: gentle at both ends, so nothing pops on or off. */
     readonly property int standardEasing: Easing.InOutQuad
+    /*! The same curve as a CSS cubic-bezier(), for what the compositor eases
+        and Qt does not: the title bars (modules/common/CompositorTheme). */
+    readonly property var standardCurve: [0.45, 0, 0.55, 1]
     /*! Movement: leaves briskly and settles slowly, without the near-instant
         launch a quintic gives. */
     readonly property int emphasizedEasing: Easing.OutCubic

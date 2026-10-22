@@ -1,8 +1,8 @@
 diff --git a/Overview.cpp b/Overview.cpp
-index 4318636..8dc0c2a 100644
+index 736e79f..e3f1d12 100644
 --- a/Overview.cpp
 +++ b/Overview.cpp
-@@ -1264,6 +1264,30 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1276,6 +1276,30 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
              }
          }
  
@@ -33,7 +33,7 @@ index 4318636..8dc0c2a 100644
          gridShape = Hyprexpo::computeDynamicGridShape((int)visibleWorkspaceIDs.size());
          images.resize(visibleWorkspaceIDs.size());
          for (size_t i = 0; i < visibleWorkspaceIDs.size(); ++i)
-@@ -1334,7 +1358,9 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1350,7 +1374,9 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
  
      lastMousePosLocal = g_pInputManager->getMouseCoordsInternal() - pMonitor->m_position;
      updateHoveredFromMouse();
@@ -44,7 +44,7 @@ index 4318636..8dc0c2a 100644
  
      auto onCursorMove = [this](Event::SCallbackInfo& info) {
          if (closing)
-@@ -1348,7 +1374,16 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1364,7 +1390,16 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
              const auto MON = OV->monitor();
              if (!MON || OV->closing)
                  continue;
@@ -63,10 +63,10 @@ index 4318636..8dc0c2a 100644
          }
  
 diff --git a/Overview.hpp b/Overview.hpp
-index 4675867..aea7357 100644
+index af42450..002df99 100644
 --- a/Overview.hpp
 +++ b/Overview.hpp
-@@ -151,6 +151,16 @@ class COverview final : public IOverviewSession {
+@@ -155,6 +155,16 @@ class COverview final : public IOverviewSession {
      int                          closeOnID = -1;
      int                          kbFocusID = -1;
      int                          hoveredID = -1;
@@ -84,18 +84,18 @@ index 4675867..aea7357 100644
  
      std::vector<int>             queuedRedrawIDs;
 diff --git a/OverviewRender.cpp b/OverviewRender.cpp
-index c902c55..176d86a 100644
+index 2354a3a..d73305f 100644
 --- a/OverviewRender.cpp
 +++ b/OverviewRender.cpp
-@@ -19,6 +19,7 @@
- #include <hyprland/src/protocols/core/Compositor.hpp>
- #include <hyprland/protocols/wlr-layer-shell-unstable-v1.hpp>
+@@ -21,6 +21,7 @@
  #include <hyprland/src/state/WorkspaceState.hpp>
+ #include <hyprland/src/state/MonitorState.hpp>
+ #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 +#include <hyprutils/animation/BezierCurve.hpp>
  #undef private
  #undef protected
  #include <algorithm>
-@@ -337,6 +338,42 @@ void COverview::fullRender() {
+@@ -410,6 +411,42 @@ void COverview::fullRender() {
      bool              entryAnimationPending = false;
      const double      entryElapsed = entryAnimationActive ? std::chrono::duration<double>(std::chrono::steady_clock::now() - createdAt).count() : 0.0;
  
@@ -138,7 +138,7 @@ index c902c55..176d86a 100644
      for (size_t y = 0; y < (size_t)SHAPE.rows; ++y) {
          for (size_t x = 0; x < (size_t)SHAPE.cols; ++x) {
              const int id = x + y * SHAPE.cols;
-@@ -367,8 +404,21 @@ void COverview::fullRender() {
+@@ -440,9 +477,22 @@ void COverview::fullRender() {
                      entryAnimationPending = true;
              }
  
@@ -149,19 +149,20 @@ index c902c55..176d86a 100644
 +            const double crop = (1.0 - 1.0 / (1.0 + FOCUS_IMAGE * focusNow(focus) * FOCUS_SETTLE)) / 2.0;
 +
              CRegion damage{0, 0, INT16_MAX, INT16_MAX};
--            Render::GL::g_pHyprOpenGL->renderTextureInternal(images[id].fb->getTexture(), texbox, {.damage = &damage, .a = alpha, .round = tileRound, .roundingPower = ROUND_PWR});
-+            Render::GL::g_pHyprOpenGL->renderTextureInternal(images[id].fb->getTexture(), texbox,
-+                                                              {.damage                      = &damage,
-+                                                               .a                           = alpha,
-+                                                               .round                       = tileRound,
-+                                                               .roundingPower               = ROUND_PWR,
-+                                                               .allowCustomUV               = true,
-+                                                               .primarySurfaceUVTopLeft     = {crop, crop},
-+                                                               .primarySurfaceUVBottomRight = {1.0 - crop, 1.0 - crop}});
+             if (const auto texture = images[id].fb ? images[id].fb->getTexture() : nullptr; texture)
+-                Render::GL::g_pHyprOpenGL->renderTextureInternal(texture, texbox, {.damage = &damage, .a = alpha, .round = tileRound, .roundingPower = ROUND_PWR});
++                Render::GL::g_pHyprOpenGL->renderTextureInternal(texture, texbox,
++                                                                  {.damage                      = &damage,
++                                                                   .a                           = alpha,
++                                                                   .round                       = tileRound,
++                                                                   .roundingPower               = ROUND_PWR,
++                                                                   .allowCustomUV               = true,
++                                                                   .primarySurfaceUVTopLeft     = {crop, crop},
++                                                                   .primarySurfaceUVBottomRight = {1.0 - crop, 1.0 - crop}});
          }
      }
  
-@@ -739,6 +789,6 @@ void COverview::fullRender() {
+@@ -813,6 +863,6 @@ void COverview::fullRender() {
          }
      }
  

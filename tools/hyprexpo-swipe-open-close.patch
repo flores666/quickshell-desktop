@@ -75,13 +75,13 @@ index fd49036..7fa986b 100644
  };
  
 diff --git a/Overview.cpp b/Overview.cpp
-index 8dc0c2a..1b4747d 100644
+index e3f1d12..cd2a1f5 100644
 --- a/Overview.cpp
 +++ b/Overview.cpp
-@@ -1020,8 +1020,26 @@ double COverview::currentOuterInset() const {
+@@ -1028,8 +1028,26 @@ double COverview::currentOuterInset() const {
          return 0.0;
  
-     static auto* const* PGAPSO = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:gaps_out")->getDataStaticPtr();
+     auto* const* PGAPSO = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:gaps_out")->getDataStaticPtr();
 -    const double        percent = closing ? (1.0 - size->getPercent()) : size->getPercent();
 -    return std::max<Hyprlang::INT>(0, **PGAPSO) * percent;
 +    return std::max<Hyprlang::INT>(0, **PGAPSO) * openness();
@@ -108,10 +108,10 @@ index 8dc0c2a..1b4747d 100644
  
  Hyprexpo::STileLayout COverview::tileLayoutForIndex(int id, const Vector2D& totalSize, double gap, double outerInset, bool centerPartialRows) const {
 diff --git a/Overview.hpp b/Overview.hpp
-index aea7357..50f74f4 100644
+index 002df99..07290f8 100644
 --- a/Overview.hpp
 +++ b/Overview.hpp
-@@ -114,6 +114,7 @@ class COverview final : public IOverviewSession {
+@@ -117,6 +117,7 @@ class COverview final : public IOverviewSession {
      void       fullRender() override;
      Hyprexpo::SGridShape currentGridShape() const;
      double     currentOuterInset() const;
@@ -120,10 +120,10 @@ index aea7357..50f74f4 100644
      CBox       tileBoxForIndex(int id, const Vector2D& totalSize, double gap, double outerInset = 0.0, bool centerPartialRows = true) const;
      int        tileIndexAtPoint(const Vector2D& point, const Vector2D& totalSize, double gap, double outerInset = 0.0, bool centerPartialRows = true) const;
 diff --git a/OverviewRender.cpp b/OverviewRender.cpp
-index 176d86a..e18d627 100644
+index d73305f..038fe51 100644
 --- a/OverviewRender.cpp
 +++ b/OverviewRender.cpp
-@@ -113,7 +113,7 @@ void COverview::onDamageReported() {
+@@ -119,7 +119,7 @@ void COverview::onDamageReported() {
  
      Vector2D SIZE = size->value();
  
@@ -132,7 +132,7 @@ index 176d86a..e18d627 100644
      const auto OUTER = currentOuterInset();
      CBox texbox = tileBoxForIndex(openedID, SIZE, GAPSIZE, OUTER, true).translate(MON->m_position);
  
-@@ -269,7 +269,7 @@ void COverview::fullRender() {
+@@ -342,7 +342,7 @@ void COverview::fullRender() {
  
      Vector2D SIZE = size->value();
  
@@ -141,7 +141,7 @@ index 176d86a..e18d627 100644
      const auto OUTER   = currentOuterInset();
      const auto SHAPE   = currentGridShape();
  
-@@ -349,9 +349,9 @@ void COverview::fullRender() {
+@@ -422,9 +422,9 @@ void COverview::fullRender() {
      // A tile whose target changes eases from wherever it stands, so a pointer
      // sweeping across the grid never snaps one, on an ease-out that settles
      // without overshoot -- or jumps there with Hyprland's animations off,
@@ -154,7 +154,7 @@ index 176d86a..e18d627 100644
      static CConfigValue<Config::INTEGER> PANIMATIONS("animations:enabled");
      static const auto                    FOCUS_EASE = [] {
          Hyprutils::Animation::CBezierCurve curve;
-@@ -362,7 +362,7 @@ void COverview::fullRender() {
+@@ -435,7 +435,7 @@ void COverview::fullRender() {
      constexpr double FOCUS_IMAGE   = 0.02; // the workspace, at full focus
      const auto       FOCUS_NOW     = std::chrono::steady_clock::now();
      const int        FOCUSED       = pointerMoved && hoveredID >= 0 ? hoveredID : kbFocusID;

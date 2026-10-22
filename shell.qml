@@ -10,6 +10,7 @@ import "root:/modules/common"
 import "root:/modules/launcher"
 import "root:/modules/settings"
 import "root:/modules/osd"
+import "root:/modules/switcher"
 import "root:/modules/lock"
 import "root:/modules/notifications"
 
@@ -29,6 +30,9 @@ ShellRoot {
               Brightness.available, Players.any, Apps.all.length, Notifs.count,
               Compositor.workspaces.length, Settings.ready, Osd.shown, Keyboard.available,
               Vpn.available, V2rayn.available,
+              // Not for a first paint: the switcher's order is every focus
+              // change since the shell started.
+              Switcher.active,
               // Likewise: this hands the window plugin the hidden title bars.
               TitleBars.hidden,
               // Not for the sake of a first paint: this is what puts the
@@ -69,6 +73,8 @@ ShellRoot {
     Lock {}
 
     OsdWindow {}
+
+    SwitcherWindow {}
 
     Toasts {}
 }
