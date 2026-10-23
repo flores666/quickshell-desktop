@@ -42,7 +42,7 @@ PanelWindow {
         // As in ShellOverlay: a Behavior's animation never emits finished(), so
         // the unmap is driven by a bound timer instead.
         running: root.rendered && !root.shown
-        interval: Appearance.t.fast + 60
+        interval: Appearance.t.fast + Appearance.t.grace
         onTriggered: root.rendered = false
     }
 

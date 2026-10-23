@@ -173,7 +173,7 @@ Item {
         // plain binding, so the card goes even if the property changes while no
         // handler is watching.
         running: root.rendered && !root.shown && !card.holding
-        interval: Appearance.t.popupFade + 60
+        interval: Appearance.t.popupFade + Appearance.t.grace
         onTriggered: {
             root.rendered = false;
             root.settled = false;

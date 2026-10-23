@@ -121,7 +121,7 @@ Item {
 
     Timer {
         id: shut
-        // In before the popup lets its card go (ShellOverlay, t.popupFade + 60).
+        // In before the popup lets its card go (ShellOverlay, t.popupFade + t.grace).
         interval: Appearance.t.popupFade / 2 + 50
         onTriggered: {
             check.near("shut again: as tall as its corners", under.height, root.corners);

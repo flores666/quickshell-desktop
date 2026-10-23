@@ -101,11 +101,11 @@ Singleton {
         fly as one card (OverlayCard): `{ from, to, rect, strength, contents,
         away }`. Recorded here as the new one opens; `from` then hands over its
         card's place (in OverlaySurface, where every card is), how strongly it
-        is drawn and a picture of what it shows (`depart`), `to` takes off from there (`arrive`, and `from` goes
-        in that frame), and
-        either gives it up when it cannot (`abandon`), both then opening and
-        closing as they would alone. Each acts only on the hand-off that
-        names it, so a stale one cannot disturb a newer.
+        is drawn and a picture of what it shows (`depart`), `to` takes off
+        from there (`arrive`, and `from` goes in that frame), and either gives
+        it up when it cannot (`abandon`), both then opening and closing as
+        they would alone. Each acts only on the hand-off that names it, so a
+        stale one cannot disturb a newer.
     */
     property var flight: null
 

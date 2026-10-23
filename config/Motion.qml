@@ -34,6 +34,12 @@ QtObject {
     readonly property int popupFade: Math.round(root.fast / root.popupPace)
     readonly property int popupMove: Math.round(root.base / root.popupPace)
     readonly property int popupResize: Math.round(root.resize / root.popupPace)
+    /*! How long past a fade's end what faded is kept before it is taken
+        down — a popup's card, the OSD's window — so the fade's last frame is
+        drawn first: the fade is a Behavior's, which never says it has
+        finished, so a timer of its length and this stands in. Not at a
+        popup's pace: it is frames, not motion. */
+    readonly property int grace: 60
 
     /*! How long the pointer rests on something before more of it shows: a
         tooltip, the dock's preview of an application's windows. */
