@@ -28,6 +28,6 @@ BarButton {
         anchors.verticalCenter: parent.verticalCenter
         name: "vpn"
         size: Appearance.m.iconSm
-        color: Vpn.anyActive ? Appearance.c.success : Appearance.c.textMuted
+        color: Vpn.anyActive ? root.scheme.success : root.scheme.textMuted
     }
 }

@@ -31,7 +31,7 @@ BarButton {
         visible: Audio.micInUse
         name: Audio.micIcon
         size: Appearance.m.iconSm
-        color: Audio.micMuted ? Appearance.c.textMuted : Appearance.c.accent
+        color: Audio.micMuted ? root.scheme.textMuted : root.scheme.accent
     }
 
     Icon {
@@ -39,7 +39,7 @@ BarButton {
         visible: Settings.doNotDisturb
         name: "dnd"
         size: Appearance.m.iconSm
-        color: Appearance.c.textMuted
+        color: root.scheme.textMuted
     }
 
     Icon {
@@ -47,18 +47,21 @@ BarButton {
         visible: Bt.available && Bt.enabled
         name: Bt.icon
         size: Appearance.m.iconSm
+        color: root.scheme.text
     }
 
     Icon {
         anchors.verticalCenter: parent.verticalCenter
         name: Network.icon
         size: Appearance.m.iconSm
+        color: root.scheme.text
     }
 
     Icon {
         anchors.verticalCenter: parent.verticalCenter
         name: Audio.volumeIcon
         size: Appearance.m.iconSm
+        color: root.scheme.text
     }
 
     Row {
@@ -70,8 +73,8 @@ BarButton {
             anchors.verticalCenter: parent.verticalCenter
             name: Power.icon
             size: Appearance.m.iconSm
-            color: Power.critical ? Appearance.c.danger
-                : Power.low ? Appearance.c.warning : Appearance.c.text
+            color: Power.critical ? root.scheme.danger
+                : Power.low ? root.scheme.warning : root.scheme.text
         }
 
         Label {
@@ -79,6 +82,7 @@ BarButton {
             text: Math.round(Power.percentage) + "%"
             role: Label.Role.Small
             muted: true
+            scheme: root.scheme
         }
     }
 }

@@ -18,7 +18,8 @@ import "root:/services"
 Clickable {
     id: root
 
-    required property ColorScheme scheme
+    // Clickable's own, which its focus ring is drawn in as well.
+    required scheme
     required property string title
 
     implicitHeight: preview.height + caption.height + Appearance.s.sm * 3

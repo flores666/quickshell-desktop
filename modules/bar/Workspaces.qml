@@ -17,6 +17,8 @@ Item {
     id: root
 
     required property HyprlandMonitor monitor
+    /*! The colours its dots are drawn in (Bar). */
+    property ColorScheme scheme: Appearance.c
 
     readonly property var list: Compositor.workspacesFor(root.monitor)
 
@@ -73,10 +75,10 @@ Item {
                     width: item.isActive ? 16 : 6
                     height: 6
                     radius: 3
-                    color: (item.modelData?.urgent ?? false) ? Appearance.c.danger
-                        : item.isActive ? Appearance.c.accent
-                        : item.occupied ? Appearance.c.textMuted
-                        : Appearance.c.borderStrong
+                    color: (item.modelData?.urgent ?? false) ? root.scheme.danger
+                        : item.isActive ? root.scheme.accent
+                        : item.occupied ? root.scheme.textMuted
+                        : root.scheme.borderStrong
 
                     Behavior on width {
                         NumberAnimation {

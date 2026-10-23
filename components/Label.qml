@@ -12,10 +12,12 @@ Text {
     property int role: Label.Role.Body
     property bool muted: false
     property bool faint: false
+    /*! The colours it is set in; see Clickable's. */
+    property ColorScheme scheme: Appearance.c
 
-    color: root.faint ? Appearance.c.textFaint
-        : root.muted ? Appearance.c.textMuted
-        : Appearance.c.text
+    color: root.faint ? root.scheme.textFaint
+        : root.muted ? root.scheme.textMuted
+        : root.scheme.text
     font.family: Appearance.fontFamily
     font.pixelSize: switch (root.role) {
         case Label.Role.Caption: return Appearance.font.caption;

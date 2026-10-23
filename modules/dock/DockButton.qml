@@ -34,7 +34,7 @@ Clickable {
         y: Appearance.m.dockInset
         name: root.icon
         size: Appearance.m.dockIcon
-        color: root.selected ? Appearance.c.accent : Appearance.c.text
+        color: root.selected ? root.scheme.accent : root.scheme.text
         scale: root.down ? 0.9 : root.hovered ? 1.06 : 1
 
         Behavior on scale {

@@ -28,6 +28,10 @@ import "root:/services"
     sitting under it for good. Its glass, edge and shadow are laid down at the
     dock's opacity (Appearance.dockOpacity); at 0 they go, the dock tightens
     round its icons (Metrics.dockFrame) and the icons stand on their own.
+    What the dock draws itself — the window dots, the grid's glyph, the
+    highlights and the divider — takes the colours that read on its own part
+    of it (Surface.schemeOver), from where the dock rests, so it does not
+    change as the dock slides in.
 */
 PanelWindow {
     id: root
@@ -194,6 +198,9 @@ PanelWindow {
         radius: Appearance.r.capsule(root.dockHeight)
         glass: Appearance.dockOpacity
         elevation: 3
+        screen: root.modelData
+        placedAt: Qt.point((root.width - surface.width) / 2,
+            root.modelData.height - Appearance.m.screenGap - root.dockHeight)
 
         Behavior on anchors.bottomMargin {
             NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
@@ -214,7 +221,9 @@ PanelWindow {
         // Midway across the gap before the launcher, level with the icons'
         // centres; outside the row, so it adds nothing to its spacing.
         DockSeparator {
+            id: separator
             visible: Dock.items.length > 0
+            color: surface.schemeOver(separator).border
             x: layout.x + layout.launcherX - Math.round((Appearance.m.dockGap + width) / 2)
             y: layout.y + Math.round((Appearance.m.dockSlot - height) / 2)
         }
@@ -228,6 +237,7 @@ PanelWindow {
             anchors.bottom: parent.bottom
             anchors.bottomMargin: root.base
             screen: root.modelData
+            panel: surface
             onActivated: (item, x) => root.activate(item, x)
             onChildHover: (key, label, x, entered) => root.onChildHover(key, label, x, entered)
         }

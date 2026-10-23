@@ -125,14 +125,46 @@ Singleton {
     function accentInkFor(tuned: color): color {
         if (!root.hasAccent)
             return tuned;
-        const y = root.luminance(root.accentSeed);
-        const onWhite = 1.05 / (y + 0.05);
-        const onInk = (y + 0.05) / (root.inkLuminance + 0.05);
-        return onInk >= onWhite ? root.ink : "#ffffff";
+        return root.contrast(root.accentSeed, root.ink) >= root.contrast(root.accentSeed, "#ffffff")
+            ? root.ink : "#ffffff";
     }
 
     readonly property color ink: "#1c1508"
-    readonly property real inkLuminance: root.luminance(root.ink)
+
+    /*!
+        The scheme a panel's glass is tinted with, laying `share` of it over
+        `behind` (Surface.glass): the theme's while its text still reads on
+        the mix at WCAG's 4.5:1 — which at the theme's own glass it does over
+        any wallpaper, black or white — and past that the other theme's, if
+        its text reads better on its own glass. The night theme's bar thinned
+        over a pale sky frosts light, rather than turning a grey on which only
+        the darkest text would read and the muted text none.
+    */
+    function glassOver(behind: color, share: real): ColorScheme {
+        const other = root.dark ? root.day : root.night;
+        const own = root.contrast(root.c.text, root.laid(root.c.chrome, behind, share));
+        if (own >= 4.5)
+            return root.c;
+        return root.contrast(other.text, root.laid(other.chrome, behind, share)) > own ? other : root.c;
+    }
+
+    /*!
+        The colours that read on what lies under them: the theme's own, or
+        the other theme's where its text stands out more — what is laid on a
+        panel's glass, each part over the wallpaper behind it alone
+        (Surface.schemeOver).
+    */
+    function schemeOn(under: color): ColorScheme {
+        const other = root.dark ? root.day : root.night;
+        return root.contrast(other.text, under) > root.contrast(root.c.text, under) ? other : root.c;
+    }
+
+    /*! What shows where `share` of a fill lies over a colour. */
+    function laid(fill: color, behind: color, share: real): color {
+        const a = fill.a * share;
+        return Qt.rgba(fill.r * a + behind.r * (1 - a), fill.g * a + behind.g * (1 - a),
+            fill.b * a + behind.b * (1 - a), 1);
+    }
 
     /*! Shift a colour's HSL lightness, keeping its hue and saturation. */
     function lift(seed: color, delta: real): color {
@@ -144,6 +176,19 @@ Singleton {
     function luminance(c: color): real {
         const f = v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
         return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    }
+
+    /*! Black or white, whichever stands further from a colour, as contrast
+        goes. */
+    function farthest(c: color): color {
+        return root.contrast(c, "#000000") > root.contrast(c, "#ffffff") ? "#000000" : "#ffffff";
+    }
+
+    /*! WCAG contrast ratio, 1 to 21. */
+    function contrast(a: color, b: color): real {
+        const la = root.luminance(a);
+        const lb = root.luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
     }
 
     /*! The face the whole shell is set in. Any installed family will do; the

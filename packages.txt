@@ -8,6 +8,8 @@ hyprpaper
 xdg-desktop-portal-hyprland
 quickshell
 qt6-imageformats
+# LevelAdjust: the tray's icons drawn in the bar's ink (components/AppIcon)
+qt6-5compat
 polkit
 # asks for the password when an application needs administrator rights
 # (mounting a disk in nautilus); started in hypr/conf.d/20-autostart.conf

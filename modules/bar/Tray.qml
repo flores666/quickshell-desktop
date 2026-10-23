@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Services.SystemTray
 import "root:/config"
@@ -13,6 +12,8 @@ Row {
     id: root
 
     required property ShellScreen screen
+    /*! The colours its icons are drawn in (Bar). */
+    property ColorScheme scheme: Appearance.c
 
     readonly property var items: SystemTray.items.values
         .filter(i => i && i.status !== Status.Passive)
@@ -32,6 +33,7 @@ Row {
             implicitHeight: Appearance.m.barItemHeight
             radius: Appearance.r.capsule(Appearance.m.barItemHeight)
             focusable: false
+            scheme: root.scheme
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
             selected: Overlay.isOpen(Overlay.trayMenu) && Overlay.payload === entry.modelData
 
@@ -61,12 +63,12 @@ Row {
                 size: Appearance.m.icon
                 fallbackIcon: "settings"
                 // Applications ship their tray icons in their own brand colours,
-                // which is the one place the bar would carry any. Drained of
-                // colour they read as part of the same set of glyphs as the rest
-                // of it; their luminance is untouched, so the shapes stay as
+                // which is the one place the bar would carry any, and most of
+                // them light, for a dark panel. In the bar's ink they read as
+                // part of the same set of glyphs as the rest of it, on the
+                // wallpaper the bar's text is chosen for, their shapes as
                 // legible as the author drew them.
-                layer.enabled: true
-                layer.effect: MultiEffect { saturation: -1 }
+                ink: root.scheme.text
             }
 
             MouseArea {

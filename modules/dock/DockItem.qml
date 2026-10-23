@@ -14,6 +14,10 @@ Clickable {
 
     required property var item
     required property ShellScreen screen
+    /*! The glass it stands on: its highlight takes the colours that read
+        on its slot there, its dots those that read on their own strip. */
+    required property Surface panel
+    readonly property ColorScheme dotScheme: root.panel.schemeOver(dots)
 
     /*! Whether one of its windows has focus; read here, not in the model. */
     readonly property bool active: root.item.windows.some(w => w?.activated ?? false)
@@ -46,6 +50,7 @@ Clickable {
     focusable: false
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     selected: root.active
+    scheme: root.panel.schemeOver(root)
 
     transform: Translate {
         x: root.dragging ? root.dragX : root.slide
@@ -114,34 +119,44 @@ Clickable {
     // application has focus is the highlight's to say, so the dots only ever
     // count. Each comes and goes with its window, in a place of its own with
     // half the gap either side, so the row stays centred while one grows.
-    Row {
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: root.height + Appearance.m.dockDotGap
+    // They stand in a strip as wide as the slot, the gap above them repeated
+    // below: what their colours are read against.
+    Item {
+        id: dots
 
-        Repeater {
-            model: 3
+        y: root.height
+        width: root.width
+        height: Appearance.m.dockDotGap * 2 + Appearance.m.dockDot
 
-            Item {
-                id: dot
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: Appearance.m.dockDotGap
 
-                required property int index
-                property real presence: dot.index < root.item.windows.length ? 1 : 0
+            Repeater {
+                model: 3
 
-                Behavior on presence {
-                    NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
-                }
+                Item {
+                    id: dot
 
-                width: (Appearance.m.dockDot + Appearance.s.xs) * dot.presence
-                height: Appearance.m.dockDot
+                    required property int index
+                    property real presence: dot.index < root.item.windows.length ? 1 : 0
 
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: Appearance.m.dockDot
+                    Behavior on presence {
+                        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
+                    }
+
+                    width: (Appearance.m.dockDot + Appearance.s.xs) * dot.presence
                     height: Appearance.m.dockDot
-                    radius: Appearance.m.dockDot / 2
-                    color: Appearance.c.text
-                    opacity: dot.presence
-                    scale: dot.presence
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: Appearance.m.dockDot
+                        height: Appearance.m.dockDot
+                        radius: Appearance.m.dockDot / 2
+                        color: root.dotScheme.text
+                        opacity: dot.presence
+                        scale: dot.presence
+                    }
                 }
             }
         }

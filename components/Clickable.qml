@@ -27,6 +27,10 @@ Item {
     property bool focusable: true
     /*! Suppress the built-in state layer when the caller paints its own. */
     property bool showStateLayer: true
+    /*! The colours its state layer and focus ring are drawn in: the theme's,
+        unless it stands on thinned glass over a wallpaper that wants the
+        other theme's (Surface.schemeOver). */
+    property ColorScheme scheme: Appearance.c
 
     property alias containsMouse: mouse.containsMouse
     property alias acceptedButtons: mouse.acceptedButtons
@@ -61,9 +65,9 @@ Item {
         anchors.fill: parent
         radius: root.radius
         visible: root.showStateLayer
-        color: root.down ? Appearance.c.pressLayer
-            : root.hovered ? Appearance.c.hoverLayer
-            : root.selected ? Appearance.c.selectLayer
+        color: root.down ? root.scheme.pressLayer
+            : root.hovered ? root.scheme.hoverLayer
+            : root.selected ? root.scheme.selectLayer
             : "transparent"
 
         Behavior on color {
@@ -116,7 +120,7 @@ Item {
         radius: root.radius > 0 ? root.radius + Appearance.m.focusRing : 0
         color: "transparent"
         border.width: Appearance.m.focusRing
-        border.color: Appearance.c.accent
+        border.color: root.scheme.accent
         visible: root.focusVisible
     }
 }

@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import "root:/config"
+import "root:/components"
 import "root:/services"
 
 /*!
@@ -16,6 +17,8 @@ Row {
     id: root
 
     required property ShellScreen screen
+    /*! The glass the icons stand on, whose colours they take (DockItem). */
+    required property Surface panel
     /*! Where the grid's button is, for the divider before it. */
     readonly property real launcherX: launcher.x
 
@@ -99,6 +102,7 @@ Row {
 
             entry: this.modelData
             screen: root.screen
+            panel: root.panel
             slide: root.slideFor(this.slot)
             rearranging: root.drag !== null
             onClicked: (item, centerX) => root.activated(item, centerX)
@@ -127,6 +131,7 @@ Row {
         icon: "apps"
         tipText: qsTr("Applications")
         selected: Overlay.isOpen(Overlay.launcher)
+        scheme: root.panel.schemeOver(launcher)
         onActivated: Overlay.toggle(Overlay.launcher, root.screen)
         onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)
     }

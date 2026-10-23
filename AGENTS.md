@@ -264,6 +264,24 @@ surface. The bar and the dock lay down a share of the glass the user sets
 own and never more, 0 none — and below about 57% the panel is no longer over
 half opaque, so nothing behind it is blurred.
 
+**Backdrop** — what the wallpaper is under a part of a screen: its mean colour
+there, as hyprpaper lays the picture (cover). Thinned, the bar's and the dock's
+glass is read against it so that what is on them stays legible. The glass
+itself takes the other theme's tint (`Appearance.glassOver`) once the theme's
+text would read on the mix at under WCAG's 4.5:1 over the mean behind the whole
+panel — never at 100%, where the theme's glass reads over black and white
+alike. Each control, window dot and divider then takes whichever theme's
+colours read better (`Appearance.schemeOn`) over the wallpaper behind it
+alone (`Surface.schemeOver`), and the tray's icons are drawn in that ink
+(`AppIcon.ink`). Applications' own icons in the dock are their artwork and
+are not touched. Each screen's picture is measured once per picture and size
+(`BackdropProbe`, in the bar), and every lookup after that is four reads of a
+summed-area table (`Backdrop`). The wallpaper is all it knows: a window under
+the auto-hiding dock is not seen, and what Hyprland does to the wallpaper —
+dimming it behind a special workspace, and a little where its blur is drawn
+(from about 57% up) — is left out of the mix, so near where the tint changes
+it changes a few percent early or late.
+
 **Override** — a token or timing the user has changed, in `settings.json`. Every
 one is an integer whose negative value means "unset", the way `""` means it for
 a colour seed, so an untouched shell renders exactly what was tuned. The layout
@@ -339,7 +357,7 @@ the `windows` plugin; see *The window plugin*.
 
 | Service | Owns | Key surface |
 |---|---|---|
-| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `barOpacity`/`dockOpacity` (0–1 of the glass; the dock's may be the bar's), `s` `r` `m` `t` `font`, `windowShadow`, `shadowFor(level)` (layers in CSS `drop-shadow` terms, and `pad`), `seedRange(seed)`, `inSeedRange` |
+| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `barOpacity`/`dockOpacity` (0–1 of the glass; the dock's may be the bar's), `glassOver` (a thinned panel's tint over what shows through), `schemeOn` (the theme, or the other, whichever's text reads better on a colour), `laid` (a fill at a share over a colour), `contrast`, `luminance`, `s` `r` `m` `t` `font`, `windowShadow`, `shadowFor(level)` (layers in CSS `drop-shadow` terms, and `pad`), `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's, the title bars' and the windows' shadow — set by `CompositorTheme`) |
@@ -375,13 +393,15 @@ implemented.
 
 | Component | Purpose |
 |---|---|
-| `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation (Space/Enter click; Menu or Shift+F10 right-click). Everything clickable derives from it |
-| `Surface` | a glass panel: `c.chrome` (the surface at `c.glass` opacity), a hairline and a `Shadow`; the compositor blurs what is behind it. `glass` fades all three together, eased, and leaves the content alone |
+| `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation (Space/Enter click; Menu or Shift+F10 right-click). Everything clickable derives from it. `scheme` is the `ColorScheme` its state layer and ring are drawn in, `Appearance.c` unless it stands on thinned glass |
+| `Surface` | a glass panel: `c.chrome` (the surface at `c.glass` opacity), a hairline and a `Shadow`; the compositor blurs what is behind it. `glass` fades all three together, eased, and leaves the content alone. Given its `screen` and where it rests there (`placedAt`), as the bar and the dock are, its `scheme` (the tint) and `schemeOver(item)` (the colours for anything on it, from where that rests: parents' positions read one by one so a binding hears each move) follow the wallpaper behind it (see *Backdrop*) |
+| `Backdrop` | the wallpaper's mean colour under any rectangle of a screen (`colorUnder`), from a summed-area table per screen; `measured`, `measure`, `gauge` (one pixel per `cell`, 8 logical px) |
+| `BackdropProbe` | measures one screen's picture for `Backdrop` whenever it or the screen's size changes: decoded off the main thread, already shrunk, into a canvas nobody sees (a canvas needs a window; the bar holds it) |
 | `Shadow` | a `RectangularShadow` per layer of `Appearance.shadowFor(level)`; `level` 1–3, 3 being the window shadow |
 | `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
-| `AppIcon` | an application icon from the XDG theme, with fallbacks; `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's) |
-| `IconShapes` | what `optical` measures: how much of its box each icon covers, once per icon, and the scale and offset that follow |
-| `Label` | text with the type scale applied; use instead of bare `Text` |
+| `AppIcon` | an application icon from the XDG theme, with fallbacks; `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's); `ink` draws it among the shell's glyphs (the tray's): desaturated, and a one-tone glyph levelled (Qt5Compat's `LevelAdjust`) so its tone comes out in the ink; artwork of both tones, a light sign on a dark plate, reads on either and keeps them |
+| `IconShapes` | what `optical` and `ink` measure: how much of its box each icon covers, once per icon, the scale and offset that follow, and how much of its artwork is `light` |
+| `Label` | text with the type scale applied; use instead of bare `Text`. `scheme` as `Clickable`'s |
 | `ColorPicker` | an HSV plane and hue strip, optionally held to a saturation/value band; `moved`/`committed` like `Slider`, arrow keys, no wheel |
 | `Filmstrip` | a sideways-scrolling row of choices wider than its room: wallpaper previews, font samples |
 | `MenuRow` | a popover list row; `flush` drops the inset and wash so it sits among a settings pane's sliders |
@@ -476,6 +496,24 @@ expensive to find.
   the edit rewrote the file within seconds (`dockBackground`, replaced by
   `dockOpacity`). Read a renamed preference's value off the file before the
   edit lands, to carry it over.
+- **`Canvas.loadImage` of a picture the image cache already holds emits no
+  `imageLoaded`**: it is loaded at once, and `isImageLoaded` says so straight
+  after the call (measured in a `qs -p` test: a second canvas asking for the
+  same picture at the same size never heard the signal). Check it after
+  asking, as `BackdropProbe` does. A canvas also keeps one picture per URL, at
+  the size first asked for: unload it to ask again at another.
+- **`createImageData` takes a picture by string, not by `url`**: handed a
+  `url`-typed value it returns undefined, and the same text as a string gives
+  the pixels.
+- **Reading a `CanvasPixelArray` element by element is slow**: 32 ms to read
+  480×228 pixels once, where `new Uint8Array(data)` copies them in 8 and the
+  typed array then reads fast. And the engine compiles a function only once it
+  has been called a few times, so a loop run once stays interpreted: building
+  `Backdrop`'s table in one loop took 17–20 ms per screen at startup, a call per
+  row 10–12.
+- **Qt5Compat's `LevelAdjust` levels alpha as it does colour**: from the output
+  colours' own alphas. Give the low end alpha 0 and the high end 1, or an
+  icon's transparent background comes out in the low colour.
 - **Do not read churny properties in a model.** `Dock.items` used to read window
   titles; every keystroke in a terminal rebuilt the whole dock. Titles are now
   read per-item off the toplevel. This was worth 0.3% of idle CPU. So is which

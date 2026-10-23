@@ -20,6 +20,12 @@ import "root:/services"
 
     One instance per monitor.  It gives up its space — and gets out of the way —
     whenever the monitor is showing a fullscreen window.
+
+    Each control is drawn in the colours that read on its own part of the
+    panel (Surface.schemeOver): the theme's, until the user thins the glass
+    enough over a wallpaper of the other lightness there. The bar also
+    measures its screen's wallpaper for that, for the dock as well
+    (BackdropProbe).
 */
 PanelWindow {
     id: root
@@ -53,6 +59,10 @@ PanelWindow {
 
     Component.onDestruction: Overlay.setPointerOver(root.pointerKey, false)
 
+    BackdropProbe {
+        screen: root.modelData
+    }
+
     Surface {
         id: panel
 
@@ -65,6 +75,8 @@ PanelWindow {
         height: Appearance.m.barHeight
         radius: Appearance.r.capsule(Appearance.m.barHeight)
         glass: Appearance.barOpacity
+        screen: root.modelData
+        placedAt: Qt.point(Appearance.m.barSideGap, Appearance.m.barGap)
         // The panel stands clear of the screen edge, so it casts the shadow of
         // something raised off the desktop rather than of trim resting on it.
         elevation: 2
@@ -80,15 +92,19 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
 
             Workspaces {
+                id: workspaces
                 anchors.verticalCenter: parent.verticalCenter
                 monitor: root.monitor
+                scheme: panel.schemeOver(workspaces)
             }
         }
 
         ClockButton {
+            id: clock
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
             screen: root.modelData
+            scheme: panel.schemeOver(clock)
         }
 
         BarGroup {
@@ -100,29 +116,38 @@ PanelWindow {
                 id: tray
                 anchors.verticalCenter: parent.verticalCenter
                 screen: root.modelData
+                scheme: panel.schemeOver(tray)
             }
 
             // The one place a rule earns itself: application icons and the
             // shell's own indicators are different kinds of thing.
             Divider {
+                id: rule
                 anchors.verticalCenter: parent.verticalCenter
                 vertical: true
                 height: Appearance.m.icon
                 visible: tray.visible
+                color: panel.schemeOver(rule).border
             }
 
             VpnButton {
+                id: vpn
                 anchors.verticalCenter: parent.verticalCenter
                 screen: root.modelData
+                scheme: panel.schemeOver(vpn)
             }
 
             KeyboardLayout {
+                id: layout
                 anchors.verticalCenter: parent.verticalCenter
+                scheme: panel.schemeOver(layout)
             }
 
             StatusCluster {
+                id: status
                 anchors.verticalCenter: parent.verticalCenter
                 screen: root.modelData
+                scheme: panel.schemeOver(status)
             }
         }
     }

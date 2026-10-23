@@ -20,5 +20,6 @@ BarButton {
         role: Label.Role.Small
         font.weight: Font.DemiBold
         muted: true
+        scheme: root.scheme
     }
 }

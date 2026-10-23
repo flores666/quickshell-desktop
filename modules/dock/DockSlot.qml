@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import "root:/config"
+import "root:/components"
 
 /*!
     An application's place in the dock's row: its icon (DockItem) and the gap
@@ -16,6 +17,7 @@ Item {
     /*! { key, item, leaving, arriving }, from DockRow. */
     required property var entry
     required property ShellScreen screen
+    required property Surface panel
     property alias slide: icon.slide
     property alias rearranging: icon.rearranging
     readonly property bool dragging: icon.dragging
@@ -56,6 +58,7 @@ Item {
 
         item: root.entry.item
         screen: root.screen
+        panel: root.panel
         // One that is leaving has nothing left to open; a click would launch it.
         enabled: !root.entry.leaving
         // Centred in what it takes up, and as small.
