@@ -126,7 +126,7 @@ Surface {
     // Rolled out, its edge on the door stays put and the other comes and goes.
     y: card.along(card.from.y, card.rest.y) + (card.flying ? 0
         : card.door === 0 ? card.entry
-        : card.door === Qt.BottomEdge ? (card.rest.height - card.doorShut) * (1 - card.rolled) : 0)
+        : card.door === Qt.BottomEdge ? card.rest.height - card.height : 0)
     width: card.along(card.from.width, card.rest.width)
     height: card.flying || card.door === 0 ? card.along(card.from.height, card.rest.height)
         : card.doorShut + (card.rest.height - card.doorShut) * card.rolled

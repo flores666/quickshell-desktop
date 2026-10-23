@@ -5,12 +5,13 @@ import QtQuick
 import Quickshell
 
 /*!
-    The arbiter for full-screen shell surfaces.
+    The arbiter for the shell's popups.
 
-    Exactly one of the launcher, the overview, quick settings or the date menu
-    can be open at a time, and each opens on one specific screen.  Routing every
-    open/close through here is what makes that invariant hold without any of the
-    surfaces knowing about each other.
+    Exactly one of them — the launcher, quick settings, the date menu, the
+    settings panel, or the tray, VPN or dock menu — can be open at a time, and
+    it opens on one specific screen. Routing every open/close through here is
+    what makes that invariant hold without any of the popups knowing about
+    each other.
 */
 Singleton {
     id: root
