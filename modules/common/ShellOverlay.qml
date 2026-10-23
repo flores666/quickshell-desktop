@@ -230,17 +230,18 @@ PanelWindow {
     }
 
     Connections {
-        // Tracked here rather than off `shown`, because the service sets the
-        // subject before it opens the popup — and because asking for a second
-        // tray icon's menu while the first is still up changes the subject
-        // without the popup ever closing.
+        // The service makes a popup the active one before it hands over the
+        // payload, so the popup shown is the one it is for and no other takes
+        // it: every popup used to, and a tray item reached the dock's menu.
+        // Tracked off the payload rather than `shown`, because asking for a
+        // second tray icon's menu while the first is still up changes the
+        // subject without the popup ever closing.
         target: Overlay
 
         function onPayloadChanged(): void {
-            // Only the popup on screen keeps the subject as it is cleared; the
-            // rest drop it there and then rather than holding it until they are
-            // next opened.
-            if (Overlay.payload !== null || !root.rendered)
+            // Cleared, it stays: a closing popup keeps its subject through the
+            // fade, and drops it as the surface goes.
+            if (root.shown && Overlay.payload !== null)
                 root.subject = Overlay.payload;
         }
     }

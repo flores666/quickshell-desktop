@@ -31,7 +31,12 @@ Singleton {
         on. Set by whichever bar button opened it.
     */
     property real anchorX: 0
-    /*! Subject of the surface, where it has one — e.g. the tray item whose menu is up. */
+    /*!
+        Subject of the surface, where it has one — e.g. the tray item whose
+        menu is up. Handed over only once the popup it is for is the active
+        one (openWith), so that popup alone takes it; a popup opened without
+        one has none.
+    */
     property var payload: null
 
     readonly property bool anyOpen: root.active !== root.none
@@ -87,6 +92,7 @@ Singleton {
     }
 
     function open(name: string, onScreen: ShellScreen): void {
+        root.payload = null;
         root.screen = onScreen ?? Compositor.focusedScreen;
         root.menu = null;
         root.active = name;
@@ -104,8 +110,8 @@ Singleton {
     }
 
     function openWith(name: string, onScreen: ShellScreen, subject: var): void {
-        root.payload = subject;
         root.open(name, onScreen);
+        root.payload = subject;
     }
 
     function close(): void {

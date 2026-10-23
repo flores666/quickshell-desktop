@@ -26,11 +26,18 @@ ShellOverlay {
 
     readonly property var entries: opener.children.values.filter(e => e)
 
-    onShownChanged: if (root.shown) root.stack = root.subject?.menu ? [root.subject.menu] : []
+    /*! Back to the top of the item's menu as it opens — reopened during its
+        fade-out for the same item, the subject is unchanged — and whenever the
+        item changes: a second icon's menu asked for while the first is up
+        changes it without the popup closing. Emptied with the subject only
+        once the surface is gone (ShellOverlay): resetting it as the popup
+        starts closing would collapse the card in the middle of its fade-out. */
+    onShownChanged: if (root.shown) root.showTop()
+    onSubjectChanged: root.showTop()
 
-    // Emptied only once the surface is gone: resetting it as the popup starts
-    // closing would collapse the card in the middle of its fade-out.
-    onRenderedChanged: if (!root.rendered) root.stack = []
+    function showTop(): void {
+        root.stack = root.subject?.menu ? [root.subject.menu] : [];
+    }
 
     QsMenuOpener {
         id: opener
