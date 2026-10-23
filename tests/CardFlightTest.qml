@@ -7,7 +7,8 @@ import "root:/modules/common"
 /*!
     A popup's card in flight: where it is, what it shows and how strongly,
     from the moment it takes off over the card it took over from to the
-    moment it rests; and that card holding, then going as it takes off. The
+    moment it rests; that card holding, then going as it takes off; and a
+    card given a new subject taking over from itself. The
     cards share a window, as popups' do (OverlaySurface), since a card hands
     over a picture of itself and only an item in a window can be pictured.
 */
@@ -54,6 +55,15 @@ Item {
             shown: true
             settled: true
             rest: Qt.rect(1000, 40, 260, 180)
+        }
+
+        // Up, and given a new subject.
+        OverlayCard {
+            id: renewed
+            overlayId: Overlay.trayMenu
+            shown: true
+            settled: true
+            rest: Qt.rect(200, 600, 240, 160)
         }
     }
 
@@ -156,6 +166,30 @@ Item {
             leaving.arrive();
             check.equal("back once it is up, here alone", leaving.visible, true);
 
+            Overlay.openWith(Overlay.trayMenu, Quickshell.screens[0], 0, root.oldSubject);
+            Overlay.abandon(Overlay.trayMenu);
+            Overlay.openWith(Overlay.trayMenu, Quickshell.screens[0], 200, root.newSubject);
+            check.equal("a new subject waits for its picture", Overlay.payload, root.oldSubject);
+            check.equal("not flying before its picture is in", renewed.flying, false);
+            renewal.start();
+        }
+    }
+
+    readonly property var oldSubject: ({})
+    readonly property var newSubject: ({})
+
+    Timer {
+        id: renewal
+        // A picture is in a frame or two after it is asked for (45–85 ms);
+        // the flight it starts takes t.popupResize.
+        interval: 150
+        onTriggered: {
+            check.equal("its picture in, the new subject goes in", Overlay.payload, root.newSubject);
+            check.equal("and it takes off", Overlay.flight?.away, true);
+            check.equal("from where it rested", renewed.from.toString(),
+                Qt.rect(200, 600, 240, 160).toString());
+            check.equal("its old contents ride along",
+                renewed.flying ? renewed.leftBehind !== null : true, true);
             check.done();
         }
     }

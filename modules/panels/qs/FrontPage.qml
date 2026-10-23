@@ -171,10 +171,9 @@ Column {
 
             IconButton {
                 icon: "settings"
-                onClicked: {
-                    Overlay.close();
-                    Overlay.openUnanchored(Overlay.settings);
-                }
+                // Opened over this popup, not after closing it, so the card
+                // flies on into the settings panel's.
+                onClicked: Overlay.openUnanchored(Overlay.settings)
             }
 
             IconButton {

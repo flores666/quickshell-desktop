@@ -271,8 +271,17 @@ off itself: switched straight back to, it is still on its way out, and was
 drawn beside the card flying from its place. A hand-off with nothing to hand over (the
 old card not yet settled), or whose picture is not in by the time the new
 card would have appeared anyway (`t.popupFade`), is dropped (`abandon`), and both
-open and close as they would alone. Another screen, or the same popup with a
-new subject, is no hand-off. The popups' surface maps without Hyprland's
+open and close as they would alone. Another screen is no hand-off. The same
+popup given a new subject while it is up (a second dock icon's or tray
+icon's menu) takes over from itself (`renewing`): `Overlay.openWith` holds
+the new subject and its anchor in the hand-off, the card hands over a
+picture of itself, and the subject goes in in the very frame it takes off
+from where it is, so its contents cross-fade as it moves instead of
+changing in one frame; dropped, the subject goes in at once. While a card
+flies its rest (`liveX`, `liveHeight`) does not glide as well: the flight
+carries it there on the same clock and curve, and the two together slowed
+the start and hurried the end. Quick settings' gear opens the settings
+panel over it, not after closing it, so that is a flight too. The popups' surface maps without Hyprland's
 layer animation (`hyprland.conf`'s `shell-popups` rule): the cards draw their
 own coming and going.
 
@@ -289,15 +298,18 @@ as quick as the rest of the shell's: `popupFade`, `popupMove` and
 of a popup's card (its fade, slide, door, flight, resize and re-anchoring),
 whatever is timed against those (the card let go after its fade, a hand-off's
 wait for its picture), and quick settings' page swap, which the card's resize
-follows, take them; the controls inside a popup keep the shell's pace, and so
+follows, take them, as does the dock's window preview, which rolls as a
+popup's door does; the controls inside a popup keep the shell's pace, and so
 do the date menu's notifications, which leave as toasts do.
 
 **Door** — how a popup under the bar or above the dock opens and closes when
 no other is open: its card rolls out of that edge, as a garage door, and back
-into it (`OverlayCard.door`, `rolled`). The card's own box grows from the
+into it (`OverlayCard.door`, `rolled`). The dock's window preview rolls up out
+of the dock the same way; both hang from one `Door` (`components/`). The
+card's own box grows from the
 edge it hangs from, so its shadow, glass and corners follow with no clip line,
 and its contents ride the moving edge, the far end showing first. It is never
-shorter than its two corners (`doorShut`), so it is the card's own rounded
+shorter than its two corners (`Door.shut`), so it is the card's own rounded
 rectangle all the way: grown from nothing it was a capsule until it passed
 them. It fades in from there in `t.popupFade`, as a centred card does, and
 rolls out in `t.popupMove` on `emphasizedEasing`; in again in `t.popupFade`, before the popup
@@ -429,7 +441,7 @@ the `windows` plugin; see *The window plugin*.
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's, the title bars' and the windows' shadow — set by `CompositorTheme`) |
-| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorXOf` (each popup's anchor, by name, set only as that popup opens: one anchor for all slid the card being taken over from towards the next popup's button), `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `flight` (`{ from, to, rect, strength, contents, away }`, see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
+| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorXOf` (each popup's anchor, by name, set only as that popup opens: one anchor for all slid the card being taken over from towards the next popup's button), `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `flight` (`{ from, to, rect, strength, contents, away }`, and `at` and `subject` for a popup taking over from itself; see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
@@ -467,6 +479,7 @@ implemented.
 | `BackdropProbe` | measures one screen's picture for `Backdrop` whenever it or the screen's size changes: decoded off the main thread, already shrunk, into a canvas nobody sees (a canvas needs a window; the bar holds it) |
 | `RoundedClip` | its children cut to a rounded rectangle by one mask while `active` (two layers and a `MultiEffect`), and drawn as they are while not: `ColorPicker`'s square gradients, a popup card's contents while it flies or resizes |
 | `Shadow` | a `RectangularShadow` per layer of `Appearance.shadowFor(level)`; `level` 1–3, 3 being the window shadow |
+| `Door` | how a card hanging from an edge rolls out of it and back (see *Door*): `edge`, `out`, `full`, `radius` in; `rolled`, `rolling`, `shut`, `extent` (its height), `drop` (where its box starts), `contentY` out. A popup's card and the dock's window preview hang from one |
 | `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
 | `AppIcon` | an application icon from the XDG theme, with fallbacks; `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's); `ink` draws it among the shell's glyphs (the tray's): desaturated, and a one-tone glyph levelled (Qt5Compat's `LevelAdjust`) so its tone comes out in the ink; artwork of both tones, a light sign on a dark plate, reads on either and keeps them |
 | `IconShapes` | what `optical` and `ink` measure: how much of its box each icon covers, once per icon, the scale and offset that follow, and how much of its artwork is `light` |
@@ -483,7 +496,7 @@ implemented.
 |---|---|
 | `OverlaySurface` | the one window every popup's card is drawn in (`shell.qml` puts the popups in it): the room between the bar and the dock, its shadow padding, masking to the open popup's card, keyboard focus and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself. Mapped while any card is drawn, so a hand-off never maps or unmaps it |
 | `ShellOverlay` | the base every popup derives from, an item over the surface's room: placement, sizing, the open/settle/fade lifecycle. `liveX`/`liveHeight` are the card's eased rest; `cardItem` the card. Its settle waits for a hand-off's picture, bounded by `t.popupFade`, and its card stays up for one that is holding |
-| `OverlayCard` | the card inside it: the door (`door`, `rolled`) or, centred, the entry slide and the fade (as one flattened layer), clipping, hover reporting to `Overlay`, swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `depart()`, `arrive()` |
+| `OverlayCard` | the card inside it: the door (`door`, `rolled`) or, centred, the entry slide and the fade (as one flattened layer), clipping, hover reporting to `Overlay`, swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `renewing` (taking over from itself, for a new subject), `depart()`, `arrive()` |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
 | `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, the title bars' colours and timings, and the window shadow |

@@ -18,7 +18,9 @@ import "root:/services"
     fade out over the first half of the way, this one's fade in over the
     second, and the other card is gone in the very frame this one takes off:
     every popup's card is drawn in the one window (OverlaySurface), in the same
-    coordinates, so the hand-off is one change to one scene.
+    coordinates, so the hand-off is one change to one scene. A popup given a
+    new subject while it is up takes over from itself the same way: its
+    picture first, then the subject, and it flies to its new place.
 */
 Surface {
     id: card
@@ -69,6 +71,11 @@ Surface {
         up — then it closes as it would alone. */
     readonly property bool holding: !card.shown && Overlay.flight !== null
         && Overlay.flight.from === card.overlayId && !Overlay.flight.away
+    /*! Taking over from itself: up, and given a new subject that goes in as
+        it takes off (Overlay.openWith). */
+    readonly property bool renewing: card.shown && Overlay.flight !== null
+        && Overlay.flight.from === card.overlayId && Overlay.flight.to === card.overlayId
+        && !Overlay.flight.away
     /*! Taking over, with the other card's picture not yet in hand. */
     readonly property bool waiting: Overlay.flight !== null
         && Overlay.flight.to === card.overlayId && Overlay.flight.contents === null
@@ -88,17 +95,20 @@ Surface {
     */
     property real entry: card.up || card.flying ? 0 : -Appearance.s.md
     property real fade: card.up ? 1 : 0
-    /*! How far out of its `door` it has rolled: 0 shut, 1 at rest. Out as a
-        thing moving does, and back as quickly as a card fades, so it is in
-        before the popup lets its card go. Held out, as the slide is held in,
-        while the card flies, which they take no part in: closed mid-flight,
-        the card landed on wherever they had got to, a jump of 150 px. */
-    property real rolled: card.up || card.flying ? 1 : 0
-    readonly property bool rolling: card.door !== 0 && card.rolled < 1
-    /*! A door's height shut: as tall as its two corners, so that it is a
-        rounded rectangle all the way out — shorter, its corners would meet
-        and make it a capsule. It fades in from there as it rolls. */
-    readonly property real doorShut: Math.min(card.rest.height, card.radius * 2)
+    /*! How far out of its `door` it has rolled: 0 shut, 1 at rest. It fades
+        in from shut as it rolls. Held out, as the slide is held in, while the
+        card flies, which they take no part in: closed mid-flight, the card
+        landed on wherever they had got to, a jump of 150 px. */
+    readonly property alias rolled: roller.rolled
+    readonly property bool rolling: card.door !== 0 && roller.rolling
+
+    Door {
+        id: roller
+        edge: card.door
+        out: card.up || card.flying
+        full: card.rest.height
+        radius: card.radius
+    }
 
     Behavior on entry {
         NumberAnimation { duration: Appearance.t.popupMove; easing.type: Appearance.t.emphasizedEasing }
@@ -108,15 +118,6 @@ Surface {
         NumberAnimation { duration: Appearance.t.popupFade; easing.type: Appearance.t.standardEasing }
     }
 
-    Behavior on rolled {
-        id: roll
-        // Set before the animation starts, unlike `up`'s other dependants.
-        NumberAnimation {
-            duration: roll.targetValue > 0 ? Appearance.t.popupMove : Appearance.t.popupFade
-            easing.type: roll.targetValue > 0 ? Appearance.t.emphasizedEasing : Appearance.t.standardEasing
-        }
-    }
-
     /*! Where a value of the rest stands on the way there from `from`. */
     function along(start: real, end: real): real {
         return card.flying ? start + (end - start) * card.flown : end;
@@ -124,12 +125,11 @@ Surface {
 
     x: card.along(card.from.x, card.rest.x)
     // Rolled out, its edge on the door stays put and the other comes and goes.
-    y: card.along(card.from.y, card.rest.y) + (card.flying ? 0
-        : card.door === 0 ? card.entry
-        : card.door === Qt.BottomEdge ? card.rest.height - card.height : 0)
+    y: card.along(card.from.y, card.rest.y)
+        + (card.flying ? 0 : card.door === 0 ? card.entry : roller.drop)
     width: card.along(card.from.width, card.rest.width)
     height: card.flying || card.door === 0 ? card.along(card.from.height, card.rest.height)
-        : card.doorShut + (card.rest.height - card.doorShut) * card.rolled
+        : roller.extent
     // One radius for every panel; no popup picks its own.
     radius: Appearance.r.panel
     // A card in flight is the one that was there: as strong as that one was
@@ -154,10 +154,16 @@ Surface {
     Connections {
         target: Overlay
 
+        // Read off the hand-off, not off `holding` or `renewing`: they hear
+        // this same change, and may not have yet.
         function onFlightChanged(): void {
             const f = Overlay.flight;
-            if (!card.shown && f !== null && f.from === card.overlayId && f.away)
+            if (f === null || f.from !== card.overlayId)
+                return;
+            if (!card.shown && f.away)
                 card.handedOver = true;
+            else if (card.shown && f.to === card.overlayId && !f.away && f.contents === null)
+                card.depart();
         }
     }
 
@@ -172,14 +178,19 @@ Surface {
     }
 
     /*! Hands the card over to the popup taking over: a picture of what it
-        shows, where it is and how strongly it is drawn. Given up when there is
-        nothing on screen to hand over. */
+        shows, where it is and how strongly it is drawn. Taking over from
+        itself, it takes off with it at once, the picture being all it waits
+        for. Given up when there is nothing on screen to hand over. */
     function depart(): void {
         const ratio = card.Screen.devicePixelRatio;
         const grabbed = card.settled && stage.grabToImage(result => {
-            if (card.holding)
-                Overlay.depart(card.overlayId, Qt.rect(card.x, card.y, card.width, card.height),
-                    card.opacity, result);
+            const self = card.renewing && Overlay.flight.contents === null;
+            if (!card.holding && !self)
+                return;
+            Overlay.depart(card.overlayId, Qt.rect(card.x, card.y, card.width, card.height),
+                card.opacity, result);
+            if (self)
+                card.arrive();
         }, Qt.size(Math.ceil(card.width * ratio), Math.ceil(card.height * ratio)));
         if (!grabbed)
             Overlay.abandon(card.overlayId);
@@ -229,8 +240,7 @@ Surface {
             // door's moving edge, as a door's panel is, so a card rolling out
             // shows its far end first.
             x: (parent.width - body.width) / 2
-            y: card.flying || card.door === 0 ? (parent.height - body.height) / 2
-                : card.door === Qt.TopEdge ? parent.height - body.height : 0
+            y: card.flying || card.door === 0 ? (parent.height - body.height) / 2 : roller.contentY
             width: card.rest.width
             height: card.rest.height
             opacity: card.incoming

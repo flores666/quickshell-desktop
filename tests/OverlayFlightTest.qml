@@ -4,8 +4,9 @@ import "root:/services"
 
 /*!
     The hand-off Overlay records between two popups (Overlay.flight): when
-    there is one, and that only the popups it names can move it on; and that
-    each popup keeps its own anchor through it.
+    there is one, and that only the popups it names can move it on; that
+    each popup keeps its own anchor through it; and that a popup given a new
+    subject takes over from itself, the subject going in as it takes off.
 */
 Item {
     Check {
@@ -55,12 +56,30 @@ Item {
         Overlay.open(Overlay.dateMenu, one, 0);
         Overlay.open(Overlay.dateMenu, one, 0);
         check.equal("the same popup again: none", Overlay.flight, null);
-        Overlay.openWith(Overlay.dateMenu, one, 0, {});
-        check.equal("the same popup with a new subject: none", Overlay.flight, null);
 
-        Overlay.openWith(Overlay.trayMenu, one, 0, {});
+        const first = {}, second = {}, third = {};
+        Overlay.openWith(Overlay.trayMenu, one, 100, first);
         check.equal("openWith hands off too", Overlay.flight?.from, Overlay.dateMenu);
-        check.equal("the subject is still handed over", Overlay.payload !== null, true);
+        check.equal("the subject is still handed over", Overlay.payload, first);
+        Overlay.abandon(Overlay.trayMenu);
+        Overlay.openWith(Overlay.trayMenu, one, 100, first);
+        check.equal("the same subject again: none", Overlay.flight, null);
+
+        Overlay.openWith(Overlay.trayMenu, one, 300, second);
+        check.equal("a new subject: it takes over from itself",
+            Overlay.flight?.from === Overlay.trayMenu && Overlay.flight?.to === Overlay.trayMenu, true);
+        check.equal("the old subject stays until it takes off", Overlay.payload, first);
+        check.equal("and so does its anchor", Overlay.anchorXOf[Overlay.trayMenu], 100);
+        Overlay.depart(Overlay.trayMenu, Qt.rect(1, 2, 3, 4), 1, "picture");
+        check.equal("still the old subject with the picture in", Overlay.payload, first);
+        Overlay.arrive(Overlay.trayMenu);
+        check.equal("the new subject goes in as it takes off", Overlay.payload, second);
+        check.equal("and its anchor", Overlay.anchorXOf[Overlay.trayMenu], 300);
+
+        Overlay.openWith(Overlay.trayMenu, one, 500, third);
+        Overlay.abandon(Overlay.trayMenu);
+        check.equal("given up, the new subject goes in at once", Overlay.payload, third);
+        check.equal("and its anchor", Overlay.anchorXOf[Overlay.trayMenu], 500);
 
         Overlay.close();
         check.equal("closing clears it", Overlay.flight, null);

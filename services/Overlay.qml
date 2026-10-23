@@ -40,7 +40,8 @@ Singleton {
         Subject of the surface, where it has one — e.g. the tray item whose
         menu is up. Handed over only once the popup it is for is the active
         one (openWith), so that popup alone takes it; a popup opened without
-        one has none.
+        one has none. A popup up already is given a new one only as it takes
+        over from itself (`flight`).
     */
     property var payload: null
 
@@ -106,6 +107,12 @@ Singleton {
         it up when it cannot (`abandon`), both then opening and closing as
         they would alone. Each acts only on the hand-off that names it, so a
         stale one cannot disturb a newer.
+
+        A popup up already and given a new subject takes over from itself
+        (`from` and `to` the same), so its contents cross-fade as it moves
+        instead of changing in one frame. The new subject and its anchor wait
+        in the hand-off (`subject`, `at`) until the picture of the old is in
+        and the card takes off, and go in then; given up, they go in at once.
     */
     property var flight: null
 
@@ -115,13 +122,28 @@ Singleton {
     }
 
     function arrive(name: string): void {
-        if (root.flight?.to === name)
-            root.flight = Object.assign({}, root.flight, { away: true });
+        const f = root.flight;
+        if (f?.to !== name)
+            return;
+        root.flight = Object.assign({}, f, { away: true });
+        if (f.from === name)
+            root.renew(f);
     }
 
     function abandon(name: string): void {
-        if (root.flight?.from === name || root.flight?.to === name)
-            root.flight = null;
+        const f = root.flight;
+        if (f?.from !== name && f?.to !== name)
+            return;
+        root.flight = null;
+        if (f.from === f.to)
+            root.renew(f);
+    }
+
+    /*! The subject a popup taking over from itself was given, and where it
+        points for it, going in. */
+    function renew(f: var): void {
+        root.anchorXOf = Object.assign({}, root.anchorXOf, { [f.to]: f.at });
+        root.payload = f.subject;
     }
 
     function open(name: string, onScreen: ShellScreen, at: real): void {
@@ -146,6 +168,12 @@ Singleton {
     }
 
     function openWith(name: string, onScreen: ShellScreen, at: real, subject: var): void {
+        const screen = onScreen ?? Compositor.focusedScreen;
+        if (root.active === name && screen === root.screen && subject !== root.payload) {
+            root.menu = null;
+            root.flight = { from: name, to: name, rect: null, strength: 1, contents: null, away: false, at, subject };
+            return;
+        }
         root.open(name, onScreen, at);
         root.payload = subject;
     }

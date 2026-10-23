@@ -56,13 +56,16 @@ Item {
     Behavior on liveX {
         // Only once the popup is up: a card still being placed must appear
         // where it belongs and at its size, not slide in from the last
-        // popup's place or grow into it.
-        enabled: root.settled
+        // popup's place or grow into it. Nor while it flies, which carries it
+        // there on this same clock and curve: a popup given a new subject
+        // takes off from where it is, and its rest gliding as well would
+        // slow the start of the way and hurry the end.
+        enabled: root.settled && !card.flying
         NumberAnimation { duration: Appearance.t.popupResize; easing.type: Appearance.t.resizeEasing }
     }
 
     Behavior on liveHeight {
-        enabled: root.settled
+        enabled: root.settled && !card.flying
         NumberAnimation { duration: Appearance.t.popupResize; easing.type: Appearance.t.resizeEasing }
     }
 

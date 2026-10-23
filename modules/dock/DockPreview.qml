@@ -17,7 +17,9 @@ import "root:/services"
     while it is open, and closes a moment after the pointer has left both it
     and the icons. It lives in the
     dock's window, as the tooltip does, and reaches down over the gap to the
-    icons, so moving up from an icon onto it never leaves its hover.
+    icons, so moving up from an icon onto it never leaves its hover. It rolls
+    up out of the dock and back down into it, as a popup above the dock does
+    (Door).
 */
 Item {
     id: root
@@ -130,7 +132,17 @@ Item {
     opacity: root.shown ? 1 : 0
 
     Behavior on opacity {
-        NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+        NumberAnimation { duration: Appearance.t.popupFade; easing.type: Appearance.t.standardEasing }
+    }
+
+    // Standing on the dock, this keeps its bottom edge where it is as its
+    // height changes, so the card's top is the door's moving edge.
+    Door {
+        id: roller
+        edge: Qt.BottomEdge
+        out: root.shown
+        full: row.height + root.pad * 2
+        radius: card.radius
     }
 
     HoverHandler {
@@ -147,33 +159,42 @@ Item {
         id: card
 
         width: row.width + root.pad * 2
-        height: row.height + root.pad * 2
+        height: roller.extent
         radius: Appearance.r.panel
         elevation: 3
 
-        Row {
-            id: row
+        RoundedClip {
+            anchors.fill: parent
+            // The windows are laid out at the card's full height, and ride
+            // its top edge out of the dock and back.
+            clip: true
+            radius: card.radius
+            active: roller.rolling
 
-            x: root.pad
-            y: root.pad
-            spacing: Appearance.s.xs
+            Row {
+                id: row
 
-            Repeater {
-                // Only while drawn: each picture streams for as long as it exists.
-                model: ScriptModel {
-                    values: root.visible && root.held ? root.held.windows.filter(w => w) : []
-                }
+                x: root.pad
+                y: root.pad
+                spacing: Appearance.s.xs
 
-                WindowPreview {
-                    required property var modelData
+                Repeater {
+                    // Only while drawn: each picture streams for as long as it exists.
+                    model: ScriptModel {
+                        values: root.visible && root.held ? root.held.windows.filter(w => w) : []
+                    }
 
-                    window: this.modelData
-                    icon: root.held?.icon ?? ""
-                    boxWidth: Math.floor(root.boxWidth * root.fit)
-                    boxHeight: Math.floor(root.boxHeight * root.fit)
-                    onClicked: {
-                        Compositor.focusWindow(this.modelData);
-                        root.close();
+                    WindowPreview {
+                        required property var modelData
+
+                        window: this.modelData
+                        icon: root.held?.icon ?? ""
+                        boxWidth: Math.floor(root.boxWidth * root.fit)
+                        boxHeight: Math.floor(root.boxHeight * root.fit)
+                        onClicked: {
+                            Compositor.focusWindow(this.modelData);
+                            root.close();
+                        }
                     }
                 }
             }
