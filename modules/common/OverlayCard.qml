@@ -50,7 +50,7 @@ Surface {
     property alias contentData: body.data
 
     /*! Where it took off from, in its window; and how far from there it has
-        come, 0 to 1 over `t.resize` — 1, at rest, unless it is flying. */
+        come, 0 to 1 over `t.popupResize` — 1, at rest, unless it is flying. */
     property rect from
     property real flown: 1
     readonly property bool flying: card.flown < 1
@@ -101,18 +101,18 @@ Surface {
     readonly property real doorShut: Math.min(card.rest.height, card.radius * 2)
 
     Behavior on entry {
-        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
+        NumberAnimation { duration: Appearance.t.popupMove; easing.type: Appearance.t.emphasizedEasing }
     }
 
     Behavior on fade {
-        NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+        NumberAnimation { duration: Appearance.t.popupFade; easing.type: Appearance.t.standardEasing }
     }
 
     Behavior on rolled {
         id: roll
         // Set before the animation starts, unlike `up`'s other dependants.
         NumberAnimation {
-            duration: roll.targetValue > 0 ? Appearance.t.base : Appearance.t.fast
+            duration: roll.targetValue > 0 ? Appearance.t.popupMove : Appearance.t.popupFade
             easing.type: roll.targetValue > 0 ? Appearance.t.emphasizedEasing : Appearance.t.standardEasing
         }
     }
@@ -167,7 +167,7 @@ Surface {
         property: "flown"
         from: 0
         to: 1
-        duration: Appearance.t.resize
+        duration: Appearance.t.popupResize
         easing.type: Appearance.t.resizeEasing
     }
 

@@ -53,7 +53,7 @@ ShellOverlay {
         // emits finished(), so the handover is timed rather than chained off the
         // fade; `running` is a plain binding, which cannot fail to fire.
         running: root.swapping
-        interval: Appearance.t.fast
+        interval: Appearance.t.popupFade
         onTriggered: root.visiblePage = root.page
     }
 
@@ -83,7 +83,7 @@ ShellOverlay {
             opacity: !root.swapping && root.visiblePage !== "" ? 1 : 0
 
             Behavior on opacity {
-                NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+                NumberAnimation { duration: Appearance.t.popupFade; easing.type: Appearance.t.standardEasing }
             }
 
             IconButton {
@@ -121,7 +121,7 @@ ShellOverlay {
             layer.enabled: opacity < 1
 
             Behavior on opacity {
-                NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+                NumberAnimation { duration: Appearance.t.popupFade; easing.type: Appearance.t.standardEasing }
             }
 
             sourceComponent: root.current?.component ?? null
@@ -182,7 +182,7 @@ ShellOverlay {
             layer.enabled: opacity < 1
 
             Behavior on opacity {
-                NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+                NumberAnimation { duration: Appearance.t.popupFade; easing.type: Appearance.t.standardEasing }
             }
 
             onPageRequested: page => root.page = page

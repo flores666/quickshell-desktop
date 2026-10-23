@@ -12,6 +12,8 @@ import QtQuick
     and stops dead.
 */
 QtObject {
+    id: root
+
     /*! Hover and press washes: quick enough to follow the pointer. */
     readonly property int instant: 120
     /*! Fades and colour changes. */
@@ -20,6 +22,18 @@ QtObject {
     readonly property int base: 260
     /*! A whole popup changing size — a bigger move than any control makes. */
     readonly property int resize: 320
+
+    /*! How much quicker a popup's own motion is than the rest of the shell's:
+        its card opening, closing, flying into another's place and changing
+        size, and whatever is timed to that (OverlayCard, ShellOverlay, quick
+        settings' pages). */
+    readonly property real popupPace: 1.3
+    /*! `fast`, `base` and `resize` at that pace: a popup's card fading, and
+        rolling back into its door; sliding or rolling out; flying and
+        changing size. */
+    readonly property int popupFade: Math.round(root.fast / root.popupPace)
+    readonly property int popupMove: Math.round(root.base / root.popupPace)
+    readonly property int popupResize: Math.round(root.resize / root.popupPace)
 
     /*! How long the pointer rests on something before more of it shows: a
         tooltip, the dock's preview of an application's windows. */

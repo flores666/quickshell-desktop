@@ -121,18 +121,18 @@ Item {
 
     Timer {
         id: midway
-        interval: Appearance.t.resize / 2
+        interval: Appearance.t.popupResize / 2
         onTriggered: {
-            check.equal("still flying halfway through t.resize", card.flying, true);
+            check.equal("still flying halfway through t.popupResize", card.flying, true);
             check.equal("coming in from the old card's strength", card.opacity > 0.4, true);
         }
     }
 
     Timer {
         id: landed
-        interval: Appearance.t.resize + 150
+        interval: Appearance.t.popupResize + 150
         onTriggered: {
-            check.equal("landed after t.resize", card.flying, false);
+            check.equal("landed after t.popupResize", card.flying, false);
             check.box("at rest once landed", card, Qt.rect(600, 40, 300, 200));
             check.equal("contents opaque once landed", card.incoming, 1);
             check.equal("the old picture let go", card.leftBehind, null);

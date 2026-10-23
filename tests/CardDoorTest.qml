@@ -69,7 +69,7 @@ Item {
 
     Timer {
         id: opening
-        interval: Appearance.t.base / 2
+        interval: Appearance.t.popupMove / 2
         onTriggered: {
             check.near("rolling down: its top edge stays put", under.y, 50);
             check.equal("rolling down: partly out, never shorter than its corners",
@@ -87,7 +87,7 @@ Item {
 
     Timer {
         id: open
-        interval: Appearance.t.base / 2 + 100
+        interval: Appearance.t.popupMove / 2 + 100
         onTriggered: {
             check.box("open under the bar: at rest", under, Qt.rect(100, 50, 300, 200));
             check.near("open: solid", under.opacity, 1);
@@ -110,7 +110,7 @@ Item {
 
     Timer {
         id: closing
-        interval: Appearance.t.fast / 2
+        interval: Appearance.t.popupFade / 2
         onTriggered: {
             check.near("rolling back up: its top edge stays put", under.y, 50);
             check.equal("rolling back up: partly in", under.height > root.corners && under.height < 200, true);
@@ -121,8 +121,8 @@ Item {
 
     Timer {
         id: shut
-        // In before the popup lets its card go (ShellOverlay, t.fast + 60).
-        interval: Appearance.t.fast / 2 + 50
+        // In before the popup lets its card go (ShellOverlay, t.popupFade + 60).
+        interval: Appearance.t.popupFade / 2 + 50
         onTriggered: {
             check.near("shut again: as tall as its corners", under.height, root.corners);
             check.near("shut again: nothing drawn", under.opacity, 0);

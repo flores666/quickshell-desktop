@@ -252,7 +252,7 @@ construction rather than by every surface remembering to close its siblings.
 
 **Flight** — a popup opened while another is open on the same screen does not
 fade in: its card starts exactly over the other's and flies to its own place
-in `t.resize`, as one card. The other's contents ride along as a picture and
+in `t.popupResize`, as one card. The other's contents ride along as a picture and
 fade out over the first half of the way, the new contents fade in over the
 second, each at its own size, centred and clipped by the card — to its
 rounded shape (`RoundedClip`), since a plain `clip` is square and the contents,
@@ -270,7 +270,7 @@ handed-over card stays hidden until it is up again, opened alone or taking
 off itself: switched straight back to, it is still on its way out, and was
 drawn beside the card flying from its place. A hand-off with nothing to hand over (the
 old card not yet settled), or whose picture is not in by the time the new
-card would have appeared anyway (`t.fast`), is dropped (`abandon`), and both
+card would have appeared anyway (`t.popupFade`), is dropped (`abandon`), and both
 open and close as they would alone. Another screen, or the same popup with a
 new subject, is no hand-off. The popups' surface maps without Hyprland's
 layer animation (`hyprland.conf`'s `shell-popups` rule): the cards draw their
@@ -283,6 +283,15 @@ below, so a card keeps its place under the bar or above the dock and a deep
 shadow is cut off by the screen's edge; input is masked to the open popup's
 card alone.
 
+**Popup pace** — a popup's own motion is `Appearance.t.popupPace` (1.3) times
+as quick as the rest of the shell's: `popupFade`, `popupMove` and
+`popupResize` are `fast`, `base` and `resize` at that pace. Every animation
+of a popup's card (its fade, slide, door, flight, resize and re-anchoring),
+whatever is timed against those (the card let go after its fade, a hand-off's
+wait for its picture), and quick settings' page swap, which the card's resize
+follows, take them; the controls inside a popup keep the shell's pace, and so
+do the date menu's notifications, which leave as toasts do.
+
 **Door** — how a popup under the bar or above the dock opens and closes when
 no other is open: its card rolls out of that edge, as a garage door, and back
 into it (`OverlayCard.door`, `rolled`). The card's own box grows from the
@@ -290,8 +299,8 @@ edge it hangs from, so its shadow, glass and corners follow with no clip line,
 and its contents ride the moving edge, the far end showing first. It is never
 shorter than its two corners (`doorShut`), so it is the card's own rounded
 rectangle all the way: grown from nothing it was a capsule until it passed
-them. It fades in from there in `t.fast`, as a centred card does, and
-rolls out in `t.base` on `emphasizedEasing`; in again in `t.fast`, before the popup
+them. It fades in from there in `t.popupFade`, as a centred card does, and
+rolls out in `t.popupMove` on `emphasizedEasing`; in again in `t.popupFade`, before the popup
 lets its card go. A centred popup (the launcher, settings) fades and slides in
 instead, and a popup taking over from another flies (*Flight*). The door and
 the slide hold still while a card flies: closed mid-flight, a card lands
@@ -473,7 +482,7 @@ implemented.
 | File | Purpose |
 |---|---|
 | `OverlaySurface` | the one window every popup's card is drawn in (`shell.qml` puts the popups in it): the room between the bar and the dock, its shadow padding, masking to the open popup's card, keyboard focus and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself. Mapped while any card is drawn, so a hand-off never maps or unmaps it |
-| `ShellOverlay` | the base every popup derives from, an item over the surface's room: placement, sizing, the open/settle/fade lifecycle. `liveX`/`liveHeight` are the card's eased rest; `cardItem` the card. Its settle waits for a hand-off's picture, bounded by `t.fast`, and its card stays up for one that is holding |
+| `ShellOverlay` | the base every popup derives from, an item over the surface's room: placement, sizing, the open/settle/fade lifecycle. `liveX`/`liveHeight` are the card's eased rest; `cardItem` the card. Its settle waits for a hand-off's picture, bounded by `t.popupFade`, and its card stays up for one that is holding |
 | `OverlayCard` | the card inside it: the door (`door`, `rolled`) or, centred, the entry slide and the fade (as one flattened layer), clipping, hover reporting to `Overlay`, swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `depart()`, `arrive()` |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |

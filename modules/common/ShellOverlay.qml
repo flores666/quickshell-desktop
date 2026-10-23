@@ -58,12 +58,12 @@ Item {
         // where it belongs and at its size, not slide in from the last
         // popup's place or grow into it.
         enabled: root.settled
-        NumberAnimation { duration: Appearance.t.resize; easing.type: Appearance.t.resizeEasing }
+        NumberAnimation { duration: Appearance.t.popupResize; easing.type: Appearance.t.resizeEasing }
     }
 
     Behavior on liveHeight {
         enabled: root.settled
-        NumberAnimation { duration: Appearance.t.resize; easing.type: Appearance.t.resizeEasing }
+        NumberAnimation { duration: Appearance.t.popupResize; easing.type: Appearance.t.resizeEasing }
     }
 
     /*! The shadow its card casts (OverlaySurface leaves room for it). */
@@ -138,7 +138,7 @@ Item {
             // Bounded: a popup still filling in — a tray menu waiting on DBus —
             // must appear even if its size never quite stops moving, and one
             // taking over waits no longer for the other's picture.
-            const late = settle.elapsedTime * 1000 >= Appearance.t.fast;
+            const late = settle.elapsedTime * 1000 >= Appearance.t.popupFade;
             const steady = settle.lastWidth === root.cardWidth && settle.lastHeight === root.cardHeight;
             settle.lastWidth = root.cardWidth;
             settle.lastHeight = root.cardHeight;
@@ -173,7 +173,7 @@ Item {
         // plain binding, so the card goes even if the property changes while no
         // handler is watching.
         running: root.rendered && !root.shown && !card.holding
-        interval: Appearance.t.fast + 60
+        interval: Appearance.t.popupFade + 60
         onTriggered: {
             root.rendered = false;
             root.settled = false;
