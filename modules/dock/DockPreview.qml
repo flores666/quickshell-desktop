@@ -13,9 +13,12 @@ import "root:/services"
     apart, so an application with one has the tooltip instead.
 
     It opens once the pointer has rested on the icon, or at once on a click
-    on it, moves straight to the next such application the pointer reaches
-    while it is open, and closes a moment after the pointer has left both it
-    and the icons. It lives in the
+    on it, and closes a moment after the pointer has left both it and the
+    icons. On its way up from the icon to the windows the pointer crosses
+    other icons; inside the triangle from where it left the icon to the two
+    ends of the card's lower edge, they do not count (`aim`). Resting on
+    another application's icon (`t.hop`), the preview rolls back in and out
+    again over that one, if it has windows to show. It lives in the
     dock's window, as the tooltip does, and reaches down over the gap to the
     icons, so moving up from an icon onto it never leaves its hover. It rolls
     up out of the dock and back down into it, as a popup above the dock does
@@ -36,6 +39,14 @@ Item {
     /*! The icon under the pointer whose preview is shown, or is to be. */
     property string pointed: ""
     property real pointedX: 0
+    /*! Where the pointer is on the dock, in the dock's window; null off it. */
+    property var pointer: null
+    /*! Where the pointer left the icon of the application shown: the apex of
+        the triangle it is safe in, whose base is the card's lower edge. Null
+        once it strays out of it, or there is none. */
+    property var aim: null
+    /*! The application to show once this one has rolled in: { key, x }. */
+    property var next: null
 
     readonly property var item: root.key === "" ? null
         : Dock.items.find(i => i.key === root.key && root.offers(i)) ?? null
@@ -67,16 +78,40 @@ Item {
         return (item?.windows.length ?? 0) > 1;
     }
 
-    /*! The icon of an application it offers a preview of took the pointer. */
+    function offersKey(key: string): bool {
+        return root.offers(Dock.items.find(i => i.key === key) ?? null);
+    }
+
+    /*! Whether the pointer is on its way to the windows: inside the triangle
+        from `aim` to the two ends of the card's lower edge, as they stand. */
+    function aiming(p: point): bool {
+        if (root.aim === null)
+            return false;
+        const bottom = root.y + card.height;
+        const a = root.aim;
+        const b = Qt.point(root.x, bottom);
+        const c = Qt.point(root.x + card.width, bottom);
+        // Which side of each edge it is on; inside, never both.
+        const side = (u, v) => (p.x - v.x) * (u.y - v.y) - (u.x - v.x) * (p.y - v.y);
+        const sides = [side(a, b), side(b, c), side(c, a)];
+        return !(sides.some(d => d < 0) && sides.some(d => d > 0));
+    }
+
+    /*! An icon took the pointer. */
     function enter(key: string, x: real): void {
         linger.stop();
         root.pointed = key;
         root.pointedX = x;
         if (root.key === "") {
-            dwell.restart();
+            if (root.offersKey(key))
+                dwell.restart();
+            else
+                dwell.stop();
+        } else if (key === root.key) {
+            hop.stop();
+            root.aim = null;
         } else {
-            root.key = key;
-            root.anchorX = x;
+            hop.restart();
         }
     }
 
@@ -84,27 +119,62 @@ Item {
     function show(key: string, x: real): void {
         root.enter(key, x);
         dwell.stop();
+        hop.stop();
+        root.next = null;
         root.key = key;
         root.anchorX = x;
     }
 
     /*! An icon lost the pointer. */
     function leave(key: string): void {
+        if (key === root.key && root.shown && root.pointer !== null)
+            root.aim = root.pointer;
         if (root.pointed !== key)
             return;
         root.pointed = "";
         dwell.stop();
+        hop.stop();
         linger.restart();
     }
 
     function close(): void {
         dwell.stop();
         linger.stop();
+        hop.stop();
+        root.aim = null;
+        root.next = null;
         root.key = "";
     }
 
     onItemChanged: if (root.item) root.held = root.item
     onSuppressedChanged: if (root.suppressed) root.close()
+
+    // On its way to the windows, what the pointer passes over neither takes
+    // the preview nor, between the icons, closes it; strayed out of the
+    // triangle, it is on its way nowhere.
+    onPointerChanged: {
+        if (root.aim === null || root.pointer === null)
+            return;
+        if (!root.aiming(root.pointer)) {
+            root.aim = null;
+            return;
+        }
+        if (hop.running)
+            hop.restart();
+        if (linger.running)
+            linger.restart();
+    }
+
+    // Rolled in for another application: out again over it, if the pointer
+    // is still there.
+    onVisibleChanged: if (!root.visible && root.next !== null) {
+        const next = root.next;
+        root.next = null;
+        if (root.pointed === next.key) {
+            root.key = next.key;
+            root.anchorX = next.x;
+        }
+    }
 
     Timer {
         id: dwell
@@ -119,6 +189,18 @@ Item {
         id: linger
         interval: Appearance.t.linger
         onTriggered: if (!root.hovered && root.pointed === "") root.close()
+    }
+
+    Timer {
+        id: hop
+        interval: Appearance.t.hop
+        onTriggered: {
+            if (root.hovered || root.pointed === "" || root.pointed === root.key)
+                return;
+            root.next = root.offersKey(root.pointed) ? { key: root.pointed, x: root.pointedX } : null;
+            root.aim = null;
+            root.key = "";
+        }
     }
 
     // Centred over the icon, never past the screen's edges; the strip below the
@@ -148,10 +230,13 @@ Item {
     HoverHandler {
         id: hover
         onHoveredChanged: {
-            if (hover.hovered)
+            if (hover.hovered) {
                 linger.stop();
-            else if (root.pointed === "")
+                hop.stop();
+                root.aim = null;
+            } else if (root.pointed === "") {
                 linger.restart();
+            }
         }
     }
 

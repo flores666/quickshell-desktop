@@ -52,6 +52,10 @@ PanelWindow {
 
     /*! Which dock child the pointer is on, so hiding is never ambiguous. */
     property string hoveredKey: ""
+    /*! Whether that child is named by the tooltip, which waits for the
+        preview to be away: crossing an icon on the way to the preview does
+        not name it. */
+    property bool naming: false
 
     readonly property bool pointerNear: dockHover.hovered || triggerHover.hovered || preview.hovered
     /*! Stay out while a menu of ours is up, or a drag is in progress. */
@@ -122,25 +126,24 @@ PanelWindow {
     }
 
     /*! An application with several windows previews them; anything else is
-        named by the tooltip. `x` is across the window. */
+        named by the tooltip. The preview hears of every icon, since one it
+        is open over may be on the pointer's way to it. `x` is across the
+        window. */
     function onChildHover(key: string, label: string, x: real, entered: bool): void {
         if (!entered) {
             preview.leave(key);
             if (root.hoveredKey === key) {
                 root.hoveredKey = "";
-                tip.show = false;
+                root.naming = false;
             }
             return;
         }
         root.hoveredKey = key;
-        if (preview.offers(Dock.items.find(i => i.key === key) ?? null)) {
-            tip.show = false;
-            preview.enter(key, x);
-        } else {
-            preview.close();
+        preview.enter(key, x);
+        root.naming = !preview.offersKey(key);
+        if (root.naming) {
             tip.text = label;
             tip.anchorX = x;
-            tip.show = true;
         }
     }
 
@@ -149,7 +152,7 @@ PanelWindow {
         was minimized, too), and with none the application starts. */
     function activate(item: var, x: real): void {
         if (preview.offers(item)) {
-            tip.show = false;
+            root.naming = false;
             preview.show(item.key, x);
             return;
         }
@@ -176,12 +179,15 @@ PanelWindow {
         dockTop: surface.y
         screen: root.modelData
         suppressed: root.held || !root.shown
+        pointer: dockHover.hovered
+            ? Qt.point(surface.x + dockHover.point.position.x, surface.y + dockHover.point.position.y) : null
         z: 1
     }
 
     Tooltip {
         id: tip
         anchorY: surface.y
+        show: root.naming && !preview.shown
         visible: root.shown && opacity > 0
         z: 1
     }

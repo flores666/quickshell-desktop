@@ -6,13 +6,14 @@ import "root:/components"
 import "root:/services"
 
 /*! One window in the switcher: its application's icon in a slot that the
-    highlight fills while it is the one chosen. A minimized window's icon is
-    faint, as its dock icon's dot would be missing. */
+    highlight fills while it is the one chosen. */
 Clickable {
     id: root
 
     required property var entry
     required property int index
+    /*! The entry chosen, as the switcher draws it (SwitcherWindow.chosen). */
+    property int chosen: 0
     /*! Below 1 when the row would not fit across the screen at full size. */
     property real fit: 1
 
@@ -20,7 +21,7 @@ Clickable {
     implicitHeight: root.implicitWidth
     radius: Appearance.r.md
     focusable: false
-    selected: root.index === Switcher.index
+    selected: root.index === root.chosen
 
     onHoveredChanged: if (root.hovered) Switcher.point(root.index)
     onClicked: Switcher.choose(root.index)
@@ -30,6 +31,5 @@ Clickable {
         source: root.entry.icon
         size: Math.round(Appearance.m.switcherIcon * root.fit)
         optical: true
-        opacity: root.entry.minimized ? 0.5 : 1
     }
 }

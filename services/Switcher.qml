@@ -9,8 +9,8 @@ import Quickshell.Hyprland
     The window switcher, as macOS's Command-Tab: hold Alt and press Tab to go
     round the windows of the workspace in front of you, the one used most
     recently first, and let go of Alt to bring the one chosen forward. One
-    quick Alt+Tab is the window used before. Minimized windows come last, and
-    come back to the workspace when chosen (Compositor.focusWindow).
+    quick Alt+Tab is the window used before. Only that workspace's: not
+    another's, and not the minimized, which belong to none.
 
     Hyprland holds the keys (hyprland.conf) and each reaches here as a global
     shortcut (ShellIpc). The switcher takes no keyboard focus, so the window
@@ -34,39 +34,34 @@ Singleton {
 
     /*! Whether Alt+Tab is under way. */
     property bool active: false
-    /*! [{ window, icon, name, minimized }]: what it goes round, taken as it
-        opens, so nothing reorders while it is open. */
+    /*! [{ window, icon, name }]: what it goes round, taken as it opens, so
+        nothing reorders while it is open. */
     property var entries: []
     property int index: 0
     readonly property var current: root.entries[root.index] ?? null
 
     /*! The windows the dock stands for — the same test of what is a window —
-        on the workspace in front, or a special one shown over it, then the
-        minimized ones; each part by how recently it had focus. */
+        on the workspace in front, by how recently each had focus. That is the
+        focused workspace, and a special one shown over it while the window
+        with focus is there; never another workspace a window that last had
+        focus is on, nor the minimized one. */
     function snapshot(): var {
-        const shown = [Compositor.focusedWorkspace, Compositor.activeToplevel?.workspace ?? null];
+        const over = Compositor.activeToplevel?.workspace ?? null;
+        const shown = [Compositor.focusedWorkspace];
+        if (over && over.name.startsWith("special:") && over.name !== Compositor.minimizedWorkspace)
+            shown.push(over);
         const rank = w => {
             const at = root.recent.indexOf(w.address);
             return at === -1 ? root.recent.length : at;
         };
         const here = [];
-        const minimized = [];
         for (const item of Dock.items) {
             for (const w of item.windows) {
-                const entry = {
-                    window: w,
-                    icon: item.icon,
-                    name: item.name,
-                    minimized: w.workspace?.name === Compositor.minimizedWorkspace
-                };
-                if (entry.minimized)
-                    minimized.push(entry);
-                else if (w.workspace && shown.indexOf(w.workspace) !== -1)
-                    here.push(entry);
+                if (w.workspace && shown.indexOf(w.workspace) !== -1)
+                    here.push({ window: w, icon: item.icon, name: item.name });
             }
         }
-        const byRank = (a, b) => rank(a.window) - rank(b.window);
-        return here.sort(byRank).concat(minimized.sort(byRank));
+        return here.sort((a, b) => rank(a.window) - rank(b.window));
     }
 
     /*! Alt+Tab (1) or Alt+` (-1): the next window round, opening the switcher

@@ -424,10 +424,26 @@ since Hyprland has no such state.
 **Switcher** — Alt+Tab, as macOS's Command-Tab: hold Alt and press Tab to go
 round the windows of the workspace in front, most recently used first, and
 let go to bring the one chosen forward; a quick Alt+Tab is the window before.
+Only that workspace's: the focused one, and a special one shown over it while
+the window with focus is there — never the workspace of a window that last
+had focus (an empty workspace offers nothing), nor the minimized.
 **Not a popup**: it takes no keyboard focus, Hyprland holds every key of it
 (`hyprland.conf`: Alt+Tab enters a `switcher` submap, Alt's release commits),
 and it closes whatever popup is open. `services/Switcher` keeps the order and
-the choice, `modules/switcher` draws it, after `t.glance`.
+the choice, `modules/switcher` draws it, after `t.glance`: its card comes and
+goes as a centred popup's does, 1.5 times quicker still (`t.switcherPace`,
+`switcherFade`, `switcherMove`), holding what it shows
+through the fade out, and the title under the row changes only once the last
+has faded out.
+
+**Safe triangle** — the dock's window preview, open over one application's
+icon, is not taken by the icons the pointer crosses on its way up to it:
+inside the triangle from where the pointer left that icon to the two ends of
+the card's lower edge (`DockPreview.aim`, `aiming`), the icons it passes over
+and the gaps between them count for nothing. Out of it, or resting on another
+icon for `t.hop`, the preview rolls back into the dock and out again over that
+one if it has windows to show; one without has its tooltip once the preview
+is in.
 
 **Placement** of a window (not a popup's, above) — windows open floating, and
 each application as it was last left: tiled, or floating at its size. Also
@@ -445,7 +461,7 @@ the `windows` plugin; see *The window plugin*.
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
-| `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front, then the minimized), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
+| `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
 | `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `setScanning`, `restartWifi`, `restarting`, `passwordRequested`, `failure` |
@@ -879,7 +895,8 @@ expensive to find.
   had. `systemctl --user restart quickshell`.
 - **Hyprland fades a layer surface in as it maps** (`fadeLayersIn`, about
   180 ms here) unless a layer rule gives it `no_anim`. A shell surface that
-  draws its own fade — the popups' — needs the rule, or the two stack.
+  draws its own fade — the popups', the switcher's — needs the rule, or the
+  two stack.
 - **A nested session is where tests and live checks go**, not the user's
   desktop: a nested Hyprland on a hidden special workspace with headless
   screens of its own (above), its sockets in the environment of `qs -p` (a
@@ -903,6 +920,15 @@ expensive to find.
   what is under test, with the nested instance's `HYPRLAND_INSTANCE_SIGNATURE`
   and `WAYLAND_DISPLAY`: never the whole shell, whose `Fonts` and `Wallpaper`
   write the machine's own settings.
+- **The pointer too, but not with `movecursor`.** `hyprctl -i <nested>
+  dispatch movecursor` moves a nested Hyprland's cursor and tells no client:
+  Qt hears no motion and no hover changes, as in the session. A client of
+  wlr-virtual-pointer on the nested socket does it: `motion_absolute` (in an
+  extent of the screen's size) then `frame`, from one connection kept open,
+  so a path is a stream of moves. Hyprland's header
+  `protocols/wlr-virtual-pointer-unstable-v1.hpp` gives the requests' order
+  (motion, motion_absolute, button, axis, frame, …), which is all an XML for
+  `wayland-scanner` needs.
 - **After an NVIDIA driver update nothing new gets the GPU until a reboot.**
   pacman replaces the libraries while the old kernel module stays loaded
   (`nvidia-smi`: "Driver/library version mismatch"): a nested Hyprland

@@ -34,6 +34,13 @@ QtObject {
     readonly property int popupFade: Math.round(root.fast / root.popupPace)
     readonly property int popupMove: Math.round(root.base / root.popupPace)
     readonly property int popupResize: Math.round(root.resize / root.popupPace)
+    /*! How much quicker the window switcher comes and goes than a popup's
+        card, and its title changes: it is up only while Alt is held, and
+        must not keep the hand on it waiting. `popupFade` and `popupMove` at
+        that pace. */
+    readonly property real switcherPace: 1.5
+    readonly property int switcherFade: Math.round(root.popupFade / root.switcherPace)
+    readonly property int switcherMove: Math.round(root.popupMove / root.switcherPace)
     /*! How long past a fade's end what faded is kept before it is taken
         down — a popup's card, the OSD's window — so the fade's last frame is
         drawn first: the fade is a Behavior's, which never says it has
@@ -47,6 +54,10 @@ QtObject {
     /*! How long the dock's preview stays once the pointer has left it and the
         icons, so a path that strays off them for a moment does not close it. */
     readonly property int linger: 250
+    /*! How long the pointer rests on another application's icon, off its way
+        to the dock's preview, before the preview goes and comes back over
+        that one. */
+    readonly property int hop: 300
     /*! How long the pointer rests at a tiled or fullscreen window's top edge
         before its title bar comes out: half the dwell, since the bar is
         what the pointer went up there for. */
@@ -54,7 +65,7 @@ QtObject {
     /*! How long Alt is held after Alt+Tab before the window switcher shows:
         a quick Alt+Tab goes back to the window before without flashing it,
         as macOS's Command-Tab does. */
-    readonly property int glance: 150
+    readonly property int glance: 100
 
     /*! Fades and colour: gentle at both ends, so nothing pops on or off. */
     readonly property int standardEasing: Easing.InOutQuad

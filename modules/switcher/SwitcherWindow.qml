@@ -18,6 +18,12 @@ import "root:/services"
     keys — and the pointer only on the card, and only once the pointer moves:
     one that happens to be where the card opens must not choose for you. Then
     resting on an entry chooses it, and a click brings it forward.
+
+    It comes and goes as a centred popup's card does (OverlayCard), fading
+    and sliding into place and back out, at a pace of its own
+    (`t.switcherPace`). What it shows
+    is held through the fade out, and the title under the row changes only
+    once the last has faded out.
 */
 PanelWindow {
     id: root
@@ -25,6 +31,48 @@ PanelWindow {
     property bool glanced: false
     readonly property bool shown: Switcher.active && root.glanced
     property bool rendered: false
+
+    /*! What it goes round and the one chosen, as drawn: held once Alt is let
+        go of, so the row does not empty and the highlight does not jump to
+        the first entry while the card fades out. */
+    property var entries: []
+    property int chosen: 0
+    readonly property var current: root.entries[root.chosen] ?? null
+
+    Binding {
+        target: root
+        property: "entries"
+        when: Switcher.active
+        value: Switcher.entries
+        restoreMode: Binding.RestoreNone
+    }
+
+    Binding {
+        target: root
+        property: "chosen"
+        when: Switcher.active
+        value: Switcher.index
+        restoreMode: Binding.RestoreNone
+    }
+
+    /*! The entry whose title is under the row. It follows the one chosen only
+        once the last title has faded out, as quick settings' pages do: two
+        fading into each other are both legible at half strength, which reads
+        as a smear. Set at once as the card comes up, which fades in itself. */
+    property var named: null
+    readonly property bool renaming: root.named !== root.current
+
+    /*! As a centred popup's card: a short slide into place, and the fade. */
+    property real entry: root.shown ? 0 : -Appearance.s.md
+    property real fade: root.shown ? 1 : 0
+
+    Behavior on entry {
+        NumberAnimation { duration: Appearance.t.switcherMove; easing.type: Appearance.t.emphasizedEasing }
+    }
+
+    Behavior on fade {
+        NumberAnimation { duration: Appearance.t.switcherFade; easing.type: Appearance.t.standardEasing }
+    }
     /*! Where the pointer was as the card came up, and whether it has moved. */
     property point entered: Qt.point(-1, -1)
     property bool pointerMoved: false
@@ -51,7 +99,10 @@ PanelWindow {
 
     mask: Region { item: root.shown ? card : null }
 
-    onShownChanged: if (root.shown) root.rendered = true
+    onShownChanged: if (root.shown) {
+        root.rendered = true;
+        root.named = root.current;
+    }
 
     Connections {
         target: Switcher
@@ -74,27 +125,26 @@ PanelWindow {
         // A Behavior's animation never emits finished(): the unmap is a bound
         // timer, as the OSD's is.
         running: root.rendered && !root.shown
-        interval: Appearance.t.base
+        interval: Appearance.t.switcherFade + Appearance.t.grace
         onTriggered: root.rendered = false
+    }
+
+    Timer {
+        running: root.shown && root.renaming
+        interval: Appearance.t.switcherFade
+        onTriggered: root.named = root.current
     }
 
     Surface {
         id: card
 
         anchors.centerIn: parent
+        anchors.verticalCenterOffset: root.entry
         width: body.width + root.pad * 2
         height: body.height + root.pad * 2
         radius: Appearance.r.panel
         elevation: 3
-        opacity: root.shown ? 1 : 0
-        scale: root.shown ? 1 : 0.96
-
-        Behavior on opacity {
-            NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
-        }
-        Behavior on scale {
-            NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
-        }
+        opacity: root.fade
 
         HoverHandler {
             onPointChanged: {
@@ -115,6 +165,9 @@ PanelWindow {
             y: root.pad
             width: Math.min(root.available, Math.max(entries.width, Appearance.m.popoverWidth))
             spacing: Appearance.s.md
+            // Fades as one flattened image, as a popup's contents do: each
+            // icon over its highlight would otherwise show through it.
+            layer.enabled: card.opacity < 1
 
             Row {
                 id: entries
@@ -124,12 +177,13 @@ PanelWindow {
                 Repeater {
                     id: row
 
-                    model: ScriptModel { values: Switcher.entries }
+                    model: ScriptModel { values: root.entries }
 
                     SwitcherEntry {
                         required property var modelData
 
                         entry: this.modelData
+                        chosen: root.chosen
                         fit: root.fit
                         hoverEnabled: root.pointerMoved
                     }
@@ -139,9 +193,14 @@ PanelWindow {
             Label {
                 // The window's own title, read off it here rather than taken
                 // into the entries, where it would go stale.
-                text: Switcher.current ? (Switcher.current.window.title || Switcher.current.name) : ""
+                text: root.named ? (root.named.window?.title || root.named.name) : ""
                 width: body.width
                 horizontalAlignment: Text.AlignHCenter
+                opacity: root.renaming ? 0 : 1
+
+                Behavior on opacity {
+                    NumberAnimation { duration: Appearance.t.switcherFade; easing.type: Appearance.t.standardEasing }
+                }
             }
         }
     }
