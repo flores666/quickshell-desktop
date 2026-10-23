@@ -14,9 +14,10 @@ import "root:/services"
 Loader {
     id: root
 
+    /*! Null for a moment as a screen goes, ahead of the bar that holds this. */
     required property ShellScreen screen
 
-    active: Wallpaper.current !== "" && !Backdrop.measured(root.screen)
+    active: root.screen !== null && Wallpaper.current !== "" && !Backdrop.measured(root.screen)
 
     sourceComponent: Canvas {
         id: probe
@@ -50,9 +51,12 @@ Loader {
         }
 
         function take(): void {
-            if (probe.isImageLoaded(probe.source))
+            // No context once the canvas is out of its window: a reload takes
+            // the bar while the picture is still decoding.
+            const context = probe.getContext("2d");
+            if (context !== null && probe.isImageLoaded(probe.source))
                 Backdrop.measure(root.screen, probe.path, probe.gauge,
-                    probe.getContext("2d").createImageData(probe.source));
+                    context.createImageData(probe.source));
         }
     }
 }

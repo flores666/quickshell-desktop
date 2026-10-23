@@ -199,8 +199,9 @@ PanelWindow {
         glass: Appearance.dockOpacity
         elevation: 3
         screen: root.modelData
+        // Its screen is null for a moment as it goes, before this window is.
         placedAt: Qt.point((root.width - surface.width) / 2,
-            root.modelData.height - Appearance.m.screenGap - root.dockHeight)
+            (root.modelData?.height ?? 0) - Appearance.m.screenGap - root.dockHeight)
 
         Behavior on anchors.bottomMargin {
             NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
