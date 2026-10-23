@@ -4,7 +4,8 @@ import QtQuick
 import "root:/config"
 import "root:/components"
 
-/*! The top bar: how tall it stands and how far off the edges it sits. */
+/*! The top bar: how tall it stands, how far off the edges it sits, and how
+    much of its glass it lays down. */
 Column {
     id: root
 
@@ -38,6 +39,16 @@ Column {
             min: Tuning.spec.barSideGap.min
             max: Tuning.spec.barSideGap.max
             value: Appearance.m.barSideGap
+        }
+
+        SettingRow {
+            width: parent.width
+            key: "barOpacity"
+            label: qsTr("Opacity")
+            min: Tuning.spec.barOpacity.min
+            max: Tuning.spec.barOpacity.max
+            value: Tuning.pick("barOpacity")
+            suffix: qsTr("%")
         }
     }
 

@@ -64,6 +64,7 @@ PanelWindow {
         anchors.rightMargin: Appearance.m.barSideGap
         height: Appearance.m.barHeight
         radius: Appearance.r.capsule(Appearance.m.barHeight)
+        glass: Appearance.barOpacity
         // The panel stands clear of the screen edge, so it casts the shadow of
         // something raised off the desktop rather than of trim resting on it.
         elevation: 2

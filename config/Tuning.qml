@@ -27,13 +27,15 @@ Singleton {
     id: root
 
     readonly property var spec: ({
-        barHeight:  { min: 26, max: 40,  def: 30  },
-        barGap:     { min: 0,  max: 16,  def: 6   },
-        barSideGap: { min: 0,  max: 32,  def: 10  },
-        dockIcon:   { min: 28, max: 48,  def: 34  },
-        border:     { min: 0,  max: 2,   def: 1   },
-        roundness:  { min: 0,  max: 150, def: 100 },
-        fontScale:  { min: 85, max: 125, def: 100 }
+        barHeight:   { min: 26, max: 40,  def: 30  },
+        barGap:      { min: 0,  max: 16,  def: 6   },
+        barSideGap:  { min: 0,  max: 32,  def: 10  },
+        dockIcon:    { min: 28, max: 48,  def: 34  },
+        border:      { min: 0,  max: 2,   def: 1   },
+        roundness:   { min: 0,  max: 150, def: 100 },
+        fontScale:   { min: 85, max: 125, def: 100 },
+        barOpacity:  { min: 0,  max: 100, def: 100 },
+        dockOpacity: { min: 0,  max: 100, def: 100 }
     })
 
     /*! A user override, clamped — or the tuned value, when unset (negative). */

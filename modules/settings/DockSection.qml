@@ -5,8 +5,9 @@ import "root:/config"
 import "root:/components"
 import "root:/services"
 
-/*! The dock: whether it hides, whether it has a background, how big its icons
-    are, and how long it waits before it slides away. */
+/*! The dock: whether it hides, how much of its glass it lays down — its own
+    share or the top panel's — how big its icons are, and how long it waits
+    before it slides away. */
 Column {
     id: root
 
@@ -31,14 +32,27 @@ Column {
         MenuRow {
             width: parent.width
             flush: true
-            title: qsTr("Background")
-            subtitle: qsTr("The glass panel behind the icons")
-            onClicked: Settings.setDockBackground(!Settings.dockBackground)
+            title: qsTr("Match top panel")
+            subtitle: qsTr("Use the top panel's opacity")
+            onClicked: Settings.setDockOpacityFollowsBar(!Settings.dockOpacityFollowsBar)
 
             ToggleSwitch {
-                checked: Settings.dockBackground
-                onToggled: value => Settings.setDockBackground(value)
+                checked: Settings.dockOpacityFollowsBar
+                onToggled: value => Settings.setDockOpacityFollowsBar(value)
             }
+        }
+
+        // While the dock takes the top panel's this setting drives nothing, so
+        // it is not offered.
+        SettingRow {
+            width: parent.width
+            visible: !Settings.dockOpacityFollowsBar
+            key: "dockOpacity"
+            label: qsTr("Opacity")
+            min: Tuning.spec.dockOpacity.min
+            max: Tuning.spec.dockOpacity.max
+            value: Tuning.pick("dockOpacity")
+            suffix: qsTr("%")
         }
 
         SettingRow {

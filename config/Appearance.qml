@@ -21,6 +21,18 @@ Singleton {
     readonly property bool dark: Settings.effectiveDark
     readonly property ColorScheme c: root.dark ? root.night : root.day
 
+    /*!
+        How much of its glass the top panel lays down, and the dock (Surface's
+        `glass`): 1 is the theme's own, as tuned, and 0 none, the hairline and
+        shadow going with it. Never more than the theme's: the lock screen is
+        the one opaque surface. Below about 57% the panel is no longer over
+        half opaque, and the compositor stops blurring what is behind it (the
+        shell-glass layer rule).
+    */
+    readonly property real barOpacity: Tuning.pick("barOpacity") / 100
+    readonly property real dockOpacity: Settings.dockOpacityFollowsBar
+        ? root.barOpacity : Tuning.pick("dockOpacity") / 100
+
     readonly property ColorScheme day: ColorScheme {
         base: root.lightSeed !== "" ? root.lightSeed : "#faf9f5"
         surface: root.lightSeed !== "" ? root.lift(root.lightSeed, 0.029) : "#ffffff"
@@ -143,7 +155,7 @@ Singleton {
     readonly property Typography font: Typography {}
     readonly property Spacing s: Spacing {}
     readonly property Radii r: Radii {}
-    readonly property Metrics m: Metrics {}
+    readonly property Metrics m: Metrics { dockBackground: root.dockOpacity > 0 }
     readonly property Motion t: Motion {}
 
     /*!

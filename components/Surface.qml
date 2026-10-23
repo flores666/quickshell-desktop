@@ -21,25 +21,32 @@ Item {
     property int elevation: 2
     property bool bordered: true
     property color borderColor: Appearance.c.border
-    /*! How much of its shadow it casts: one fading its glass out fades this
-        with it. */
-    property real shadowOpacity: 1
+    /*! How much of its glass it lays down: its fill, hairline and shadow
+        together, its content untouched — the bar and the dock at the user's
+        opacity (Appearance.barOpacity). Each faded by its own alpha, so it
+        never passes through another colour, and eased, so a step (a reset,
+        the dock taking up the bar's) fades rather than jumps. */
+    property real glass: 1
     default property alias content: inner.data
+
+    Behavior on glass {
+        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.standardEasing }
+    }
 
     Shadow {
         anchors.fill: parent
         radius: root.radius
         level: root.elevation
-        opacity: root.shadowOpacity
+        opacity: root.glass
     }
 
     Rectangle {
         id: inner
         anchors.fill: parent
         radius: root.radius
-        color: root.color
+        color: Qt.alpha(root.color, root.color.a * root.glass)
         border.width: root.bordered ? Appearance.m.border : 0
-        border.color: root.borderColor
+        border.color: Qt.alpha(root.borderColor, root.borderColor.a * root.glass)
         antialiasing: root.radius > 0
     }
 }

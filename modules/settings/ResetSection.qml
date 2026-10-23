@@ -6,8 +6,8 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    Everything measured, put back at once: every size, gap, timing and
-    Hyprland option this panel has changed returns to what it shipped with —
+    Everything measured, put back at once: every size, gap, opacity, timing
+    and Hyprland option this panel has changed returns to what it shipped with —
     hyprland.conf's own value, for those.
 
     The color, font and wallpaper choices are picked from a list rather than
@@ -31,7 +31,7 @@ Column {
             icon: "refresh"
             title: qsTr("Reset all settings")
             subtitle: root.anything
-                ? qsTr("Sizes, gaps, timings and window options go back to their defaults")
+                ? qsTr("Sizes, gaps, opacity, timings and window options go back to their defaults")
                 : qsTr("Everything is at its default")
 
             TextButton {

@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import "root:/services"
 
 /*! Structural sizes: the dimensions of the shell's own furniture.
     The user-settable ones and their limits live in Tuning. */
@@ -33,10 +32,11 @@ QtObject {
         every slot and centres its round ends on the first and last ones, so a
         highlight is concentric with them and stands as far from the dock's
         edge everywhere, and every icon as far from the top as from the
-        bottom. Without one there is no edge to keep clear of, and the dock is
-        only as big as its slots and the dots under them — which is what it
-        reserves, and what popups keep clear of. Only the icon is the user's;
-        the rest is fixed, so the proportions hold across its whole range.
+        bottom. Without one (its opacity at 0) there is no edge to keep clear
+        of, and the dock is only as big as its slots and the dots under them —
+        which is what it reserves, and what popups keep clear of. Only the icon
+        is the user's; the rest is fixed, so the proportions hold across its
+        whole range.
     */
     readonly property int dockIcon: Tuning.pick("dockIcon")
     readonly property int dockInset: 2
@@ -47,11 +47,14 @@ QtObject {
     /*! Between neighbouring slots, so their icons stand 12px apart. */
     readonly property int dockGap: 8
     readonly property int dockSlot: root.dockIcon + root.dockInset * 2
+    /*! Whether the dock has any glass at all; Appearance, which resolves the
+        dock's opacity, sets it. */
+    property bool dockBackground: true
     /*! The room the dock keeps above its slots and at either end, and below
         them: the clearance while it has its background, and without one
         nothing above and only the dots below. */
-    readonly property int dockFrame: Settings.dockBackground ? root.dockClearance : 0
-    readonly property int dockBase: Settings.dockBackground
+    readonly property int dockFrame: root.dockBackground ? root.dockClearance : 0
+    readonly property int dockBase: root.dockBackground
         ? root.dockClearance : root.dockDotGap + root.dockDot
     readonly property int dockHeight: root.dockFrame + root.dockSlot + root.dockBase
     /*! The divider before the launcher, as a share of an icon: shorter than

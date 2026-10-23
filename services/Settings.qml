@@ -44,8 +44,8 @@ Singleton {
     readonly property bool roundnessFollowsWindows: store.roundnessFollowsWindows
     /*! The dock slides away when unused; off, it stays and reserves its room. */
     readonly property bool dockAutoHide: store.dockAutoHide
-    /*! The glass behind the dock's icons; off, they stand on their own. */
-    readonly property bool dockBackground: store.dockBackground
+    /*! The dock lays down the top panel's opacity rather than its own. */
+    readonly property bool dockOpacityFollowsBar: store.dockOpacityFollowsBar
 
     // ------------------------------------------------------------- overrides
     //
@@ -63,6 +63,8 @@ Singleton {
     readonly property int border: store.border
     readonly property int roundness: store.roundness
     readonly property int fontScale: store.fontScale
+    readonly property int barOpacity: store.barOpacity
+    readonly property int dockOpacity: store.dockOpacity
     readonly property int notificationTimeout: store.notificationTimeout
     readonly property int dockHideDelay: store.dockHideDelay
     // Hyprland options; ranges and encoding in CompositorOptions.spec.
@@ -85,7 +87,8 @@ Singleton {
     /*! Every key `setOverride` accepts, and everything `resetOverrides` clears. */
     readonly property var overrideKeys: [
         "barHeight", "barGap", "barSideGap", "dockIcon", "border",
-        "roundness", "fontScale", "notificationTimeout", "dockHideDelay",
+        "roundness", "fontScale", "barOpacity", "dockOpacity",
+        "notificationTimeout", "dockHideDelay",
         "hyprGapsIn", "hyprGapsOut", "hyprBorder", "hyprRounding", "hyprBlur",
         "hyprAnimations", "hyprActiveOpacity", "hyprInactiveOpacity", "hyprMouseSpeed",
         "hyprMouseAccel", "hyprTouchpadSpeed", "hyprNaturalScroll", "hyprTapToClick",
@@ -112,8 +115,8 @@ Singleton {
         store.dockAutoHide = on;
     }
 
-    function setDockBackground(on: bool): void {
-        store.dockBackground = on;
+    function setDockOpacityFollowsBar(on: bool): void {
+        store.dockOpacityFollowsBar = on;
     }
 
     function setAccentColor(value: string): void {

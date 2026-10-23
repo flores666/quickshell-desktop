@@ -25,8 +25,9 @@ import "root:/services"
 
     With auto-hide off (Settings.dockAutoHide) the dock stays out and reserves
     its footprint the way the bar does, so windows stop above it rather than
-    sitting under it for good. With its background off (Settings.dockBackground)
-    the glass, edge and shadow go and the icons stand on their own.
+    sitting under it for good. Its glass, edge and shadow are laid down at the
+    dock's opacity (Appearance.dockOpacity); at 0 they go, the dock tightens
+    round its icons (Metrics.dockFrame) and the icons stand on their own.
 */
 PanelWindow {
     id: root
@@ -56,17 +57,12 @@ PanelWindow {
         while auto-hide is off, so turning it back on starts from the truth. */
     property bool revealed: false
 
-    /*! The background, eased as it comes and goes: `glass` fades it, its edge
-        and its shadow together, and `frame` and `base` (Metrics) move on the
-        clock the dock's height does, so the icons settle with it. A theme
-        change still recolours the glass at once, like any other surface. */
-    property real glass: Settings.dockBackground ? 1 : 0
+    /*! The room round the icons as the background comes and goes (Metrics),
+        moving on the clock the dock's height does, so the icons settle with
+        it; the glass itself fades in Surface. */
     property real frame: Appearance.m.dockFrame
     property real base: Appearance.m.dockBase
 
-    Behavior on glass {
-        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.standardEasing }
-    }
     Behavior on frame {
         NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
     }
@@ -196,12 +192,7 @@ PanelWindow {
         width: layout.implicitWidth + root.frame * 2
         height: root.dockHeight
         radius: Appearance.r.capsule(root.dockHeight)
-        // Without its background the dock is only its icons, with nothing
-        // drawn behind them. Faded by its own alpha, so it never passes
-        // through another colour on the way.
-        color: Qt.alpha(Appearance.c.chrome, Appearance.c.chrome.a * root.glass)
-        borderColor: Qt.alpha(Appearance.c.border, Appearance.c.border.a * root.glass)
-        shadowOpacity: root.glass
+        glass: Appearance.dockOpacity
         elevation: 3
 
         Behavior on anchors.bottomMargin {

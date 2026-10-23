@@ -259,7 +259,10 @@ translucent washes, not colours: they take on the glass, the seeds and the
 wallpaper beneath them, which is what lets one set serve any palette. Use
 `c.surface` only where something must be opaque (a knob is `c.knob`); never
 `Qt.alpha` a token by hand to make glass. The lock screen is the one opaque
-surface.
+surface. The bar and the dock lay down a share of the glass the user sets
+(`Appearance.barOpacity`, `dockOpacity`; `Surface.glass`): 100% is the theme's
+own and never more, 0 none — and below about 57% the panel is no longer over
+half opaque, so nothing behind it is blurred.
 
 **Override** — a token or timing the user has changed, in `settings.json`. Every
 one is an integer whose negative value means "unset", the way `""` means it for
@@ -282,7 +285,8 @@ an untouched shell looks exactly as it was tuned, and every one carries its own
 way back inside its own control — which is why *Reset all* leaves them alone and
 is only ever about the numbers. The same goes for the on/off preferences: Do
 Not Disturb, *Match window corners* (`roundnessFollowsWindows`) and the dock's
-*Auto-hide* (`dockAutoHide`) and *Background* (`dockBackground`).
+*Auto-hide* (`dockAutoHide`) and *Match top panel*
+(`dockOpacityFollowsBar`, the dock taking the bar's opacity).
 
 A colour seed can also come from the picker, which is held to
 `Appearance.seedRange`: the derived family and the hand-tuned text colours only
@@ -335,9 +339,9 @@ the `windows` plugin; see *The window plugin*.
 
 | Service | Owns | Key surface |
 |---|---|---|
-| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `s` `r` `m` `t` `font`, `windowShadow`, `shadowFor(level)` (layers in CSS `drop-shadow` terms, and `pad`), `seedRange(seed)`, `inSeedRange` |
+| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `barOpacity`/`dockOpacity` (0–1 of the glass; the dock's may be the bar's), `s` `r` `m` `t` `font`, `windowShadow`, `shadowFor(level)` (layers in CSS `drop-shadow` terms, and `pad`), `seedRange(seed)`, `inSeedRange` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockBackground`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's, the title bars' and the windows' shadow — set by `CompositorTheme`) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
@@ -372,7 +376,7 @@ implemented.
 | Component | Purpose |
 |---|---|
 | `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation (Space/Enter click; Menu or Shift+F10 right-click). Everything clickable derives from it |
-| `Surface` | a glass panel: `c.chrome` (the surface at `c.glass` opacity), a hairline and a `Shadow`; the compositor blurs what is behind it |
+| `Surface` | a glass panel: `c.chrome` (the surface at `c.glass` opacity), a hairline and a `Shadow`; the compositor blurs what is behind it. `glass` fades all three together, eased, and leaves the content alone |
 | `Shadow` | a `RectangularShadow` per layer of `Appearance.shadowFor(level)`; `level` 1–3, 3 being the window shadow |
 | `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
 | `AppIcon` | an application icon from the XDG theme, with fallbacks; `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's) |
@@ -467,6 +471,11 @@ expensive to find.
   the failed read before it has finished (measured with `writeAdapter()` and
   `setText()` alike, in a bare `qs -p` test). `Settings` defers the write with
   `Qt.callLater`; the adapter still picks up what is written.
+- **A key taken out of `SettingsStore` leaves settings.json at the next
+  write**: the adapter writes only what it declares, and the hot reload of
+  the edit rewrote the file within seconds (`dockBackground`, replaced by
+  `dockOpacity`). Read a renamed preference's value off the file before the
+  edit lands, to carry it over.
 - **Do not read churny properties in a model.** `Dock.items` used to read window
   titles; every keystroke in a terminal rebuilt the whole dock. Titles are now
   read per-item off the toplevel. This was worth 0.3% of idle CPU. So is which

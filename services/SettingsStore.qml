@@ -12,8 +12,8 @@ JsonAdapter {
     property bool roundnessFollowsWindows: false
     /*! Off keeps the dock on screen, reserving its footprint like the bar. */
     property bool dockAutoHide: true
-    /*! Off draws the dock's icons with no glass behind them. */
-    property bool dockBackground: true
+    /*! On, the dock takes the top panel's opacity instead of its own. */
+    property bool dockOpacityFollowsBar: false
     property list<string> pinnedApps: []
     /*! Application keys in the order the dock shows them. Keys that are
         neither pinned nor running are ignored, so it never needs pruning. */
@@ -45,6 +45,8 @@ JsonAdapter {
     property int border: -1
     property int roundness: -1
     property int fontScale: -1
+    property int barOpacity: -1
+    property int dockOpacity: -1
     property int notificationTimeout: -1
     property int dockHideDelay: -1
     /*! Hyprland overrides, pushed as keywords by CompositorOptions. */
