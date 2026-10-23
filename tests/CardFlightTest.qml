@@ -7,9 +7,9 @@ import "root:/modules/common"
 /*!
     A popup's card in flight: where it is, what it shows and how strongly,
     from the moment it takes off over the card it took over from to the
-    moment it rests; and that card holding, then going at once. The cards are
-    in a window, as a popup's are, since a card hands over a picture of itself
-    and only an item in a window can be pictured.
+    moment it rests; and that card holding, then going as it takes off. The
+    cards share a window, as popups' do (OverlaySurface), since a card hands
+    over a picture of itself and only an item in a window can be pictured.
 */
 Item {
     id: root
@@ -33,7 +33,6 @@ Item {
             shown: true
             settled: false
             rest: Qt.rect(500, 40, 300, 200)
-            windowTop: 20
             contentData: Item {
                 id: contents
                 anchors.fill: parent
@@ -68,21 +67,21 @@ Item {
         check.near("at rest: width", card.width, 300);
         check.near("at rest: height", card.height, 200);
 
-        // As ShellOverlay settles a popup taking over: the old card's place
-        // on the screen, 20 below its window's, and a stand-in picture.
-        Overlay.open(Overlay.launcher, screen);
-        Overlay.open(Overlay.dateMenu, screen);
+        // As ShellOverlay settles a popup taking over: the old card's place,
+        // in the window they share, and a stand-in picture.
+        Overlay.open(Overlay.launcher, screen, 0);
+        Overlay.open(Overlay.dateMenu, screen, 0);
         check.equal("waits for the old card's picture", card.waiting, true);
-        Overlay.depart(Overlay.launcher, Qt.rect(100, 320, 220, 120), { url: "" });
+        Overlay.depart(Overlay.launcher, root.from, { url: "" });
+        check.equal("the old card stays until this one takes off", Overlay.flight?.away, false);
         card.arrive();
         card.settled = true;
         check.equal("flying once it takes off", card.flying, true);
         check.equal("at full strength on its first frame", card.opacity, 1);
         check.box("starts exactly over the old card", card, root.from);
-        check.equal("the old card stays for that first frame", Overlay.flight?.away, false);
+        check.equal("the old card goes in the frame this one takes off", Overlay.flight?.away, true);
 
         card.flown = 0.25;
-        check.equal("the old card goes once this one has moved", Overlay.flight?.away, true);
         check.box("a quarter of the way", card, Qt.rect(200, 235, 240, 140));
         check.near("old contents half gone", card.outgoing, 0.5);
         check.near("new contents not in yet", card.incoming, 0);
@@ -104,16 +103,16 @@ Item {
         const screen = Quickshell.screens[0];
 
         // A hand-off that is dropped: the old card closes as it does today.
-        Overlay.open(Overlay.vpnMenu, screen);
-        Overlay.open(Overlay.launcher, screen);
+        Overlay.open(Overlay.vpnMenu, screen, 0);
+        Overlay.open(Overlay.launcher, screen, 0);
         dropped.shown = false;
         check.equal("holds while the hand-off stands", dropped.holding, true);
         Overlay.abandon(Overlay.launcher);
         check.equal("lets go once it is dropped", dropped.holding, false);
 
         // A hand-off taken: the old card holds, then goes at once.
-        Overlay.open(Overlay.quickSettings, screen);
-        Overlay.open(Overlay.dateMenu, screen);
+        Overlay.open(Overlay.quickSettings, screen, 0);
+        Overlay.open(Overlay.dateMenu, screen, 0);
         leaving.shown = false;
         check.equal("holds from the moment its popup closes", leaving.holding, true);
         landed.start();
@@ -145,7 +144,7 @@ Item {
             Overlay.arrive(Overlay.dateMenu);
             check.equal("gone at once when the new card takes off", leaving.visible, false);
             check.equal("no longer holding", leaving.holding, false);
-            Overlay.open(Overlay.vpnMenu, Quickshell.screens[0]);
+            Overlay.open(Overlay.vpnMenu, Quickshell.screens[0], 0);
             check.equal("stays gone through the next hand-off", leaving.visible, false);
             leaving.shown = true;
             check.equal("back when its popup opens again", leaving.visible, true);

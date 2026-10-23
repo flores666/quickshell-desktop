@@ -95,8 +95,7 @@ Clickable {
 
     onMiddleClicked: Dock.launchNew(root.item)
     onRightClicked: {
-        Overlay.anchorX = root.centerX();
-        Overlay.openWith(Overlay.dockMenu, root.screen, root.item);
+        Overlay.openWith(Overlay.dockMenu, root.screen, root.centerX(), root.item);
     }
 
     onHoveredChanged: root.hoverChanged(root.item.key, root.item.name, root.centerX(), root.hovered)

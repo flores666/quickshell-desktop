@@ -5,33 +5,43 @@ import "root:/services"
 import "root:/modules/common"
 
 /*!
-    A popup's window on its screen (ShellOverlay.top): what turns a card's
-    place in one popup's window into its place in another's. At rest a card
-    sits `popupGap` under the bar or above the dock, on the screen.
+    Where popups' cards rest on the screen, all of them in the one window
+    (OverlaySurface): `popupGap` under the bar or above the dock, whatever the
+    placement, and in the same coordinates in every popup, which is what lets
+    one card take over from another's place.
 */
 Item {
     Check {
         id: check
     }
 
-    ShellOverlay {
-        id: below
-        overlayId: "placeBelow"
-        cardHeight: 200
+    OverlaySurface {
+        id: surface
+
+        ShellOverlay {
+            id: below
+            overlayId: "placeBelow"
+            cardHeight: 200
+        }
+
+        ShellOverlay {
+            id: centre
+            overlayId: "placeCentre"
+            placement: ShellOverlay.Placement.Centre
+            cardHeight: 200
+        }
+
+        ShellOverlay {
+            id: above
+            overlayId: "placeAbove"
+            placement: ShellOverlay.Placement.AboveDock
+            cardHeight: 200
+        }
     }
 
-    ShellOverlay {
-        id: centre
-        overlayId: "placeCentre"
-        placement: ShellOverlay.Placement.Centre
-        cardHeight: 200
-    }
-
-    ShellOverlay {
-        id: above
-        overlayId: "placeAbove"
-        placement: ShellOverlay.Placement.AboveDock
-        cardHeight: 200
+    /*! A card's top on the screen, at rest. */
+    function topOf(host: ShellOverlay): real {
+        return surface.margins.top + surface.padTop + host.cardItem.rest.y;
     }
 
     Component.onCompleted: {
@@ -39,11 +49,13 @@ Item {
         // Placed on a screen without being opened, so nothing maps.
         Overlay.screen = screen;
         const underBar = Appearance.m.barFootprint + Appearance.m.popupGap;
-        check.near("a card under the bar, on the screen", below.top + below.padTop, underBar);
-        check.near("a centred card, on the screen", centre.top + centre.padTop, underBar);
-        check.near("a card above the dock, on the screen",
-            above.top + above.padTop + above.surfaceHeight,
+        check.equal("nothing open: the surface is down", surface.visible, false);
+        check.near("a card under the bar, on the screen", topOf(below), underBar);
+        check.near("a centred card, on the screen", topOf(centre), underBar);
+        check.near("a card above the dock, on the screen", topOf(above) + above.cardItem.rest.height,
             screen.height - Appearance.m.dockFootprint - Appearance.m.popupGap);
+        check.near("every popup in the same coordinates: x", below.mapToItem(above, 0, 0).x, 0);
+        check.near("every popup in the same coordinates: y", below.mapToItem(above, 0, 0).y, 0);
         check.done();
     }
 }

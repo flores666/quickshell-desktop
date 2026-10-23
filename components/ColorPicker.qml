@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Effects
 import "root:/config"
 import "root:/services"
 
@@ -23,7 +22,7 @@ import "root:/services"
     alpha under a 30% parent — so the picker stayed at full strength while the
     popup around it faded out; and two of them stacked left a light fringe
     where their antialiased corners did not quite cover each other. The
-    gradients are square and one mask rounds them (RoundedFill).
+    gradients are square and one mask rounds them (RoundedClip).
 */
 Column {
     id: root
@@ -107,7 +106,7 @@ Column {
         height: Appearance.m.pickerPlane
         activeFocusOnTab: root.enabled
 
-        RoundedFill {
+        RoundedClip {
             anchors.fill: parent
             radius: Appearance.r.sm
 
@@ -173,7 +172,7 @@ Column {
         height: Appearance.m.pickerStrip
         activeFocusOnTab: root.enabled
 
-        RoundedFill {
+        RoundedClip {
             anchors.fill: parent
             radius: height / 2
 
@@ -217,34 +216,6 @@ Column {
         Keys.onPressed: event => root.nudge(event, (dx, dy) => {
             root.hue = Math.max(0, Math.min(0.999, root.hue + (dx + dy) * root.step));
         })
-    }
-
-    /*! Its children, square, cut to a rounded rectangle by one mask. */
-    component RoundedFill: Item {
-        id: rounded
-
-        property real radius: 0
-        default property alias fills: body.data
-
-        Rectangle {
-            id: shape
-            anchors.fill: parent
-            radius: rounded.radius
-            visible: false
-            layer.enabled: true
-        }
-
-        Item {
-            id: body
-            anchors.fill: parent
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                maskEnabled: true
-                maskSource: shape
-                maskThresholdMin: 0.5
-                maskSpreadAtMin: 1.0
-            }
-        }
     }
 
     component PickerKnob: Rectangle {

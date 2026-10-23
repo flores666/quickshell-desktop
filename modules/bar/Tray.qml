@@ -52,9 +52,8 @@ Row {
                     return;
                 }
                 const surface = entry.QsWindow.contentItem;
-                Overlay.anchorX = surface
-                    ? entry.mapToItem(surface, entry.width / 2, 0).x : 0;
-                Overlay.openWith(Overlay.trayMenu, root.screen, entry.modelData);
+                Overlay.openWith(Overlay.trayMenu, root.screen,
+                    surface ? entry.mapToItem(surface, entry.width / 2, 0).x : 0, entry.modelData);
             }
 
             AppIcon {

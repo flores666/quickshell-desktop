@@ -126,7 +126,8 @@ modules/             the surfaces themselves
                      theme; SeedPicker is one colour seed: one row of choices
                      and a picker; ResetSection is the one place "Reset all"
                      lives
-  common/            shared surface chrome (ShellOverlay, OverlayCard), IPC,
+  common/            shared surface chrome (OverlaySurface, ShellOverlay,
+                     OverlayCard), IPC,
                      overview theming
 tools/               generators, the lint and test wrappers and
                      save-profile.sh; not loaded at runtime
@@ -238,11 +239,12 @@ exist once it is loaded.
 **Surface** — a Wayland layer-shell window (`PanelWindow`). The shell has
 persistent ones (bar, dock) and transient ones (popups, OSD, toasts). Every
 surface has a `WlrLayershell.namespace` of `shell-<name>`, which is how you
-identify it in `hyprctl layers`.
+identify it in `hyprctl layers`; the popups share one, `shell-popups`.
 
 **Popup** — launcher, quick settings, settings, date menu, tray menu, dock menu,
 VPN menu.
-All share `ShellOverlay`. Exactly one can be open at a time.
+Each is a `ShellOverlay`, and all their cards are drawn in the one window,
+`OverlaySurface`. Exactly one can be open at a time.
 
 **Overlay (the service)** — the arbiter that enforces "one popup at a time".
 Every open/close routes through it, which is why the invariant holds by
@@ -252,27 +254,30 @@ construction rather than by every surface remembering to close its siblings.
 fade in: its card starts exactly over the other's and flies to its own place
 in `t.resize`, as one card. The other's contents ride along as a picture and
 fade out over the first half of the way, the new contents fade in over the
-second, each at its own size, centred and clipped by the card. Every popup's
-window spans the screen's width and the room between the bar and the dock, so
-the flight is drawn inside the new popup's window alone. `Overlay.open`
-records the hand-off (`flight`); the old card holds, takes a picture of
-itself (`grabToImage`) and hands it over with its place on the screen
-(`depart`; `ShellOverlay.top` turns a place in one window into a place in
-another); the new one takes off once it has settled, and once it has moved —
-its first frame, over the old card, drawn — tells the old card to go
-(`arrive`), which is hidden at once. A hand-off with nothing to hand over (the
+second, each at its own size, centred and clipped by the card — to its
+rounded shape (`RoundedClip`), since a plain `clip` is square and the contents,
+bigger than the card for most of the way, filled its corners. Every popup's
+card is drawn in one window (`OverlaySurface`), in the same coordinates, so
+the hand-off is one change to one scene: the old card is hidden in the very
+frame the new one takes off. Each popup had a window of its own once, and two
+surfaces cannot change together (see the Hyprland gotchas): the swap blinked.
+`Overlay.open` records the hand-off (`flight`); the old card holds, takes a
+picture of itself (`grabToImage`) and hands it over with its place
+(`depart`); the new one takes off once it has settled, and the old card goes
+as it does (`arrive`). A hand-off with nothing to hand over (the
 old card not yet settled), or whose picture is not in by the time the new
 card would have appeared anyway (`t.fast`), is dropped (`abandon`), and both
 open and close as they would alone. Another screen, or the same popup with a
-new subject, is no hand-off. Popups' surfaces map without Hyprland's layer
-animation (`hyprland.conf`'s `shell-popups` rule), which would fade in the
-card that has just taken over.
+new subject, is no hand-off. The popups' surface maps without Hyprland's
+layer animation (`hyprland.conf`'s `shell-popups` rule): the cards draw their
+own coming and going.
 
-**Card** — the visible rounded panel inside a popup's window. The window is
-sized to `cardWidth`/`cardHeight` plus `pad` (room for the shadow) — as much
-of it as the screen leaves above and below, so the card keeps its place under
-the bar and a deep shadow is cut off by the screen's edge; input is masked to
-the card alone.
+**Card** — the visible rounded panel of a popup, in the popups' window. The
+window spans the room between the bar and the dock (or a taller card) plus
+`pad` (room for the shadow) — as much of it as the screen leaves above and
+below, so a card keeps its place under the bar or above the dock and a deep
+shadow is cut off by the screen's edge; input is masked to the open popup's
+card alone.
 
 **Window shadow** — `Appearance.windowShadow`, the one shadow of everything
 that floats, in CSS `drop-shadow` terms (macOS's: dropped 25 px with a 45 px
@@ -396,7 +401,7 @@ the `windows` plugin; see *The window plugin*.
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's, the title bars' and the windows' shadow — set by `CompositorTheme`) |
-| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `flight` (`{ from, to, rect, contents, away }`, see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
+| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorXOf` (each popup's anchor, by name, set only as that popup opens: one anchor for all slid the card being taken over from towards the next popup's button), `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `flight` (`{ from, to, rect, contents, away }`, see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
@@ -432,6 +437,7 @@ implemented.
 | `Surface` | a glass panel: `c.chrome` (the surface at `c.glass` opacity), a hairline and a `Shadow`; the compositor blurs what is behind it. `glass` fades all three together, eased, and leaves the content alone. Given its `screen` and where it rests there (`placedAt`), as the bar and the dock are, its `scheme` (the tint) and `schemeOver(item)` (the colours for anything on it, from where that rests: parents' positions read one by one so a binding hears each move) follow the wallpaper behind it (see *Backdrop*) |
 | `Backdrop` | the wallpaper's mean colour under any rectangle of a screen (`colorUnder`), from a summed-area table per screen; `measured`, `measure`, `gauge` (one pixel per `cell`, 8 logical px) |
 | `BackdropProbe` | measures one screen's picture for `Backdrop` whenever it or the screen's size changes: decoded off the main thread, already shrunk, into a canvas nobody sees (a canvas needs a window; the bar holds it) |
+| `RoundedClip` | its children cut to a rounded rectangle by one mask while `active` (two layers and a `MultiEffect`), and drawn as they are while not: `ColorPicker`'s square gradients, a popup card's contents while it flies or resizes |
 | `Shadow` | a `RectangularShadow` per layer of `Appearance.shadowFor(level)`; `level` 1–3, 3 being the window shadow |
 | `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
 | `AppIcon` | an application icon from the XDG theme, with fallbacks; `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's); `ink` draws it among the shell's glyphs (the tray's): desaturated, and a one-tone glyph levelled (Qt5Compat's `LevelAdjust`) so its tone comes out in the ink; artwork of both tones, a light sign on a dark plate, reads on either and keeps them |
@@ -447,7 +453,8 @@ implemented.
 
 | File | Purpose |
 |---|---|
-| `ShellOverlay` | the base every popup derives from: the surface, placement, sizing, masking, the map/settle/unmap lifecycle and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself. `top` is its window's top on the screen; `liveX`/`liveHeight` are the card's eased rest. Its settle waits for a hand-off's picture, bounded by `t.fast`, and its unmap for a card that is holding |
+| `OverlaySurface` | the one window every popup's card is drawn in (`shell.qml` puts the popups in it): the room between the bar and the dock, its shadow padding, masking to the open popup's card, keyboard focus and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself. Mapped while any card is drawn, so a hand-off never maps or unmaps it |
+| `ShellOverlay` | the base every popup derives from, an item over the surface's room: placement, sizing, the open/settle/fade lifecycle. `liveX`/`liveHeight` are the card's eased rest; `cardItem` the card. Its settle waits for a hand-off's picture, bounded by `t.fast`, and its card stays up for one that is holding |
 | `OverlayCard` | the card inside it: the entry slide, the fade (as one flattened layer), clipping, hover reporting to `Overlay`, swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `depart()`, `arrive()` |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
@@ -571,8 +578,8 @@ expensive to find.
   opacity** (measured: 51% alpha under a 30% parent; a plain fill, or a
   gradient with no radius, comes out at 30%). A popup's fade then leaves it at
   full strength, and two of them stacked leave a light fringe at the corners.
-  Draw the gradient square and round it with a mask — `ColorPicker`'s
-  `RoundedFill`.
+  Draw the gradient square and round it with a mask — `RoundedClip`, as
+  `ColorPicker` does.
 - **A `Repeater` handed a new JS array rebuilds every delegate**, even the ones
   whose entries are unchanged: every toast faded in again and restarted its
   expiry on each new arrival. Services replace their arrays wholesale, so a
@@ -605,7 +612,7 @@ expensive to find.
   the scrollbar showed rewrapped just as a row arrived and made it show, so
   `NotificationList` keeps the bar's footprint clear always.
 - **`visible` reads false for everything in a popup while it is closed**: it
-  is the effective visibility, and the popup's window is gone then. A size
+  is the effective visibility, and the popup (`ShellOverlay`) is hidden then. A size
   computed from a part's `visible` changes as the popup closes and again as
   it reopens. Every notification card collapsed to one line, and grew back
   while the date menu was applying what had arrived meanwhile — under the
@@ -688,6 +695,14 @@ expensive to find.
   the bar. Toasts set `margins.top` explicitly for this reason.
 - **A layer surface's input region does not shrink its rendering.** Masking
   controls input only.
+- **Two surfaces cannot change together.** Each commits its own frames, and
+  the compositor draws whatever each has committed by then: a popup's card
+  handed from one popup's window to another's showed a frame with neither
+  card (the old window's empty frame committed first: 1 swap in 42, measured
+  in a nested Hyprland) or one with both stacked — glass on glass, about 9%
+  darker over a light wallpaper — in most of the rest. Ordering the commits
+  removes the first and leaves the second. What has to change at once goes in one
+  surface: every popup's card is in `OverlaySurface` for this reason.
 - **Hyprland forgets every `hyprctl keyword` when it reloads its config.**
   `CompositorOptions` re-pushes everything, the overview's options included,
   on `configreloaded`. A keyword does not itself raise that event, so this
@@ -822,13 +837,13 @@ expensive to find.
   fails (`SwitcherWindow is not a type`) and the shell keeps the config it
   had. `systemctl --user restart quickshell`.
 - **Hyprland fades a layer surface in as it maps** (`fadeLayersIn`, about
-  180 ms here) unless a layer rule gives it `no_anim`. A shell surface whose
-  first frame has to be at full strength — a popup's card taking over from
-  another's — needs the rule.
+  180 ms here) unless a layer rule gives it `no_anim`. A shell surface that
+  draws its own fade — the popups' — needs the rule, or the two stack.
 - **A nested session is where tests and live checks go**, not the user's
   desktop: a nested Hyprland on a hidden special workspace with headless
   screens of its own (above), its sockets in the environment of `qs -p` (a
-  copy of the tree with a `shell.qml` holding only the popups under test, and
+  copy of the tree with a `shell.qml` holding only the popups under test, in
+  an `OverlaySurface`, and
   an `IpcHandler` to drive them) and of `grim -o <screen>`. Leave out the date
   menu, whose notification centre would take the session's notification bus
   name from the real shell, and the settings panel, whose `Fonts` writes the

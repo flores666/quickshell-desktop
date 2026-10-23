@@ -16,9 +16,9 @@ import "root:/services"
     starts exactly over the other's and flies to its own place, as the one
     card (Overlay.flight). The other's contents ride along as a picture and
     fade out over the first half of the way, this one's fade in over the
-    second, and the other card is gone the moment this one takes off. Every
-    popup's window spans the room between the bar and the dock, so the whole
-    flight is drawn inside this one.
+    second, and the other card is gone in the very frame this one takes off:
+    every popup's card is drawn in the one window (OverlaySurface), in the same
+    coordinates, so the hand-off is one change to one scene.
 */
 Surface {
     id: card
@@ -32,9 +32,9 @@ Surface {
     /*! Where the card rests in its window, and its size there: what it flies
         to, and what its contents are laid out at. `y` adds the entry slide. */
     property rect rest
-    /*! Its window's top edge on the screen (ShellOverlay.top): what turns its
-        place into one another popup's window can take over. */
-    property real windowTop: 0
+    /*! Its rest on the way to a new height, its contents already laid out at
+        that height (ShellOverlay.liveHeight). */
+    property bool resizing: false
 
     /*! Keys the card did not handle itself. */
     signal keyPressed(var event)
@@ -66,14 +66,6 @@ Surface {
     /*! Gone at once, the other card flying on in its place; kept until its
         popup opens again, whatever the next hand-off. */
     property bool handedOver: false
-    /*!
-        Taken off, and the other card not yet told to go. It is told once this
-        one has moved, when its first frame, over the other, is drawn. Told as
-        it takes off, the other window could take its last frame down before
-        this one put its first up — a frame with no card at all — where now
-        the worst is one frame of the two drawn exactly over each other.
-    */
-    property bool cueDue: false
     readonly property bool up: (card.shown || card.holding) && card.settled
 
     /*!
@@ -118,7 +110,6 @@ Surface {
     // Unmapped, or about to take off again: whatever it was flying is over.
     onSettledChanged: if (!card.settled) {
         flight.stop();
-        card.cueDue = false;
         card.flown = 1;
     }
     onFlyingChanged: if (!card.flying) card.leftBehind = null
@@ -150,16 +141,16 @@ Surface {
         const ratio = card.Screen.devicePixelRatio;
         const grabbed = card.settled && stage.grabToImage(result => {
             if (card.holding)
-                Overlay.depart(card.overlayId,
-                    Qt.rect(card.x, card.windowTop + card.y, card.width, card.height), result);
+                Overlay.depart(card.overlayId, Qt.rect(card.x, card.y, card.width, card.height), result);
         }, Qt.size(Math.ceil(card.width * ratio), Math.ceil(card.height * ratio)));
         if (!grabbed)
             Overlay.abandon(card.overlayId);
     }
 
     /*! As its popup settles: taking over, it starts over the other card with
-        that card's contents and flies — the other's cue to go; with no
-        picture of it in time, it gives the hand-off up and opens alone. */
+        that card's contents and flies, and the other goes in the same frame;
+        with no picture of it in time, it gives the hand-off up and opens
+        alone. */
     function arrive(): void {
         const f = Overlay.flight;
         if (f === null || f.to !== card.overlayId)
@@ -168,15 +159,10 @@ Surface {
             Overlay.abandon(card.overlayId);
             return;
         }
-        card.from = Qt.rect(f.rect.x, f.rect.y - card.windowTop, f.rect.width, f.rect.height);
+        card.from = f.rect;
         card.leftBehind = f.contents;
         card.flown = 0;
-        card.cueDue = true;
         flight.restart();
-    }
-
-    onFlownChanged: if (card.cueDue && card.flown > 0) {
-        card.cueDue = false;
         Overlay.arrive(card.overlayId);
     }
 
@@ -185,13 +171,16 @@ Surface {
         onHoveredChanged: Overlay.setPointerOver("popup", pointer.hovered && card.shown)
     }
 
-    Item {
+    RoundedClip {
         id: stage
         anchors.fill: parent
         // The card's contents never draw outside the card. While the card is
         // animating to a new height or flying its content is already at full
-        // size, and without this it spills over the edge onto the desktop.
+        // size, and without this it spills over the edge onto the desktop —
+        // and, cut square, past the card's rounded corners.
         clip: true
+        radius: card.radius
+        active: card.flying || card.resizing
 
         Item {
             id: body

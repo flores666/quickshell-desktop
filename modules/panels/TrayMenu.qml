@@ -30,7 +30,7 @@ ShellOverlay {
         fade-out for the same item, the subject is unchanged — and whenever the
         item changes: a second icon's menu asked for while the first is up
         changes it without the popup closing. Emptied with the subject only
-        once the surface is gone (ShellOverlay): resetting it as the popup
+        once the card is gone (ShellOverlay): resetting it as the popup
         starts closing would collapse the card in the middle of its fade-out. */
     onShownChanged: if (root.shown) root.showTop()
     onSubjectChanged: root.showTop()

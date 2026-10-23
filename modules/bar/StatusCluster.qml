@@ -22,8 +22,7 @@ BarButton {
     padding: Appearance.s.md
 
     onClicked: {
-        Overlay.anchorX = root.windowCenterX();
-        Overlay.toggle(Overlay.quickSettings, root.screen);
+        Overlay.toggle(Overlay.quickSettings, root.screen, root.windowCenterX());
     }
 
     Icon {

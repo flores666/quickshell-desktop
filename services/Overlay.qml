@@ -27,10 +27,14 @@ Singleton {
     property string active: root.none
     property ShellScreen screen: null
     /*!
-        Where a popover should point, in the coordinates of the screen it opens
-        on. Set by whichever bar button opened it.
+        Where each popover points, by name, in the coordinates of the screen it
+        opens on: the bar button or dock icon that last opened it. A popup's
+        own changes only as that popup opens, so one still on screen as another
+        opens — fading, or holding its card for the other to take over — stays
+        where it was instead of sliding towards the other's button, which it did
+        when there was one anchor for all.
     */
-    property real anchorX: 0
+    property var anchorXOf: ({})
     /*!
         Subject of the surface, where it has one — e.g. the tray item whose
         menu is up. Handed over only once the popup it is for is the active
@@ -95,8 +99,9 @@ Singleton {
         A popup opened straight over another on the same screen, which the two
         fly as one card (OverlayCard): `{ from, to, rect, contents, away }`.
         Recorded here as the new one opens; `from` then hands over its card's
-        place on the screen and a picture of what it shows (`depart`), `to`
-        takes off from there (`arrive`, which is `from`'s cue to go), and
+        place (in OverlaySurface, where every card is) and a picture of what it
+        shows (`depart`), `to` takes off from there (`arrive`, and `from` goes
+        in that frame), and
         either gives it up when it cannot (`abandon`), both then opening and
         closing as they would alone. Each acts only on the hand-off that
         names it, so a stale one cannot disturb a newer.
@@ -118,12 +123,13 @@ Singleton {
             root.flight = null;
     }
 
-    function open(name: string, onScreen: ShellScreen): void {
+    function open(name: string, onScreen: ShellScreen, at: real): void {
         const screen = onScreen ?? Compositor.focusedScreen;
         root.flight = root.anyOpen && root.active !== name && screen === root.screen
             ? { from: root.active, to: name, rect: null, contents: null, away: false } : null;
         root.payload = null;
         root.screen = screen;
+        root.anchorXOf = Object.assign({}, root.anchorXOf, { [name]: at });
         root.menu = null;
         root.active = name;
     }
@@ -135,12 +141,11 @@ Singleton {
     function openUnanchored(name: string): void {
         const s = Compositor.focusedScreen;
         const w = s ? s.width : 1920;
-        root.anchorX = name === root.quickSettings ? w - 140 : w / 2;
-        root.open(name, s);
+        root.open(name, s, name === root.quickSettings ? w - 140 : w / 2);
     }
 
-    function openWith(name: string, onScreen: ShellScreen, subject: var): void {
-        root.open(name, onScreen);
+    function openWith(name: string, onScreen: ShellScreen, at: real, subject: var): void {
+        root.open(name, onScreen, at);
         root.payload = subject;
     }
 
@@ -183,10 +188,10 @@ Singleton {
             root.close();
     }
 
-    function toggle(name: string, onScreen: ShellScreen): void {
+    function toggle(name: string, onScreen: ShellScreen, at: real): void {
         if (root.active === name)
             root.close();
         else
-            root.open(name, onScreen);
+            root.open(name, onScreen, at);
     }
 }

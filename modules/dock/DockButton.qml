@@ -21,10 +21,14 @@ Clickable {
     radius: Appearance.r.capsule(Appearance.m.dockSlot)
     focusable: false
 
+    /*! Its middle across the dock's window, as a DockItem reports it. */
+    function centerX(): real {
+        const surface = root.QsWindow.contentItem;
+        return surface ? root.mapToItem(surface, root.width / 2, 0).x : 0;
+    }
+
     onClicked: root.activated()
-    // Its middle across the dock's window, as a DockItem reports it.
-    onHoveredChanged: root.hoverChanged(root.tipText, root.tipText,
-        root.QsWindow.contentItem ? root.mapToItem(root.QsWindow.contentItem, root.width / 2, 0).x : 0, root.hovered)
+    onHoveredChanged: root.hoverChanged(root.tipText, root.tipText, root.centerX(), root.hovered)
 
     // In an application icon's own box, so as wide as their artwork: the
     // glyph's dots fill two thirds of its box, about what an icon's artwork

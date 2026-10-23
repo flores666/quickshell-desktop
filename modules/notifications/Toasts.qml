@@ -45,7 +45,7 @@ PanelWindow {
         zones" surface starts at the screen edge. */
     readonly property int stackTop: Appearance.m.barFootprint + Appearance.m.popupGap
     /*! Room around the stack for the toasts' shadow, as much as the screen
-        leaves, as in ShellOverlay: the surface reaches up over the bar and out
+        leaves, as in OverlaySurface: the surface reaches up over the bar and out
         to the screen's edge, and the stack sits where it belongs inside it. */
     readonly property int pad: Appearance.shadowFor(3).pad
     readonly property int padTop: Math.min(root.pad, root.stackTop)

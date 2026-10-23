@@ -19,8 +19,7 @@ BarButton {
     padding: Appearance.s.md
 
     onClicked: {
-        Overlay.anchorX = root.windowCenterX();
-        Overlay.toggle(Overlay.dateMenu, root.screen);
+        Overlay.toggle(Overlay.dateMenu, root.screen, root.windowCenterX());
     }
 
     Label {

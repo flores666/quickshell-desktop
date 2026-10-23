@@ -132,7 +132,7 @@ Row {
         tipText: qsTr("Applications")
         selected: Overlay.isOpen(Overlay.launcher)
         scheme: root.panel.schemeOver(launcher)
-        onActivated: Overlay.toggle(Overlay.launcher, root.screen)
+        onActivated: Overlay.toggle(Overlay.launcher, root.screen, launcher.centerX())
         onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)
     }
 }

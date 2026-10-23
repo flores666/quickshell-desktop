@@ -20,8 +20,7 @@ BarButton {
     padding: Appearance.s.md
 
     onClicked: {
-        Overlay.anchorX = root.windowCenterX();
-        Overlay.toggle(Overlay.vpnMenu, root.screen);
+        Overlay.toggle(Overlay.vpnMenu, root.screen, root.windowCenterX());
     }
 
     Icon {

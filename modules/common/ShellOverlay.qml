@@ -2,23 +2,20 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
-import Quickshell.Wayland
 import "root:/config"
 import "root:/services"
 
 /*!
-    The shared chrome for every shell popup: launcher, quick settings, the date
-    menu and the two popup menus.
+    One shell popup — the launcher, quick settings, the date menu, the settings
+    panel or a menu — on the window they all share (OverlaySurface): its card,
+    where the card rests and how big it is, and the open/settle/fade lifecycle.
+    Every popup fills the surface's room, so a card's place is the same in
+    every popup's coordinates.
 
-    The window is the space a popup may occupy; the card inside it is the popup
-    (see `surfaceHeight`). Input is masked to the card, so a click outside lands
-    on whatever is under it — the application still gets that click, and hover
-    keeps working everywhere.
-
-    One instance exists per popup, not per screen; it follows Overlay.screen,
-    which is set to the focused monitor when the popup opens.
+    One instance exists per popup, not per screen; the surface follows
+    Overlay.screen, which is set to the focused monitor when a popup opens.
 */
-PanelWindow {
+Item {
     id: root
 
     /*! Where the card sits. Only `Centre` differs across the screen; every
@@ -27,7 +24,7 @@ PanelWindow {
 
     required property string overlayId
     property int placement: ShellOverlay.Placement.BelowBar
-    /*! Size of the visible card. The window adds room for its shadow. */
+    /*! Size of the visible card. OverlaySurface adds room for its shadow. */
     property int cardWidth: Appearance.m.popoverWidth
     property int cardHeight: 200
     /*!
@@ -42,7 +39,7 @@ PanelWindow {
     readonly property int cardX: {
         const screenWidth = root.screen ? root.screen.width : 1920;
         const centre = root.placement === ShellOverlay.Placement.Centre
-            ? screenWidth / 2 : Overlay.anchorX;
+            ? screenWidth / 2 : Overlay.anchorXOf[root.overlayId] ?? 0;
         const edge = Appearance.s.md;
         return Math.round(Math.max(edge,
             Math.min(screenWidth - root.cardWidth - edge, centre - root.cardWidth / 2)));
@@ -66,57 +63,16 @@ PanelWindow {
         enabled: root.settled
         NumberAnimation { duration: Appearance.t.resize; easing.type: Appearance.t.resizeEasing }
     }
-    /*!
-        What the surface is sized to: the whole space a popup may occupy, not the
-        card.
 
-        Changing a layer surface's geometry is a round trip through the
-        compositor, and the compositor animates the result — an anchored surface
-        is moved towards its new box while the old buffer is still on screen.
-        Measured on a shrinking dock menu whose card had not moved at all in the
-        scene: the bottom edge leapt 77px and eased back over eight frames. No
-        client-side compensation can cancel that, because the frames are drawn
-        from a buffer the shell has already committed.
-
-        So the surface is never resized while a popup is up. It is given the
-        room between the bar and the dock once, and the card animates inside it,
-        which is pure client-side rendering the compositor never sees. The rest
-        of the surface is transparent and masked out of the input region, the
-        same way the dock's window is far wider than the dock.
-
-        "Once" is enforced by `frame`, below. The bar's and dock's footprints are
-        settable, so they can change while a popup is up — and the popup that
-        changes them is this one, holding the settings panel. Left as a live
-        binding this would resize and re-margin the very surface the user is
-        dragging a slider in, which is the 77px artifact above, on every step.
-    */
-    readonly property int surfaceHeight: Math.max(root.cardHeight, root.liveHeight,
-        (root.screen ? root.screen.height : 1080)
-            - root.frame.top - root.frame.bottom - Appearance.m.popupGap * 2)
-
-    /*!
-        The room the bar and the dock leave.
-
-        Live while the surface is down, frozen for as long as it is up: the
-        window is configured from the footprints as they are at the moment it
-        maps, and nothing the user does to the bar while it is on screen moves
-        it again. Only the surface reads this — the card's contents read
-        Appearance directly, since redrawing them is client-side and free.
-    */
-    property var frame: root.footprints()
-
-    function footprints(): var {
-        return { top: Appearance.m.barFootprint, bottom: Appearance.m.dockFootprint };
-    }
-
-    onRenderedChanged: root.frame = root.rendered
-        ? root.footprints()
-        : Qt.binding(() => root.footprints())
+    /*! The shadow its card casts (OverlaySurface leaves room for it). */
     property int elevation: 3
     /*! What takes the keyboard when the popup opens. */
     property Item initialFocusItem: null
 
     default property alias content: card.contentData
+    readonly property alias cardItem: card
+    /*! The screen the popups are on. */
+    readonly property ShellScreen screen: Overlay.screen
 
     readonly property bool shown: Overlay.isOpen(root.overlayId)
     /*! Stays true through the closing animation so the popup can fade out. */
@@ -125,10 +81,9 @@ PanelWindow {
         Whether the card's geometry has caught up with its content.
 
         The first size a popup's card is given is always stale (see the
-        FrameAnimation below), because Qt cannot lay the content out until the
-        surface exists. The card stays transparent until its size stops
-        changing; the surface around it is empty, so there is nothing to see
-        meanwhile.
+        FrameAnimation below), because Qt cannot lay the content out until it is
+        drawn. The card stays transparent until its size stops changing, so
+        there is nothing to see meanwhile.
     */
     property bool settled: false
     /*!
@@ -138,22 +93,6 @@ PanelWindow {
         closing, collapsing the card mid-fade.
     */
     property var subject: null
-    /*! Room for the shadow to spread outside the card. */
-    readonly property int pad: Appearance.shadowFor(root.elevation).pad + Appearance.s.md
-    /*!
-        How much of that room there is above and below the card: no more than
-        lies between it and the screen's edge. A level-3 shadow is deeper than
-        the bar is tall, and what does not fit is cut off by the screen's edge
-        rather than pushing the card off its place under the bar or above the
-        dock; a negative layer-shell margin would instead push the surface off
-        the edge it is anchored to.
-    */
-    readonly property int padTop: Math.min(root.pad, root.frame.top + Appearance.m.popupGap)
-    readonly property int padBottom: Math.min(root.pad, root.frame.bottom + Appearance.m.popupGap)
-    /*! The window's top edge on its screen, by which a card is handed between windows. */
-    readonly property real top: root.placement === ShellOverlay.Placement.AboveDock
-        ? (root.screen ? root.screen.height : 1080) - root.margins.bottom - root.implicitHeight
-        : root.margins.top
 
     /*!
         Keys the popup did not handle itself; OverlayCard has already taken
@@ -161,50 +100,9 @@ PanelWindow {
     */
     signal keyPressed(var event)
 
-    screen: Overlay.screen
+    anchors.fill: parent
     visible: root.rendered
-    color: "transparent"
-    exclusionMode: ExclusionMode.Ignore
-    implicitHeight: root.surfaceHeight + root.padTop + root.padBottom
 
-    anchors {
-        left: true
-        right: true
-        top: root.placement !== ShellOverlay.Placement.AboveDock
-        bottom: root.placement === ShellOverlay.Placement.AboveDock
-    }
-
-    margins {
-        top: root.frame.top + Appearance.m.popupGap - root.padTop
-        bottom: root.frame.bottom + Appearance.m.popupGap - root.padBottom
-    }
-
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "shell-" + root.overlayId
-    /*!
-        On-demand, never exclusive: an exclusive layer surface in Hyprland takes
-        the pointer as well as the keyboard, which would stop clicks reaching
-        the application underneath. On-demand still gives the popup the keyboard
-        it needs for typing and Escape.
-    */
-    WlrLayershell.keyboardFocus: root.shown
-        ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
-
-    /*!
-        Input lands on the card and nowhere else — not even on the shadow around
-        it, which is only paint.
-    */
-    mask: Region { item: root.shown ? card : null }
-
-    /*!
-        Dismissal on an outside click.
-
-        Nothing here captures input. Hyprland reports every pointer press through
-        a non-consuming bind (see hyprland.conf), and Overlay decides: the press
-        closes the popup unless the pointer is over one of the shell's own
-        surfaces. The click itself is delivered to whatever is underneath either
-        way, and hover out there is never interrupted.
-    */
     onShownChanged: {
         if (root.shown) {
             // Taking over from another popup: placed afresh, though it may
@@ -219,12 +117,11 @@ PanelWindow {
     }
 
     FrameAnimation {
-        // Watches the card settle. Qt lays a window's contents out only while
-        // that window is mapped, so nothing can be measured before the surface
-        // exists and the size the card is first given is whatever the last
+        // Watches the card settle. Qt lays out only what is drawn — the
+        // surface mapped, this popup visible — so nothing can be measured
+        // before then and the size the card is first given is whatever the last
         // subject left behind; the real one lands a layout pass later. `running`
-        // is a plain binding, like the unmap timer's, so this cannot be left
-        // armed.
+        // is a plain binding, like the timer's, so this cannot be left armed.
         id: settle
 
         property int lastWidth: -1
@@ -261,17 +158,18 @@ PanelWindow {
 
         function onPayloadChanged(): void {
             // Cleared, it stays: a closing popup keeps its subject through the
-            // fade, and drops it as the surface goes.
+            // fade, and drops it as its card goes.
             if (root.shown && Overlay.payload !== null)
                 root.subject = Overlay.payload;
         }
     }
 
     Timer {
-        // Unmaps the surface once the fade-out has played. This cannot hang off
-        // the animation itself: an animation driven by a Behavior never emits
-        // finished(). `running` is a plain binding, so the surface is unmapped
-        // even if the property changes while no handler is watching.
+        // Takes the card down once its fade-out has played; the surface unmaps
+        // once no card is drawn. This cannot hang off the animation itself: an
+        // animation driven by a Behavior never emits finished(). `running` is a
+        // plain binding, so the card goes even if the property changes while no
+        // handler is watching.
         running: root.rendered && !root.shown && !card.holding
         interval: Appearance.t.fast + 60
         onTriggered: {
@@ -287,11 +185,11 @@ PanelWindow {
         overlayId: root.overlayId
         shown: root.shown
         settled: root.settled
-        // Bottom-anchored popups keep their bottom edge against the dock, so the
-        // room a resize is holding sits above the card rather than below it.
-        rest: Qt.rect(root.liveX, root.padTop + (root.placement === ShellOverlay.Placement.AboveDock
-            ? root.surfaceHeight - root.liveHeight : 0), root.cardWidth, root.liveHeight)
-        windowTop: root.top
+        // Popups above the dock keep their bottom edge against it, so the room
+        // a resize is holding sits above the card rather than below it.
+        rest: Qt.rect(root.liveX, root.placement === ShellOverlay.Placement.AboveDock
+            ? root.height - root.liveHeight : 0, root.cardWidth, root.liveHeight)
+        resizing: root.liveHeight !== root.cardHeight
         elevation: root.elevation
         onKeyPressed: event => root.keyPressed(event)
     }

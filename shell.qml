@@ -56,19 +56,16 @@ ShellRoot {
 
     CompositorTheme {}
 
-    QuickSettings {}
-
-    DateMenu {}
-
-    Launcher {}
-
-    SettingsPanel {}
-
-    TrayMenu {}
-
-    VpnMenu {}
-
-    DockMenu {}
+    // Every popup's card is drawn in this one window.
+    OverlaySurface {
+        QuickSettings {}
+        DateMenu {}
+        Launcher {}
+        SettingsPanel {}
+        TrayMenu {}
+        VpnMenu {}
+        DockMenu {}
+    }
 
     Lock {}
 
