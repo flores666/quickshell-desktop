@@ -91,9 +91,39 @@ Singleton {
         }
     }
 
+    /*!
+        A popup opened straight over another on the same screen, which the two
+        fly as one card (OverlayCard): `{ from, to, rect, contents, away }`.
+        Recorded here as the new one opens; `from` then hands over its card's
+        place on the screen and a picture of what it shows (`depart`), `to`
+        takes off from there (`arrive`, which is `from`'s cue to go), and
+        either gives it up when it cannot (`abandon`), both then opening and
+        closing as they would alone. Each acts only on the hand-off that
+        names it, so a stale one cannot disturb a newer.
+    */
+    property var flight: null
+
+    function depart(name: string, rect: rect, contents: var): void {
+        if (root.flight?.from === name)
+            root.flight = Object.assign({}, root.flight, { rect, contents });
+    }
+
+    function arrive(name: string): void {
+        if (root.flight?.to === name)
+            root.flight = Object.assign({}, root.flight, { away: true });
+    }
+
+    function abandon(name: string): void {
+        if (root.flight?.from === name || root.flight?.to === name)
+            root.flight = null;
+    }
+
     function open(name: string, onScreen: ShellScreen): void {
+        const screen = onScreen ?? Compositor.focusedScreen;
+        root.flight = root.anyOpen && root.active !== name && screen === root.screen
+            ? { from: root.active, to: name, rect: null, contents: null, away: false } : null;
         root.payload = null;
-        root.screen = onScreen ?? Compositor.focusedScreen;
+        root.screen = screen;
         root.menu = null;
         root.active = name;
     }
@@ -115,6 +145,7 @@ Singleton {
     }
 
     function close(): void {
+        root.flight = null;
         root.menu = null;
         root.active = root.none;
         root.payload = null;

@@ -6,21 +6,35 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    The visible card of a popup: how it appears, fades and takes input.
+    The visible card of a popup: how it appears, fades and takes input, and
+    how it flies in from the popup it takes over from.
 
-    Where it sits and how big it is belong to ShellOverlay, which owns the
-    surface around it; this is only what the card does once placed.
+    Where it rests and how big it is belong to ShellOverlay, which owns the
+    surface around it (`rest`); this is only what the card does once placed.
+
+    A popup opened over another on the same screen does not fade in: its card
+    starts exactly over the other's and flies to its own place, as the one
+    card (Overlay.flight). The other's contents ride along as a picture and
+    fade out over the first half of the way, this one's fade in over the
+    second, and the other card is gone the moment this one takes off. Every
+    popup's window spans the room between the bar and the dock, so the whole
+    flight is drawn inside this one.
 */
 Surface {
     id: card
 
+    required property string overlayId
     /*! Whether the popup is open. Hover and the keyboard follow this alone. */
     required property bool shown
     /*! Whether the card's geometry has caught up with its content (see
         ShellOverlay.settled). Until then it is invisible and does not animate. */
     required property bool settled
-    /*! Where the card rests; `y` adds the entry slide to it. */
-    property real restY: 0
+    /*! Where the card rests in its window, and its size there: what it flies
+        to, and what its contents are laid out at. `y` adds the entry slide. */
+    property rect rest
+    /*! Its window's top edge on the screen (ShellOverlay.top): what turns its
+        place into one another popup's window can take over. */
+    property real windowTop: 0
 
     /*! Keys the card did not handle itself. */
     signal keyPressed(var event)
@@ -29,34 +43,141 @@ Surface {
         own `content` is, and is where this file's children go. */
     property alias contentData: body.data
 
+    /*! Where it took off from, in its window; and how far from there it has
+        come, 0 to 1 over `t.resize` — 1, at rest, unless it is flying. */
+    property rect from
+    property real flown: 1
+    readonly property bool flying: card.flown < 1
+    /*! The picture of the contents it took over (a grab result, held for its
+        url), which rides along until it lands. */
+    property var leftBehind: null
+    /*! The old contents' share of the way, and the new ones'. */
+    readonly property real outgoing: card.flying ? 1 - Math.min(1, card.flown * 2) : 0
+    readonly property real incoming: card.flying ? Math.max(0, card.flown * 2 - 1) : 1
+
+    /*! Kept on screen for the popup taking over: from the moment its own
+        popup closes until the other card takes off, or the hand-off is given
+        up — then it closes as it would alone. */
+    readonly property bool holding: !card.shown && Overlay.flight !== null
+        && Overlay.flight.from === card.overlayId && !Overlay.flight.away
+    /*! Taking over, with the other card's picture not yet in hand. */
+    readonly property bool waiting: Overlay.flight !== null
+        && Overlay.flight.to === card.overlayId && Overlay.flight.contents === null
+    /*! Gone at once, the other card flying on in its place; kept until its
+        popup opens again, whatever the next hand-off. */
+    property bool handedOver: false
+    /*!
+        Taken off, and the other card not yet told to go. It is told once this
+        one has moved, when its first frame, over the other, is drawn. Told as
+        it takes off, the other window could take its last frame down before
+        this one put its first up — a frame with no card at all — where now
+        the worst is one frame of the two drawn exactly over each other.
+    */
+    property bool cueDue: false
+    readonly property bool up: (card.shown || card.holding) && card.settled
+
     /*!
         The short slide the card makes as it appears. Animated on its own
-        rather than through `y`, so that the resize compensation in `restY`
+        rather than through `y`, so that the resize compensation in the rest
         stays exactly in step with the height instead of chasing it on a
         different curve — which is the bottom edge of the card visibly drifting.
     */
-    property real entry: card.shown && card.settled ? 0 : -Appearance.s.md
+    property real entry: card.up ? 0 : -Appearance.s.md
+    property real fade: card.up ? 1 : 0
 
     Behavior on entry {
         NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
     }
 
-    Behavior on x {
-        // Same clock and curve as the height, so a popup that re-anchors and
-        // resizes at once reads as one movement. Not while it is still being
-        // placed: it must appear where it belongs, not slide in from the
-        // last popup's position.
-        enabled: card.settled
-        NumberAnimation { duration: Appearance.t.resize; easing.type: Appearance.t.resizeEasing }
+    Behavior on fade {
+        NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
     }
 
-    y: card.restY + card.entry
+    /*! Where a value of the rest stands on the way there from `from`. */
+    function along(start: real, end: real): real {
+        return card.flying ? start + (end - start) * card.flown : end;
+    }
+
+    x: card.along(card.from.x, card.rest.x)
+    y: card.along(card.from.y, card.rest.y) + (card.flying ? 0 : card.entry)
+    width: card.along(card.from.width, card.rest.width)
+    height: card.along(card.from.height, card.rest.height)
     // One radius for every panel; no popup picks its own.
     radius: Appearance.r.panel
-    opacity: card.shown && card.settled ? 1 : 0
+    // A card in flight is the one that was there: at full strength from its
+    // first frame, whatever its own fade has reached.
+    opacity: card.flying && card.up ? 1 : card.fade
+    visible: !card.handedOver
 
-    Behavior on opacity {
-        NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+    onShownChanged: {
+        if (card.shown)
+            card.handedOver = false;
+        else if (Overlay.flight?.from === card.overlayId)
+            card.depart();
+    }
+    // Unmapped, or about to take off again: whatever it was flying is over.
+    onSettledChanged: if (!card.settled) {
+        flight.stop();
+        card.cueDue = false;
+        card.flown = 1;
+    }
+    onFlyingChanged: if (!card.flying) card.leftBehind = null
+
+    Connections {
+        target: Overlay
+
+        function onFlightChanged(): void {
+            const f = Overlay.flight;
+            if (!card.shown && f !== null && f.from === card.overlayId && f.away)
+                card.handedOver = true;
+        }
+    }
+
+    NumberAnimation {
+        id: flight
+        target: card
+        property: "flown"
+        from: 0
+        to: 1
+        duration: Appearance.t.resize
+        easing.type: Appearance.t.resizeEasing
+    }
+
+    /*! Hands the card over to the popup taking over: a picture of what it
+        shows and where it is on the screen. Given up when there is nothing on
+        screen to hand over. */
+    function depart(): void {
+        const ratio = card.Screen.devicePixelRatio;
+        const grabbed = card.settled && stage.grabToImage(result => {
+            if (card.holding)
+                Overlay.depart(card.overlayId,
+                    Qt.rect(card.x, card.windowTop + card.y, card.width, card.height), result);
+        }, Qt.size(Math.ceil(card.width * ratio), Math.ceil(card.height * ratio)));
+        if (!grabbed)
+            Overlay.abandon(card.overlayId);
+    }
+
+    /*! As its popup settles: taking over, it starts over the other card with
+        that card's contents and flies — the other's cue to go; with no
+        picture of it in time, it gives the hand-off up and opens alone. */
+    function arrive(): void {
+        const f = Overlay.flight;
+        if (f === null || f.to !== card.overlayId)
+            return;
+        if (f.contents === null) {
+            Overlay.abandon(card.overlayId);
+            return;
+        }
+        card.from = Qt.rect(f.rect.x, f.rect.y - card.windowTop, f.rect.width, f.rect.height);
+        card.leftBehind = f.contents;
+        card.flown = 0;
+        card.cueDue = true;
+        flight.restart();
+    }
+
+    onFlownChanged: if (card.cueDue && card.flown > 0) {
+        card.cueDue = false;
+        Overlay.arrive(card.overlayId);
     }
 
     HoverHandler {
@@ -65,20 +186,40 @@ Surface {
     }
 
     Item {
-        id: body
+        id: stage
         anchors.fill: parent
         // The card's contents never draw outside the card. While the card is
-        // animating to a new height its content is already at full size, and
-        // without this it spills over the edge onto the desktop.
+        // animating to a new height or flying its content is already at full
+        // size, and without this it spills over the edge onto the desktop.
         clip: true
-        // Fades as one flattened image. An opacity on the card is applied to
-        // every descendant separately, so a control drawn from shapes painted
-        // over each other shows through itself: a quick-settings tile is a
-        // fill with a disc and a chevron on it, and each shape it overlaps adds
-        // its colour again. Measured on the closing fade, when the tile was
-        // built from three overlapping pieces: the seam read 60% brighter than
-        // the tile around it.
-        layer.enabled: card.opacity < 1
+
+        Item {
+            id: body
+            // Laid out at the size it rests at, so flying never reflows it;
+            // centred, so a card on its way shows the middle of it.
+            anchors.centerIn: parent
+            width: card.rest.width
+            height: card.rest.height
+            opacity: card.incoming
+            // Fades as one flattened image. An opacity on the card is applied
+            // to every descendant separately, so a control drawn from shapes
+            // painted over each other shows through itself: a quick-settings
+            // tile is a fill with a disc and a chevron on it, and each shape it
+            // overlaps adds its colour again. Measured on the closing fade, when
+            // the tile was built from three overlapping pieces: the seam read
+            // 60% brighter than the tile around it.
+            layer.enabled: card.opacity < 1 || card.flying
+        }
+
+        Image {
+            anchors.centerIn: parent
+            width: card.from.width
+            height: card.from.height
+            visible: card.flying && card.leftBehind !== null
+            source: card.leftBehind?.url ?? ""
+            opacity: card.outgoing
+            cache: false
+        }
     }
 
     // Over the content, so a menu opened near a pane's edge is not clipped by it.

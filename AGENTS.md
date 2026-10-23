@@ -23,6 +23,7 @@ up as this desktop from the checkout alone; see *The rest of the desktop*.
 qs -c shell                       # run it (resolves ~/.config/quickshell/shell)
 qs -c shell ipc call shell <action>   # drive it; see ShellIpc.actions
 ./tools/lint.sh                   # qmllint over the whole tree
+./tools/test.sh                   # the tests in tests/, each as the whole shell under qs -p
 python3 tools/genicons.py         # regenerate components/Icons.qml
 ./tools/build-overview-plugin.sh  # rebuild the hyprexpo plugin (--if-stale: only if out of date)
 ./tools/build-windows-plugin.sh   # rebuild the window plugin (--if-stale: likewise)
@@ -39,6 +40,18 @@ types) and `QObject*`-typed properties like `Loader.item` and
 wrapper filters one false warning itself: qmllint calls a singleton "not
 declared as singleton in qmldir" unless its file uses something else from its
 own directory, though the generated qmldirs declare every one.
+
+`./tools/test.sh` runs `tests/*Test.qml`. Quickshell is built into `qs`, so
+`qmltestrunner` cannot import it: each test is run as the whole shell, under
+`qs -p`, in a copy of the tree whose `shell.qml` holds that test alone, with
+state and cache directories of its own (Settings starts from `profile/` and
+writes nothing real). A test reports through `tests/Check.qml` — a `PASS` or
+`FAIL` line per check, then `TESTS DONE n failed` — and the script stops the
+instance after that line, since nothing in QML can make `qs` quit. What the
+tests reach is the logic a popup hangs on (the hand-off, a card's geometry);
+how it looks is still checked on screen. Run them inside a nested Hyprland
+(`HYPRLAND_INSTANCE_SIGNATURE` and `WAYLAND_DISPLAY` set to its own; see
+*Testing*): a test that needs a window opens one.
 
 In the session the shell is the user unit `quickshell.service` (see
 `hyprland.conf`: capped at 1.5 GB with no swap, restarted on failure). To check
@@ -115,8 +128,10 @@ modules/             the surfaces themselves
                      lives
   common/            shared surface chrome (ShellOverlay, OverlayCard), IPC,
                      overview theming
-tools/               generators, the lint wrapper and save-profile.sh; not
-                     loaded at runtime
+tools/               generators, the lint and test wrappers and
+                     save-profile.sh; not loaded at runtime
+tests/               *Test.qml, run by tools/test.sh, and Check, what they
+                     report through
 hyprland.conf        the shell's Hyprland integration, sourced from
                      hypr/conf.d/90-quickshell.conf: the plugins, the shell's
                      global binds, the bindn dismissal binds
@@ -232,6 +247,26 @@ All share `ShellOverlay`. Exactly one can be open at a time.
 **Overlay (the service)** — the arbiter that enforces "one popup at a time".
 Every open/close routes through it, which is why the invariant holds by
 construction rather than by every surface remembering to close its siblings.
+
+**Flight** — a popup opened while another is open on the same screen does not
+fade in: its card starts exactly over the other's and flies to its own place
+in `t.resize`, as one card. The other's contents ride along as a picture and
+fade out over the first half of the way, the new contents fade in over the
+second, each at its own size, centred and clipped by the card. Every popup's
+window spans the screen's width and the room between the bar and the dock, so
+the flight is drawn inside the new popup's window alone. `Overlay.open`
+records the hand-off (`flight`); the old card holds, takes a picture of
+itself (`grabToImage`) and hands it over with its place on the screen
+(`depart`; `ShellOverlay.top` turns a place in one window into a place in
+another); the new one takes off once it has settled, and once it has moved —
+its first frame, over the old card, drawn — tells the old card to go
+(`arrive`), which is hidden at once. A hand-off with nothing to hand over (the
+old card not yet settled), or whose picture is not in by the time the new
+card would have appeared anyway (`t.fast`), is dropped (`abandon`), and both
+open and close as they would alone. Another screen, or the same popup with a
+new subject, is no hand-off. Popups' surfaces map without Hyprland's layer
+animation (`hyprland.conf`'s `shell-popups` rule), which would fade in the
+card that has just taken over.
 
 **Card** — the visible rounded panel inside a popup's window. The window is
 sized to `cardWidth`/`cardHeight` plus `pad` (room for the shadow) — as much
@@ -361,7 +396,7 @@ the `windows` plugin; see *The window plugin*.
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's, the title bars' and the windows' shadow — set by `CompositorTheme`) |
-| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`) |
+| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorX`, `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `flight` (`{ from, to, rect, contents, away }`, see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
@@ -412,8 +447,8 @@ implemented.
 
 | File | Purpose |
 |---|---|
-| `ShellOverlay` | the base every popup derives from: the surface, placement, sizing, masking, the map/settle/unmap lifecycle and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself |
-| `OverlayCard` | the card inside it: the entry slide, the fade (as one flattened layer), clipping, hover reporting to `Overlay`, and swallowing Escape (the global bind acts on it) |
+| `ShellOverlay` | the base every popup derives from: the surface, placement, sizing, masking, the map/settle/unmap lifecycle and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself. `top` is its window's top on the screen; `liveX`/`liveHeight` are the card's eased rest. Its settle waits for a hand-off's picture, bounded by `t.fast`, and its unmap for a card that is holding |
+| `OverlayCard` | the card inside it: the entry slide, the fade (as one flattened layer), clipping, hover reporting to `Overlay`, swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `depart()`, `arrive()` |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
 | `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, the title bars' colours and timings, and the window shadow |
@@ -436,6 +471,18 @@ expensive to find.
   `Overlay.dismissOnEscape`). Symptom: `Illegal method name` at load, and the
   whole shell fails to start — **qmllint does not catch it**; only the
   runtime log does.
+- **An `Item` cannot declare a property named `top`** (or `left`, `bottom`,
+  …): those are its anchor lines (`parent.top`), and final. Symptom: `Cannot
+  override FINAL property` at load, the type unavailable — again caught by the
+  runtime log, not qmllint. The card's is `windowTop`.
+- **`Qt.quit()` and `Qt.exit()` do nothing under `qs`**: it logs that the
+  engine's `quit()`/`exit()` signal has no receivers and keeps running, which
+  is why `tools/test.sh` stops a test itself.
+- **`grabToImage` is refused for an item whose window is not up yet**
+  (`item is not attached to a window`, and it returns false) — in
+  `Component.onCompleted` of a window's content, say. The result arrives a
+  frame or two later (45–85 ms measured for a popup's card); its `url` is good
+  for as long as the result object is held.
 - **`Palette` collides with a QtQuick type.** The palette component is called
   `ColorScheme` for this reason. Watch for the same with `Icon`, `Label`,
   `Slider` if `QtQuick.Controls` is ever imported (it currently is not).
@@ -774,6 +821,20 @@ expensive to find.
 - **A new module directory is not picked up by a hot reload**: the reload
   fails (`SwitcherWindow is not a type`) and the shell keeps the config it
   had. `systemctl --user restart quickshell`.
+- **Hyprland fades a layer surface in as it maps** (`fadeLayersIn`, about
+  180 ms here) unless a layer rule gives it `no_anim`. A shell surface whose
+  first frame has to be at full strength — a popup's card taking over from
+  another's — needs the rule.
+- **A nested session is where tests and live checks go**, not the user's
+  desktop: a nested Hyprland on a hidden special workspace with headless
+  screens of its own (above), its sockets in the environment of `qs -p` (a
+  copy of the tree with a `shell.qml` holding only the popups under test, and
+  an `IpcHandler` to drive them) and of `grim -o <screen>`. Leave out the date
+  menu, whose notification centre would take the session's notification bus
+  name from the real shell, and the settings panel, whose `Fonts` writes the
+  machine's GTK font. Captures there are about 40–85 ms apart; a hand-off's
+  one frame is told from them by how much of the old card's place differs
+  from a capture of the bare screen.
 - **`hyprctl -i <nested> reload` can lose a nested Hyprland's window**: its
   output went to FALLBACK and the host listed it no more. Restart it instead.
 - **Keys can be typed into a nested Hyprland alone** through the

@@ -48,12 +48,21 @@ PanelWindow {
             Math.min(screenWidth - root.cardWidth - edge, centre - root.cardWidth / 2)));
     }
 
-    /*! The card's height as drawn; animates towards `cardHeight`. */
+    /*! The card's place across and its height as drawn: they animate towards
+        `cardX` and `cardHeight` on one clock and curve, so a popup that
+        re-anchors and resizes at once reads as one movement. */
+    property int liveX: root.cardX
     property int liveHeight: root.cardHeight
 
+    Behavior on liveX {
+        // Only once the popup is up: a card still being placed must appear
+        // where it belongs and at its size, not slide in from the last
+        // popup's place or grow into it.
+        enabled: root.settled
+        NumberAnimation { duration: Appearance.t.resize; easing.type: Appearance.t.resizeEasing }
+    }
+
     Behavior on liveHeight {
-        // Only once the popup is up: a card still being placed must appear at
-        // its size rather than grow into it.
         enabled: root.settled
         NumberAnimation { duration: Appearance.t.resize; easing.type: Appearance.t.resizeEasing }
     }
@@ -141,6 +150,10 @@ PanelWindow {
     */
     readonly property int padTop: Math.min(root.pad, root.frame.top + Appearance.m.popupGap)
     readonly property int padBottom: Math.min(root.pad, root.frame.bottom + Appearance.m.popupGap)
+    /*! The window's top edge on its screen, by which a card is handed between windows. */
+    readonly property real top: root.placement === ShellOverlay.Placement.AboveDock
+        ? (root.screen ? root.screen.height : 1080) - root.margins.bottom - root.implicitHeight
+        : root.margins.top
 
     /*!
         Keys the popup did not handle itself; OverlayCard has already taken
@@ -194,6 +207,10 @@ PanelWindow {
     */
     onShownChanged: {
         if (root.shown) {
+            // Taking over from another popup: placed afresh, though it may
+            // still be up from closing a moment ago, so it can take off.
+            if (Overlay.flight?.to === root.overlayId)
+                root.settled = false;
             root.rendered = true;
             Qt.callLater(() => (root.initialFocusItem ?? card).forceActiveFocus());
         } else {
@@ -220,12 +237,16 @@ PanelWindow {
         }
         onTriggered: {
             // Bounded: a popup still filling in — a tray menu waiting on DBus —
-            // must appear even if its size never quite stops moving.
-            root.settled = (settle.lastWidth === root.cardWidth
-                    && settle.lastHeight === root.cardHeight)
-                || settle.elapsedTime * 1000 >= Appearance.t.fast;
+            // must appear even if its size never quite stops moving, and one
+            // taking over waits no longer for the other's picture.
+            const late = settle.elapsedTime * 1000 >= Appearance.t.fast;
+            const steady = settle.lastWidth === root.cardWidth && settle.lastHeight === root.cardHeight;
             settle.lastWidth = root.cardWidth;
             settle.lastHeight = root.cardHeight;
+            if ((steady && !card.waiting) || late) {
+                card.arrive();
+                root.settled = true;
+            }
         }
     }
 
@@ -251,7 +272,7 @@ PanelWindow {
         // the animation itself: an animation driven by a Behavior never emits
         // finished(). `running` is a plain binding, so the surface is unmapped
         // even if the property changes while no handler is watching.
-        running: root.rendered && !root.shown
+        running: root.rendered && !root.shown && !card.holding
         interval: Appearance.t.fast + 60
         onTriggered: {
             root.rendered = false;
@@ -263,16 +284,14 @@ PanelWindow {
     OverlayCard {
         id: card
 
+        overlayId: root.overlayId
         shown: root.shown
         settled: root.settled
-        x: root.cardX
         // Bottom-anchored popups keep their bottom edge against the dock, so the
         // room a resize is holding sits above the card rather than below it.
-        restY: root.padTop
-            + (root.placement === ShellOverlay.Placement.AboveDock
-                ? root.surfaceHeight - root.liveHeight : 0)
-        width: root.cardWidth
-        height: root.liveHeight
+        rest: Qt.rect(root.liveX, root.padTop + (root.placement === ShellOverlay.Placement.AboveDock
+            ? root.surfaceHeight - root.liveHeight : 0), root.cardWidth, root.liveHeight)
+        windowTop: root.top
         elevation: root.elevation
         onKeyPressed: event => root.keyPressed(event)
     }
