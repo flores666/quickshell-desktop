@@ -68,16 +68,17 @@ Item {
         check.near("at rest: height", card.height, 200);
 
         // As ShellOverlay settles a popup taking over: the old card's place,
-        // in the window they share, and a stand-in picture.
+        // in the window they share, a stand-in picture, and the old card
+        // still fading in.
         Overlay.open(Overlay.launcher, screen, 0);
         Overlay.open(Overlay.dateMenu, screen, 0);
         check.equal("waits for the old card's picture", card.waiting, true);
-        Overlay.depart(Overlay.launcher, root.from, { url: "" });
+        Overlay.depart(Overlay.launcher, root.from, 0.4, { url: "" });
         check.equal("the old card stays until this one takes off", Overlay.flight?.away, false);
         card.arrive();
         card.settled = true;
         check.equal("flying once it takes off", card.flying, true);
-        check.equal("at full strength on its first frame", card.opacity, 1);
+        check.near("as strong as the old card on its first frame", card.opacity, 0.4);
         check.box("starts exactly over the old card", card, root.from);
         check.equal("the old card goes in the frame this one takes off", Overlay.flight?.away, true);
 
@@ -121,7 +122,10 @@ Item {
     Timer {
         id: midway
         interval: Appearance.t.resize / 2
-        onTriggered: check.equal("still flying halfway through t.resize", card.flying, true)
+        onTriggered: {
+            check.equal("still flying halfway through t.resize", card.flying, true);
+            check.equal("coming in from the old card's strength", card.opacity > 0.4, true);
+        }
     }
 
     Timer {
@@ -146,8 +150,11 @@ Item {
             check.equal("no longer holding", leaving.holding, false);
             Overlay.open(Overlay.vpnMenu, Quickshell.screens[0], 0);
             check.equal("stays gone through the next hand-off", leaving.visible, false);
+            Overlay.open(Overlay.quickSettings, Quickshell.screens[0], 0);
             leaving.shown = true;
-            check.equal("back when its popup opens again", leaving.visible, true);
+            check.equal("switched back to, gone until it is up again", leaving.visible, false);
+            leaving.arrive();
+            check.equal("back once it is up, here alone", leaving.visible, true);
 
             check.done();
         }

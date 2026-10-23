@@ -19,7 +19,9 @@ Item {
     id: root
 
     /*! Where the card sits. Only `Centre` differs across the screen; every
-        placement keeps the same `popupGap` from the panel it opens off. */
+        placement keeps the same `popupGap` from the panel it opens off. A card
+        under the bar or above the dock rolls out of that edge as it opens
+        (OverlayCard.door); a centred one fades in. */
     enum Placement { BelowBar, AboveDock, Centre }
 
     required property string overlayId
@@ -190,6 +192,9 @@ Item {
         rest: Qt.rect(root.liveX, root.placement === ShellOverlay.Placement.AboveDock
             ? root.height - root.liveHeight : 0, root.cardWidth, root.liveHeight)
         resizing: root.liveHeight !== root.cardHeight
+        // It rolls out of the panel it opens off; a centred card fades in.
+        door: root.placement === ShellOverlay.Placement.BelowBar ? Qt.TopEdge
+            : root.placement === ShellOverlay.Placement.AboveDock ? Qt.BottomEdge : 0
         elevation: root.elevation
         onKeyPressed: event => root.keyPressed(event)
     }

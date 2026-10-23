@@ -97,10 +97,10 @@ Singleton {
 
     /*!
         A popup opened straight over another on the same screen, which the two
-        fly as one card (OverlayCard): `{ from, to, rect, contents, away }`.
-        Recorded here as the new one opens; `from` then hands over its card's
-        place (in OverlaySurface, where every card is) and a picture of what it
-        shows (`depart`), `to` takes off from there (`arrive`, and `from` goes
+        fly as one card (OverlayCard): `{ from, to, rect, strength, contents,
+        away }`. Recorded here as the new one opens; `from` then hands over its
+        card's place (in OverlaySurface, where every card is), how strongly it
+        is drawn and a picture of what it shows (`depart`), `to` takes off from there (`arrive`, and `from` goes
         in that frame), and
         either gives it up when it cannot (`abandon`), both then opening and
         closing as they would alone. Each acts only on the hand-off that
@@ -108,9 +108,9 @@ Singleton {
     */
     property var flight: null
 
-    function depart(name: string, rect: rect, contents: var): void {
+    function depart(name: string, rect: rect, strength: real, contents: var): void {
         if (root.flight?.from === name)
-            root.flight = Object.assign({}, root.flight, { rect, contents });
+            root.flight = Object.assign({}, root.flight, { rect, strength, contents });
     }
 
     function arrive(name: string): void {
@@ -126,7 +126,7 @@ Singleton {
     function open(name: string, onScreen: ShellScreen, at: real): void {
         const screen = onScreen ?? Compositor.focusedScreen;
         root.flight = root.anyOpen && root.active !== name && screen === root.screen
-            ? { from: root.active, to: name, rect: null, contents: null, away: false } : null;
+            ? { from: root.active, to: name, rect: null, strength: 1, contents: null, away: false } : null;
         root.payload = null;
         root.screen = screen;
         root.anchorXOf = Object.assign({}, root.anchorXOf, { [name]: at });

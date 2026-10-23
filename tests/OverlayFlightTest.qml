@@ -28,13 +28,15 @@ Item {
         check.equal("hand-off to the new one", Overlay.flight?.to, Overlay.dateMenu);
         check.equal("no place yet", Overlay.flight?.rect, null);
         check.equal("no picture yet", Overlay.flight?.contents, null);
+        check.equal("at full strength until told otherwise", Overlay.flight?.strength, 1);
         check.equal("not taken off yet", Overlay.flight?.away, false);
 
-        Overlay.depart(Overlay.dateMenu, Qt.rect(1, 2, 3, 4), "picture");
+        Overlay.depart(Overlay.dateMenu, Qt.rect(1, 2, 3, 4), 0.5, "picture");
         check.equal("only the popup it is from departs", Overlay.flight?.rect, null);
-        Overlay.depart(Overlay.quickSettings, Qt.rect(1, 2, 3, 4), "picture");
+        Overlay.depart(Overlay.quickSettings, Qt.rect(1, 2, 3, 4), 0.5, "picture");
         check.equal("departure's place", Overlay.flight?.rect?.toString(), Qt.rect(1, 2, 3, 4).toString());
         check.equal("departure's picture", Overlay.flight?.contents, "picture");
+        check.equal("departure's strength", Overlay.flight?.strength, 0.5);
 
         Overlay.arrive(Overlay.quickSettings);
         check.equal("only the popup it is to arrives", Overlay.flight?.away, false);
