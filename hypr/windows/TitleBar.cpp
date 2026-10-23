@@ -136,12 +136,21 @@ CBox CTitleBar::buttonBox(int button) const {
     return {BAR.x + INSET + button * (BUTTON + GAP), BAR.y + (HEIGHT - BUTTON) / 2, BUTTON, BUTTON};
 }
 
+CBox CTitleBar::edgeBox() const {
+    // The window's top EDGE px, and as far above them as a bar above the
+    // window would reach: what is there is the gap the layout leaves, and
+    // Pointer finds the window there only where nothing else is.
+    const auto BAR = barBox();
+    return {BAR.x, BAR.y - HEIGHT, BAR.w, HEIGHT + EDGE};
+}
+
 bool CTitleBar::onBar(const Vector2D& pos) const {
-    return usable() && barBox().containsPoint(pos);
+    // Over its window, the edge that brought it out is still the bar's.
+    return usable() && (barBox().containsPoint(pos) || revealsAt(pos));
 }
 
 bool CTitleBar::revealsAt(const Vector2D& pos) const {
-    return usable() && !m_above && barBox().containsPoint(pos);
+    return usable() && !m_above && edgeBox().containsPoint(pos);
 }
 
 int CTitleBar::buttonAt(const Vector2D& pos) const {

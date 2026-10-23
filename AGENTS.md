@@ -1065,10 +1065,14 @@ window's rounding at the top, and the two corners under it filled so that the
 window's own rounding leaves no notch. Tiled, STICKY on all four edges with
 nothing reserved — its box is the window's — so the window keeps its whole
 tile, and the bar is drawn on the OVERLAY layer over its top only once the
-pointer has rested anywhere it would be, its whole 28 px, for `t.reveal` (half
-a tooltip's dwell), so a pointer on its way past — up to the shell's bar, over
-a window that fills the screen — brings nothing out; it stays while the
-pointer is on it and for the linger after (`Pointer.cpp`). Fullscreen, the
+pointer has rested at the window's top edge — its top 4 px, or the gap above
+them — for `t.reveal` (half a tooltip's dwell), as macOS's menu bar comes out
+over a full-screen window. Never on the rest of the 28 px: that is the
+application's, and a browser's tabs are there (a bar that came out wherever
+it would be took the tab the pointer rested on). A pointer on its way past —
+up to the shell's bar, over a window that fills the screen — brings nothing
+out; the bar stays while the pointer is on it or that edge and for the
+linger after (`Pointer.cpp`). Fullscreen, the
 same, a floating window's bar included: it moves over the window while it is
 fullscreen. **Hyprland draws no decoration at all on a fullscreen window** —
 `renderWindow` is told not to decorate it, overlay layer included — and with

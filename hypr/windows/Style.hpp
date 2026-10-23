@@ -45,8 +45,8 @@ namespace Style {
     SP<Config>  hover();
     /*! A fade or a colour change: a bar shown, focus, a new colour. */
     SP<Config>  fade();
-    /*! How long the pointer rests where a tiled or fullscreen window's bar
-        would be before it comes out, and how long that bar stays once the
+    /*! How long the pointer rests at a tiled or fullscreen window's top edge
+        before its bar comes out, and how long that bar stays once the
         pointer is off it. */
     int         dwell();
     int         linger();

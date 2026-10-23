@@ -24,7 +24,7 @@
     Floating, the bar sits above the window in space it reserves, as part of
     the window. Tiled or fullscreen, it reserves nothing — the window keeps
     its whole tile, or the screen — and is drawn over the window's top once
-    the pointer has rested where it would be (Pointer.cpp), so one only
+    the pointer has rested at that top edge (Pointer.cpp), so one only
     passing by on its way to the top of the screen brings nothing out. Every
     change to it — shown, lit under the pointer, focused, recoloured — is
     eased on the shell's timings.
@@ -33,6 +33,11 @@ class CTitleBar : public IHyprWindowDecoration {
   public:
     // macOS's proportions, in logical pixels.
     static constexpr double HEIGHT = 28, BUTTON = 12, GAP = 8, INSET = 12;
+    // How far into a tiled or fullscreen window's top the pointer brings its
+    // bar out: an edge, as macOS's menu bar over a full-screen window, since
+    // under the rest of the bar are the application's own controls (a
+    // browser's tabs).
+    static constexpr double EDGE = 4;
 
     explicit CTitleBar(PHLWINDOW window);
 
@@ -60,8 +65,9 @@ class CTitleBar : public IHyprWindowDecoration {
     /*! Above a floating window, always out; over a tiled or fullscreen one,
         only brought out. */
     bool above() const;
-    /*! On the bar's box; and on where a bar over its window would be, which
-        is what brings it out. */
+    /*! On the bar's box, or the edge that brought it out; and at its
+        window's top edge — the top EDGE px, or the gap above them — which is
+        what brings a bar over its window out. */
     bool onBar(const Vector2D& pos) const;
     bool revealsAt(const Vector2D& pos) const;
     /*! The button at a point, -1 for none: close, minimize, zoom, layout. */
@@ -109,6 +115,7 @@ class CTitleBar : public IHyprWindowDecoration {
     bool                 decorated() const;
     bool                 shown() const;
     CBox                 barBox() const;
+    CBox                 edgeBox() const;
     CBox                 buttonBox(int button) const;
     void                 act(int button);
     void                 sample(bool opening);

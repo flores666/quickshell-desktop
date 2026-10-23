@@ -27,8 +27,8 @@ QtObject {
     /*! How long the dock's preview stays once the pointer has left it and the
         icons, so a path that strays off them for a moment does not close it. */
     readonly property int linger: 250
-    /*! How long the pointer rests where a tiled or fullscreen window's title
-        bar would be before it comes out: half the dwell, since the bar is
+    /*! How long the pointer rests at a tiled or fullscreen window's top edge
+        before its title bar comes out: half the dwell, since the bar is
         what the pointer went up there for. */
     readonly property int reveal: 225
     /*! How long Alt is held after Alt+Tab before the window switcher shows:

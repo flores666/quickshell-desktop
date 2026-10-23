@@ -102,7 +102,7 @@ void Style::init(HANDLE handle) {
     }
     g_hover  = MS("plugin:windows:hover_duration", "How long a pointer wash takes, in ms", 120);
     g_fade   = MS("plugin:windows:fade_duration", "How long a fade or a colour change takes, in ms", 180);
-    g_dwell  = MS("plugin:windows:dwell", "How long the pointer rests where a tiled or fullscreen window's bar would be before it comes out, in ms", 225);
+    g_dwell  = MS("plugin:windows:dwell", "How long the pointer rests at a tiled or fullscreen window's top edge before its bar comes out, in ms", 225);
     g_linger = MS("plugin:windows:linger", "How long a tiled window's bar stays once the pointer is off it, in ms", 250);
     g_curve  = ADD(makeShared<CStringValue>("plugin:windows:curve", "The curve every animation is eased on: x1 y1 x2 y2", "0.45 0 0.55 1"));
 }

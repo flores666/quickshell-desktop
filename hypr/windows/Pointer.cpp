@@ -19,11 +19,14 @@
 
     A bar above a floating window is always there and answers the pointer at
     once. One over a tiled or fullscreen window comes out only once the
-    pointer has rested where it would be for the shell's reveal time: a
-    pointer on its way past — up to the shell's bar, over a window that fills
-    the screen — brings nothing out. Once out it stays while the pointer is on
-    it, and a moment (the linger) after it leaves, so a path that strays off
-    it does not take it away.
+    pointer has rested at the window's top edge for the shell's reveal time,
+    as macOS's menu bar does over a full-screen window: the top few pixels,
+    or the gap above them, never the rest of where the bar would be, which
+    is the application's (a browser's tabs). A pointer on its way past — up
+    to the shell's bar, over a window that fills the screen — brings nothing
+    out. Once out it stays while the pointer is on it or that edge, and a
+    moment (the linger) after it leaves, so a path that strays off it does
+    not take it away.
 */
 namespace {
     void animate(PHLWINDOW window) {
@@ -48,13 +51,19 @@ namespace {
     }
 
     // The topmost window at a point if it has a bar, with no shell surface
-    // over it.
+    // over it; where there is none, the window just below, whose top edge the
+    // gap the point is in may be (CTitleBar::revealsAt says).
     PHLWINDOW windowAt(const Vector2D& pos) {
-        const auto WINDOW = Desktop::viewState()->hitTest().windowAt(pos, Desktop::View::RESERVED_EXTENTS | Desktop::View::INPUT_EXTENTS | Desktop::View::ALLOW_FLOATING);
-        return WINDOW && CTitleBar::of(WINDOW) && !underShell(pos) ? WINDOW : nullptr;
+        if (underShell(pos))
+            return nullptr;
+        const auto PROPERTIES = Desktop::View::RESERVED_EXTENTS | Desktop::View::INPUT_EXTENTS | Desktop::View::ALLOW_FLOATING;
+        auto       window     = Desktop::viewState()->hitTest().windowAt(pos, PROPERTIES);
+        if (!window)
+            window = Desktop::viewState()->hitTest().windowAt({pos.x, pos.y + CTitleBar::HEIGHT}, PROPERTIES);
+        return window && CTitleBar::of(window) ? window : nullptr;
     }
 
-    // The pointer rests where a tiled or fullscreen window's bar would be, or
+    // The pointer rests at a tiled or fullscreen window's top edge, or
     // nowhere such.
     void wait(PHLWINDOW window) {
         if (g_state->waiting.lock() == window)
