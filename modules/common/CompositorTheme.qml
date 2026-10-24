@@ -60,7 +60,9 @@ Binding {
         Its buttons are the system's danger, warning, success and accent, their
         glyphs cut out in the scheme's surface. Its washes, fades and linger
         are the shell's own, on the shell's curve, and a tiled or fullscreen
-        window's bar comes out after `reveal`.
+        window's bar comes out after `reveal`. A floating window's bar rolls
+        out of the window's top edge and back into it on a popup's door's
+        timings and curves (components/Door.qml).
 
         A function, not a property of this Binding: as one it was read by
         `value` before it had been evaluated, and every load logged a binding
@@ -80,6 +82,9 @@ Binding {
             "plugin:windows:bar_color": root.rgba(Appearance.c.surface),
             "plugin:windows:hover_duration": String(Appearance.t.instant),
             "plugin:windows:fade_duration": String(Appearance.t.fast),
+            "plugin:windows:roll_out_duration": String(Appearance.t.popupMove),
+            "plugin:windows:roll_in_duration": String(Appearance.t.popupFade),
+            "plugin:windows:roll_curve": Appearance.t.emphasizedCurve.join(" "),
             "plugin:windows:dwell": String(Appearance.t.reveal),
             "plugin:windows:linger": String(Appearance.t.linger),
             "plugin:windows:curve": Appearance.t.standardCurve.join(" ")

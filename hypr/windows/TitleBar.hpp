@@ -27,7 +27,9 @@
     the pointer has rested at that top edge (Pointer.cpp), so one only
     passing by on its way to the top of the screen brings nothing out. Every
     change to it — shown, lit under the pointer, focused, recoloured — is
-    eased on the shell's timings.
+    eased on the shell's timings; going above the window or leaving it, it
+    rolls out of the window's top edge and back into it, as a popup's door
+    does.
 */
 class CTitleBar : public IHyprWindowDecoration {
   public:
@@ -62,8 +64,8 @@ class CTitleBar : public IHyprWindowDecoration {
 
     /*! Whether the bar can be there at all: the window is decorated. */
     bool usable() const;
-    /*! Above a floating window, always out; over a tiled or fullscreen one,
-        only brought out. */
+    /*! Above its window, or rolling into or out of its top edge; over a
+        tiled or fullscreen one it is out only when brought out. */
     bool above() const;
     /*! On the bar's box, or the edge that brought it out; and at its
         window's top edge — the top EDGE px, or the gap above them — which is
@@ -72,8 +74,8 @@ class CTitleBar : public IHyprWindowDecoration {
     bool revealsAt(const Vector2D& pos) const;
     /*! The button at a point, -1 for none: close, minimize, zoom, layout. */
     int  buttonAt(const Vector2D& pos) const;
-    /*! The window went floating or tiled, or in or out of fullscreen: the bar
-        moves between above the window and over it. */
+    /*! The window went floating or tiled, or in or out of fullscreen, or the
+        bar is rolling: placed again, above the window as far as it is out. */
     void reposition();
     /*! Hyprland places a floating window by its own box, without what is
         drawn above it: one floated from a full-height tile had its bar off
@@ -81,7 +83,8 @@ class CTitleBar : public IHyprWindowDecoration {
         the bar is in the work area. Only where Hyprland places the window —
         one dragged there is left there. */
     void keepOnScreen();
-    /*! Ease towards what the pointer and focus now say. */
+    /*! Ease towards what the pointer and focus now say, and roll out or in
+        to where the window now has the bar. */
     void animate();
     /*! Out, or coming out, over a fullscreen window on this monitor: painted
         from the render stage, with the monitor kept off its direct path. */
@@ -95,12 +98,12 @@ class CTitleBar : public IHyprWindowDecoration {
 
   private:
     PHLWINDOWREF         m_window;
-    // Where the positioner last put the bar: above the window, or over it.
+    // Where the window has the bar: above it, or over its top.
     bool                 m_above = false;
-    CBox                 m_assigned;
 
-    // 0 to 1: drawn, buttons lit by the pointer, window focused.
-    PHLANIMVAR<float>      m_reveal, m_hover, m_focus;
+    // 0 to 1: rolled out above the window, out over its top, buttons lit by
+    // the pointer, window focused.
+    PHLANIMVAR<float>      m_roll, m_reveal, m_hover, m_focus;
     PHLANIMVAR<CHyprColor> m_color;
 
     // The application's colour, read from its buffer (AppColor).
@@ -113,13 +116,15 @@ class CTitleBar : public IHyprWindowDecoration {
     std::string          m_titleKey;
 
     bool                 decorated() const;
+    bool                 goesAbove() const;
     bool                 shown() const;
+    CBox                 windowBox() const;
     CBox                 barBox() const;
     CBox                 edgeBox() const;
     CBox                 buttonBox(int button) const;
     void                 act(int button);
     void                 sample(bool opening);
-    void                 drawGlyph(int button, const CBox& box, const CHyprColor& color, float alpha);
+    void                 drawGlyph(int button, const CBox& box, const CBox& clip, const CHyprColor& color, float alpha);
 };
 
 /*! What the pointer is doing to the bars. One pointer, so one of each. */

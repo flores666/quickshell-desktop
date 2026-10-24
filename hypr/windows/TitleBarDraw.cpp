@@ -81,9 +81,12 @@ bool CTitleBar::overFullscreen(PHLMONITOR monitor) const {
 }
 
 void CTitleBar::paint(PHLMONITOR monitor, float a) {
-    if (!usable())
+    // A bar hidden from its application, or by the `decorate` rule, rolls in
+    // or fades out as any other goes; only once it is away is it not drawn.
+    const auto W    = m_window.lock();
+    const bool AWAY = !above() && m_reveal->value() <= 0;
+    if (!validMapped(W) || (!usable() && AWAY))
         return;
-    const auto W       = m_window.lock();
     const bool OPENING = W->m_animatingIn;
     // Read even while the bar is away, so that it comes out in its colour.
     sample(OPENING);
@@ -94,7 +97,7 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
     // window settles on, rather than in the system's and then recoloured.
     const auto COLOR = m_appColor.value_or(Style::system());
     if (!(m_color->goal() == COLOR)) {
-        if (m_reveal->value() <= 0 || OPENING)
+        if (AWAY || OPENING)
             m_color->setValueAndWarp(COLOR);
         else {
             m_color->setConfig(Style::fade());
@@ -102,25 +105,31 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
         }
     }
 
-    const float REVEAL = m_reveal->value();
-    if (REVEAL <= 0)
+    if (AWAY)
         return;
 
+    // Above the window the bar is opaque, part of the window, and rolls out
+    // of its top edge; over the window it fades.
     const float SCALE   = monitor->m_scale;
-    const float ALPHA   = a * REVEAL;
+    const float ALPHA   = a * (above() ? 1.F : m_reveal->value());
     const auto  BAR     = barBox();
     const auto  ROUND   = W->rounding();
     const auto  toLocal = [&](CBox box) { return box.translate(-monitor->m_position + W->m_floatingOffset).scale(SCALE).round(); };
+    // What is on the bar, laid out on a whole one from its upper edge, and
+    // cut to as much of it as is out.
+    const auto CLIP = toLocal(BAR);
 
     // The window's rounding at the top. A shape taller than the bar by twice
     // the rounding has its lower corners well out of the way, and is cut down
     // to what is drawn: the bar and, under a bar above the window, the two
-    // corners the window's own rounding would leave open.
+    // corners the window's own rounding would leave open. Rolled out less
+    // than its rounding, its corners meet the window's own, so the bar and
+    // the window are one rounded shape all the way.
     const auto SHAPE = toLocal({BAR.x, BAR.y, BAR.w, HEIGHT + 2 * ROUND});
-    std::vector<CBox> parts = {toLocal(BAR)};
-    if (m_above) {
-        parts.push_back(toLocal({BAR.x, BAR.y + HEIGHT, ROUND, ROUND}));
-        parts.push_back(toLocal({BAR.x + BAR.w - ROUND, BAR.y + HEIGHT, ROUND, ROUND}));
+    std::vector<CBox> parts = {CLIP};
+    if (above()) {
+        parts.push_back(toLocal({BAR.x, BAR.y + BAR.h, ROUND, ROUND}));
+        parts.push_back(toLocal({BAR.x + BAR.w - ROUND, BAR.y + BAR.h, ROUND, ROUND}));
     }
     for (const auto& clip : parts) {
         CRectPassElement::SRectData data;
@@ -141,12 +150,13 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
     const float LIT = std::max(m_focus->value(), m_hover->value());
     for (int i = 0; i < Style::BUTTONS; ++i) {
         CRectPassElement::SRectData data;
-        data.box   = toLocal(buttonBox(i));
-        data.color = withAlpha(mix(withAlpha(INK.text, 0.2F), INK.buttons[i], LIT), ALPHA);
-        data.round = std::round(BUTTON * SCALE / 2);
+        data.box     = toLocal(buttonBox(i));
+        data.clipBox = CLIP;
+        data.color   = withAlpha(mix(withAlpha(INK.text, 0.2F), INK.buttons[i], LIT), ALPHA);
+        data.round   = std::round(BUTTON * SCALE / 2);
         g_pHyprRenderer->addPassElement(makeUnique<CRectPassElement>(data));
         if (m_hover->value() > 0)
-            drawGlyph(i, data.box, INK.glyph, ALPHA * m_hover->value());
+            drawGlyph(i, data.box, CLIP, INK.glyph, ALPHA * m_hover->value());
     }
 
     // Centred on the window, and kept clear of the buttons on both sides.
@@ -158,11 +168,12 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
         m_title    = g_pHyprRenderer->renderText(W->m_title, INK.text, std::round(TITLE_PT * SCALE), false, "sans-serif", ROOM, TITLE_WEIGHT);
         m_titleKey = KEY;
     }
-    const auto                   LOCAL = toLocal(BAR);
+    const auto                   LOCAL = toLocal({BAR.x, BAR.y, BAR.w, HEIGHT});
     CTexPassElement::SRenderData title;
-    title.tex = m_title;
-    title.box = CBox{LOCAL.middle() - m_title->m_size / 2, m_title->m_size}.round();
-    title.a   = ALPHA * (0.5F + 0.5F * m_focus->value());
+    title.tex     = m_title;
+    title.box     = CBox{LOCAL.middle() - m_title->m_size / 2, m_title->m_size}.round();
+    title.clipBox = CLIP;
+    title.a       = ALPHA * (0.5F + 0.5F * m_focus->value());
     g_pHyprRenderer->addPassElement(makeUnique<CTexPassElement>(std::move(title)));
 }
 
@@ -174,7 +185,7 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
     two panes side by side on a floating window, which it tiles, and one on a
     tiled one, which it floats. Every stroke is the same weight.
 */
-void CTitleBar::drawGlyph(int button, const CBox& box, const CHyprColor& color, float alpha) {
+void CTitleBar::drawGlyph(int button, const CBox& box, const CBox& clip, const CHyprColor& color, float alpha) {
     const auto W     = m_window.lock();
     const int  SHAPE = button == 3 && W && W->m_isFloating ? 4 : button;
     const int  SIZE  = std::max(1, sc<int>(std::round(box.w)));
@@ -235,8 +246,9 @@ void CTitleBar::drawGlyph(int button, const CBox& box, const CHyprColor& color, 
         cairo_surface_destroy(SURFACE);
     }
     CTexPassElement::SRenderData glyph;
-    glyph.tex = tex;
-    glyph.box = CBox{box.pos(), {sc<double>(SIZE), sc<double>(SIZE)}};
-    glyph.a   = alpha;
+    glyph.tex     = tex;
+    glyph.box     = CBox{box.pos(), {sc<double>(SIZE), sc<double>(SIZE)}};
+    glyph.clipBox = clip;
+    glyph.a       = alpha;
     g_pHyprRenderer->addPassElement(makeUnique<CTexPassElement>(std::move(glyph)));
 }

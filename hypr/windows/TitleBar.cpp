@@ -18,11 +18,18 @@
 #include <linux/input-event-codes.h>
 
 CTitleBar::CTitleBar(PHLWINDOW window) : IHyprWindowDecoration(window), m_window(window) {
+    // A new window's bar is at once what it is: the window's own fade brings
+    // it in.
+    m_above = goesAbove();
+    Animation::mgr()->createAnimation(m_above ? 1.F : 0.F, m_roll, Style::rollOut(), AVARDAMAGE_NONE);
     Animation::mgr()->createAnimation(0.F, m_reveal, Style::fade(), AVARDAMAGE_NONE);
     Animation::mgr()->createAnimation(0.F, m_hover, Style::hover(), AVARDAMAGE_NONE);
     Animation::mgr()->createAnimation(0.F, m_focus, Style::fade(), AVARDAMAGE_NONE);
     Animation::mgr()->createAnimation(Style::system(), m_color, Style::fade(), AVARDAMAGE_NONE);
     const auto DAMAGE = [this](auto) { damageEntire(); };
+    // Rolling, the room it takes above the window changes with it, and the
+    // window's shadow, which is drawn under that room, follows.
+    m_roll->setUpdateCallback([this](auto) { reposition(); });
     m_reveal->setUpdateCallback(DAMAGE);
     m_hover->setUpdateCallback(DAMAGE);
     m_focus->setUpdateCallback(DAMAGE);
@@ -54,32 +61,38 @@ static bool fullscreen(PHLWINDOW window) {
     return window && Fullscreen::controller()->getFullscreenModes(window).internal == Fullscreen::FSMODE_FULLSCREEN;
 }
 
+bool CTitleBar::goesAbove() const {
+    // Fullscreen, a floating window's bar is over it as a tiled one's is.
+    const auto W = m_window.lock();
+    return W && W->m_isFloating && decorated() && !fullscreen(W);
+}
+
 bool CTitleBar::above() const {
-    return m_above;
+    return m_roll->value() > 0;
 }
 
 bool CTitleBar::shown() const {
-    return usable() && (m_above || g_state->revealed.lock() == m_window.lock());
+    return usable() && (above() || g_state->revealed.lock() == m_window.lock());
 }
 
 SDecorationPositioningInfo CTitleBar::getPositioningInfo() {
-    const auto W         = m_window.lock();
-    const bool WAS_ABOVE = m_above;
-    // Fullscreen, a floating window's bar is over it as a tiled one's is.
-    m_above = W && W->m_isFloating && decorated() && !fullscreen(W);
-    // Above a window the bar is always out, and over one only when brought
-    // out: moved between the two, it is at once what it now is.
-    if (m_above != WAS_ABOVE)
-        m_reveal->setValueAndWarp(m_above ? 1.F : 0.F);
+    // Only where it goes: whoever changed that rolls it there (animate), and
+    // a roll started from here would place the bar again while it is being
+    // placed.
+    m_above = goesAbove();
 
     SDecorationPositioningInfo info;
     info.policy = DECORATION_POSITION_STICKY;
     // Inside the border: the bar is part of the window.
     info.priority = 10005;
-    if (m_above) {
+    if (m_above || above()) {
+        // As much room above the window as the bar is out, so the window's
+        // shadow is under the bar and nowhere else. Reserved only once it is
+        // all the way out above a floating window: what is reserved is taken
+        // from a tile, or a maximized window, and a roll must not resize one.
         info.edges          = DECORATION_EDGE_TOP;
-        info.reserved       = true;
-        info.desiredExtents = {{0.0, HEIGHT}, {0.0, 0.0}};
+        info.reserved       = m_above && m_roll->value() >= 1;
+        info.desiredExtents = {{0.0, HEIGHT * m_roll->value()}, {0.0, 0.0}};
     } else
         // The window's own box, nothing reserved: the bar is drawn over its
         // top, and input there is offered to it.
@@ -87,8 +100,8 @@ SDecorationPositioningInfo CTitleBar::getPositioningInfo() {
     return info;
 }
 
-void CTitleBar::onPositioningReply(const SDecorationPositioningReply& reply) {
-    m_assigned = reply.assignedGeometry;
+void CTitleBar::onPositioningReply(const SDecorationPositioningReply&) {
+    // Drawn from the window's own box (barBox), which moves with every frame.
 }
 
 void CTitleBar::reposition() {
@@ -113,22 +126,29 @@ void CTitleBar::keepOnScreen() {
     TARGET->setPositionGlobal(box);
 }
 
-CBox CTitleBar::barBox() const {
+CBox CTitleBar::windowBox() const {
     const auto W = m_window.lock();
     if (!validMapped(W))
         return {};
-
-    CBox box;
-    if (m_above)
-        box = m_assigned.copy().translate(g_pDecorationPositioner->getEdgeDefinedPoint(DECORATION_EDGE_TOP, W));
-    else {
-        const auto WINDOW = W->getWindowMainSurfaceBox();
-        box               = {WINDOW.x, WINDOW.y, WINDOW.w, HEIGHT};
-    }
-
+    auto box = W->getWindowMainSurfaceBox();
     if (W->m_workspace && !W->m_pinned)
         box.translate(W->m_workspace->m_renderOffset->value());
     return box;
+}
+
+CBox CTitleBar::barBox() const {
+    // Above the window as far as it has rolled out of its top edge, or over
+    // its top. What is on it rides the bar's upper edge (buttonBox), so
+    // rolling, the far side of it shows first, as a popup's contents do in
+    // its door.
+    if (!validMapped(m_window.lock()))
+        return {};
+    const auto WINDOW = windowBox();
+    if (above()) {
+        const double OUT = HEIGHT * m_roll->value();
+        return {WINDOW.x, WINDOW.y - OUT, WINDOW.w, OUT};
+    }
+    return {WINDOW.x, WINDOW.y, WINDOW.w, HEIGHT};
 }
 
 CBox CTitleBar::buttonBox(int button) const {
@@ -140,8 +160,8 @@ CBox CTitleBar::edgeBox() const {
     // The window's top EDGE px, and as far above them as a bar above the
     // window would reach: what is there is the gap the layout leaves, and
     // Pointer finds the window there only where nothing else is.
-    const auto BAR = barBox();
-    return {BAR.x, BAR.y - HEIGHT, BAR.w, HEIGHT + EDGE};
+    const auto WINDOW = windowBox();
+    return {WINDOW.x, WINDOW.y - HEIGHT, WINDOW.w, HEIGHT + EDGE};
 }
 
 bool CTitleBar::onBar(const Vector2D& pos) const {
@@ -171,7 +191,8 @@ void CTitleBar::animate() {
         var->setConfig(config);
         *var = to;
     };
-    EASE(m_reveal, shown() ? 1.F : 0.F, Style::fade());
+    EASE(m_roll, m_above ? 1.F : 0.F, m_above ? Style::rollOut() : Style::rollIn());
+    EASE(m_reveal, usable() && !m_above && g_state->revealed.lock() == W ? 1.F : 0.F, Style::fade());
     EASE(m_hover, g_state->hovered.lock() == W && g_state->overButtons ? 1.F : 0.F, Style::hover());
     EASE(m_focus, Desktop::focusState()->window() == W ? 1.F : 0.F, Style::fade());
 }
@@ -237,10 +258,9 @@ void CTitleBar::damageEntire() {
     const auto W = m_window.lock();
     if (!validMapped(W))
         return;
-    // The corners under a bar above the window included.
-    auto box = barBox();
-    box.h += W->rounding();
-    g_pHyprRenderer->damageBox(box);
+    // Above the window and over its top, and the corners under a bar above.
+    const auto WINDOW = windowBox();
+    g_pHyprRenderer->damageBox({WINDOW.x, WINDOW.y - HEIGHT, WINDOW.w, 2 * HEIGHT + W->rounding()});
 }
 
 eDecorationLayer CTitleBar::getDecorationLayer() {
@@ -248,14 +268,14 @@ eDecorationLayer CTitleBar::getDecorationLayer() {
     // corners drawn beneath it. Over a tiled or fullscreen window it is on the
     // overlay layer, the one Hyprland still draws on a fullscreen window
     // (renderWindow skips the others there).
-    return m_above ? DECORATION_LAYER_UNDER : DECORATION_LAYER_OVERLAY;
+    return above() ? DECORATION_LAYER_UNDER : DECORATION_LAYER_OVERLAY;
 }
 
 uint64_t CTitleBar::getDecorationFlags() {
     // Over a tiled or fullscreen window the bar's box is the whole window, so
     // it takes input only while it is out: a hidden one must not stand in for the window
     // where Hyprland asks whether the pointer is on a decoration.
-    return DECORATION_PART_OF_MAIN_WINDOW | (m_above || shown() ? DECORATION_ALLOWS_MOUSE_INPUT : 0);
+    return DECORATION_PART_OF_MAIN_WINDOW | (shown() ? DECORATION_ALLOWS_MOUSE_INPUT : 0);
 }
 
 std::string CTitleBar::getDisplayName() {

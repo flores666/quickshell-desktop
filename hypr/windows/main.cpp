@@ -1,4 +1,5 @@
 #include "Placement.hpp"
+#include "Stacking.hpp"
 #include "Style.hpp"
 #include "TitleBar.hpp"
 
@@ -15,8 +16,9 @@
 /*
     The desktop's own window behaviour, on the compositor's side: the title
     bars (TitleBar, drawn in TitleBarDraw, coloured by AppColor and Style,
-    answering the pointer in Pointer), and where a window opens and what it is
-    remembered as (Placement).
+    answering the pointer in Pointer), where a window opens and what it is
+    remembered as (Placement), and tiled windows raised among the floating
+    ones by a click (Stacking).
 */
 
 APICALL EXPORT std::string PLUGIN_API_VERSION() {
@@ -89,6 +91,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     Placement::load();
     Style::init(PHANDLE);
     Pointer::init();
+    Stacking::init(PHANDLE);
     g_state->resample = makeShared<CEventLoopTimer>(std::nullopt, [](SP<CEventLoopTimer>, void*) { forEachBar([](CTitleBar* bar) { bar->retry(); }); }, nullptr);
     g_pEventLoopManager->addTimer(g_state->resample);
 
@@ -132,10 +135,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         }),
         // Fullscreen, a floating window's bar moves over it.
         events.window.fullscreen.listen([](PHLWINDOW w) { Pointer::modeChanged(w, false); }),
-        // The `decorate` rule may have changed.
+        // The `decorate` rule may have changed: placed again, and in or out.
         events.window.updateRules.listen([](PHLWINDOW w) {
-            if (const auto BAR = CTitleBar::of(w))
+            if (const auto BAR = CTitleBar::of(w)) {
                 BAR->reposition();
+                BAR->animate();
+            }
         }),
         events.config.reloaded.listen([] { Style::reloaded(); }),
         events.render.preChecks.listen([](PHLMONITOR m) { keepRendered(m); }),

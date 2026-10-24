@@ -18,7 +18,8 @@
     same lightness: the day theme's on a light bar, the night theme's on a dark
     one — text, and the four buttons in the system's danger, warning, success
     and accent. Its animations are the shell's: the hover wash's time, the
-    fade's, and the curve both are eased on.
+    fade's, and the curve both are eased on; and the popups' door, which a bar
+    above its window rolls out of and into its top edge on.
 */
 namespace Style {
     // Close, minimize, zoom, and floating or tiled.
@@ -45,6 +46,11 @@ namespace Style {
     SP<Config>  hover();
     /*! A fade or a colour change: a bar shown, focus, a new colour. */
     SP<Config>  fade();
+    /*! A bar rolling out of its window's top edge as the window floats, and
+        back into it as the window tiles: a popup's door's timings and
+        curves (components/Door.qml). */
+    SP<Config>  rollOut();
+    SP<Config>  rollIn();
     /*! How long the pointer rests at a tiled or fullscreen window's top edge
         before its bar comes out, and how long that bar stays once the
         pointer is off it. */

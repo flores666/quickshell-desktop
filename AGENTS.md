@@ -298,9 +298,10 @@ as quick as the rest of the shell's: `popupFade`, `popupMove` and
 of a popup's card (its fade, door, flight, resize and re-anchoring),
 whatever is timed against those (the card let go after its fade, a hand-off's
 wait for its picture), and quick settings' page swap, which the card's resize
-follows, take them, as does the dock's window preview, which rolls as a
-popup's door does; the controls inside a popup keep the shell's pace, and so
-do the date menu's notifications, which leave as toasts do.
+follows, take them, as do the dock's window preview and a floating window's
+title bar, which roll as a popup's door does; the controls inside a popup
+keep the shell's pace, and so do the date menu's notifications, which leave
+as toasts do.
 
 **Door** — how a popup opens and closes when no other is open: its card rolls
 out of the edge of the panel it opens off, as a garage door, and back into it
@@ -317,7 +318,10 @@ fades in from there in `t.popupFade`, and rolls out in `t.popupMove` on
 go. A popup taking over from another flies instead (*Flight*). The door holds
 still while a card flies: closed mid-flight, a card lands whole and only then
 rolls in, where it used to land on whatever the door had reached meanwhile —
-150 px shorter in one frame.
+150 px shorter in one frame. A window's title bar rolls out of the window's
+top edge and back into it the same way, in the compositor (the `windows`
+plugin, on the door's timings and curves), without the fade: it is opaque,
+part of the window.
 
 **Window shadow** — `Appearance.windowShadow`, the one shadow of everything
 that floats, in CSS `drop-shadow` terms (macOS's: dropped 25 px with a 45 px
@@ -448,6 +452,11 @@ is in.
 **Placement** of a window (not a popup's, above) — windows open floating, and
 each application as it was last left: tiled, or floating at its size. Also
 the `windows` plugin; see *The window plugin*.
+
+**Stacking** — windows stack in the order they were last clicked, tiled ones
+among the floating: a tiled window clicked is drawn over the floating windows
+on it, and takes the pointer there; a hover focuses without raising. Also the
+`windows` plugin; see *The window plugin*.
 
 ## Services (`services/`, all `pragma Singleton`)
 
@@ -795,7 +804,20 @@ expensive to find.
   within 0.001 of that formula), and that reads as a grey slab with a hard
   lower edge — plain at a 22 px and a 12 px drop beside a popup's gaussian,
   gone at 6, where it passes for the window's rim. `decoration:glow` is no
-  second layer: it is an inner glow, drawn over the window.
+  second layer: it is an inner glow, drawn over the window. The box takes in
+  the decorations' boxes, so any room a decoration holds that it does not
+  fill shows the shadow's solid core: a title bar that held its 28 px while
+  fading in showed a grey band.
+- **Firefox (Zen) draws its page in a subsurface that lags a resize by
+  60–100 ms.** GTK acknowledges the new size on the toplevel within a frame
+  or two, and the subsurface's first buffer at the new size is the old
+  picture, the rest of it transparent; the page follows. Hyprland, while the
+  window's box animates, scales and crops subsurfaces by the acknowledged
+  size, so the lag shows whatever the box does meanwhile: an empty band as
+  it grows. Holding the box still until the acknowledgement, or until the
+  subsurface's next damaged commit, was measured frame by frame in a nested
+  Hyprland and only traded the band for the page drawn small in the old box.
+  It is the application's, and is left alone.
 - **`hyprctl keyword` applies no option's refresh bits.** A plugin's
   `SColorValueOptions{.refresh = …}` take effect on a config reload only; a
   keyword gets just the side effects `dispatchKeyword` hard-codes by name
@@ -1085,8 +1107,8 @@ jumps.
 ### The window plugin
 
 `hypr/windows` is the project's own plugin for how windows behave: the title
-bars (`TitleBar`) and where a window opens (`Placement`). `main.cpp` wires both
-to Hyprland's event bus. `tools/build-windows-plugin.sh` builds it from the
+bars (`TitleBar`), where a window opens (`Placement`) and how windows stack
+(`Stacking`). `main.cpp` wires them to Hyprland's event bus. `tools/build-windows-plugin.sh` builds it from the
 checkout (no clone, no patches) into `~/.local/share/hypr-windows`, with the
 overview's `--if-stale` stamp and login hook; its log is
 `journalctl --user -t hypr-windows`.
@@ -1226,9 +1248,24 @@ pointer over `hover_duration` (`t.instant`, `Clickable`'s wash), all on
 `curve` — `t.standardCurve`, `standardEasing` as a CSS `cubic-bezier()`,
 registered with Hyprland's animation manager as `windowsStandard` and again
 after a reload, which drops it. On or off with Hyprland's `fade`, and with
-`animations:enabled`, the shell's *Animations* setting. A bar moved between
-above and over its window is at once what it now is; one that is away takes a
-new colour at once.
+`animations:enabled`, the shell's *Animations* setting. A bar going above
+its window or leaving it — the window floating or tiled, in or out of
+fullscreen, its bar shown or hidden — rolls out of the window's top edge and
+back into it as a popup's door does: out over `roll_out_duration`
+(`t.popupMove`) on `roll_curve` (`t.emphasizedCurve`, registered as
+`windowsEmphasized`), in over `roll_in_duration` (`t.popupFade`) on `curve`.
+Never over the window: it used to move there at once and fade out over the
+application's top, and fade in above it from nothing. It is laid out on a
+whole bar from its upper edge and cut to as much as is out, so its far side
+shows first; rolled out less than its rounding, its corners meet the
+window's own, one rounded shape all the way. The room it holds above the
+window follows it frame by frame (`reposition` from the roll's update), so
+the window's shadow is under the bar and nowhere else (see the Hyprland
+gotchas), and is reserved only once the bar is all the way out: a roll never
+resizes a tile or a maximized window. Not from `getPositioningInfo`: a roll
+started there places the bar again while the positioner is placing it. Only
+a new window's bar is at once what it is, since the window's own fade brings
+it in. One that is away takes a new colour at once.
 
 **Limitations**, each because the way round it is worse:
 
@@ -1266,6 +1303,15 @@ kitty's bar dark from its first frame; the glyphs centred; a maximized
 window's bar rounded; over a fullscreen window nothing at 120 ms and the bar
 after the reveal; floating ↔ fullscreen, ↔ maximized and tiled ↔ fullscreen
 each back to the same box.
+
+Since the roll (nested, with Zen, frame by frame at the shell's timings and
+slowed tenfold): tiled → floating by the bar's layout button and by a
+dispatch, the bar out of the window's top edge with the buttons coming in
+from above and the shadow under the bar alone; floating → tiled, back in and
+never over the page; hidden and shown from the dispatcher with the window's
+box unchanged; maximized keeping its bar, fullscreen with none and back to
+the same box; the bar revealed over a tiled window; the window closed, and
+the plugin unloaded and loaded again, mid-roll.
 
 #### Placement
 
@@ -1318,3 +1364,34 @@ reopened at that size, after a restart too; tiled and reopened tiled;
 floated again at the remembered size; a bad entry (a 0 height) falls back to
 the default; the ruled window neither placed nor remembered; unload with a
 closed, barred window still held, then that window freed.
+
+#### Stacking
+
+**Hyprland draws every tiled window below every floating one**
+(`renderWorkspaceWindows`: a tiled pass, then a floating one) and its hit
+test offers the pointer to a floating window first — asked without
+`ALLOW_FLOATING` too, after its fullscreen check. Yet it raises whatever is
+clicked, tiled or floating, in its window list (`processMouseDownNormal`),
+and `Compositor.focusWindow` raises with `alterzorder top`: the order is
+kept and only drawing and hitting ignore it. `Stacking` hooks both, found by
+name as the overview's patch finds `renderLayer`. The draw hook calls
+Hyprland's own whenever no tiled window it would draw is above a floating
+one, and otherwise draws in the list's order, each run of tiled windows as
+the tiled pass does (the focused one last, the closing tiled windows after
+the first run, the focused one's popups) and each floating window whole.
+The hit test hook looks above the floating window Hyprland found for a
+tiled window on its workspace whose box (`getWindowBoxUnified`, as a
+floating one is hit) or popup is at the point. A workspace with a
+fullscreen or maximized window is Hyprland's: it draws those with
+`renderWorkspaceWindowsFullscreen`. Both hooks or neither: drawn one way and
+hit the other, a covered window would take the clicks. A Hyprland where one
+is not found gets a notification and its own order.
+
+Verified in a nested Hyprland with a wlr-virtual-pointer client clicking and
+hovering, focus read with `hyprctl activewindow`: a floating window over a
+tiled one covered by a click on the tiled one (the pixel there turns the
+tiled window's colour) and hovering where it lies beneath focusing the tiled
+one; brought back by the dock's `focuswindow` + `alterzorder top` and by a
+click on what shows of it; one straddling two tiles covered by the clicked
+tile only; hover raising nothing; a maximized window left to Hyprland;
+unload with a tiled window raised, Hyprland's order back.

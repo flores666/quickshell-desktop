@@ -75,6 +75,9 @@ QtObject {
     /*! Movement: leaves briskly and settles slowly, without the near-instant
         launch a quintic gives. */
     readonly property int emphasizedEasing: Easing.OutCubic
+    /*! The same curve as a CSS cubic-bezier(): a title bar rolling out of its
+        window as a popup's door does (modules/common/CompositorTheme). */
+    readonly property var emphasizedCurve: [0.33, 1, 0.68, 1]
     /*! For a container changing size: even at both ends, so the edge does not
         appear to leap and then crawl the way an out-curve makes it. */
     readonly property int resizeEasing: Easing.InOutCubic

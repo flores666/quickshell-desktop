@@ -22,12 +22,18 @@ namespace {
     SP<CColorValue>           g_bar;
     // On a light bar, on a dark one.
     std::array<SInkValues, 2> g_inks;
-    SP<CIntValue>             g_hover, g_fade, g_dwell, g_linger;
-    SP<CStringValue>          g_curve;
-    SP<Style::Config>         g_hoverConfig, g_fadeConfig;
-    std::string               g_curveAdded;
+    SP<CIntValue>             g_hover, g_fade, g_rollOut, g_rollIn, g_dwell, g_linger;
+    SP<Style::Config>         g_hoverConfig, g_fadeConfig, g_rollOutConfig, g_rollInConfig;
 
-    constexpr const char*     CURVE = "windowsStandard";
+    // A curve the shell pushes, registered with Hyprland's animation manager
+    // by name.
+    struct SCurve {
+        const char*      name;
+        SP<CStringValue> value;
+        std::string      added = {};
+    };
+    // Fades and colour; a title bar rolling out.
+    SCurve                    g_standard{"windowsStandard"}, g_emphasized{"windowsEmphasized"};
 
     CHyprColor                color(const SP<CColorValue>& value) {
         return CHyprColor{sc<uint64_t>(value->value())};
@@ -40,23 +46,23 @@ namespace {
     }
 
     // "x1 y1 x2 y2", a cubic-bezier() as CSS writes it; added again whenever
-    // it changes or a reload has dropped it.
-    void addCurve() {
-        const auto VALUE = g_curve->value();
-        if (VALUE == g_curveAdded && Animation::mgr()->bezierExists(CURVE))
+    // it changes or a reload has dropped it. One that does not read is linear.
+    void addCurve(SCurve& curve) {
+        const auto VALUE = curve.value->value();
+        if (VALUE == curve.added && Animation::mgr()->bezierExists(curve.name))
             return;
         std::istringstream in(VALUE);
-        double             x1 = 0.45, y1 = 0, x2 = 0.55, y2 = 1;
+        double             x1 = 0, y1 = 0, x2 = 1, y2 = 1;
         if (!(in >> x1 >> y1 >> x2 >> y2))
-            x1 = 0.45, y1 = 0, x2 = 0.55, y2 = 1;
-        Animation::mgr()->addBezierWithName(CURVE, Vector2D{x1, y1}, Vector2D{x2, y2});
-        g_curveAdded = VALUE;
+            x1 = 0, y1 = 0, x2 = 1, y2 = 1;
+        Animation::mgr()->addBezierWithName(curve.name, Vector2D{x1, y1}, Vector2D{x2, y2});
+        curve.added = VALUE;
     }
 
     // On or off with Hyprland's own fades, and with all its animations — the
     // shell's Animations setting, which the animation manager warps through.
-    SP<Style::Config> config(SP<Style::Config>& config, const SP<CIntValue>& ms) {
-        addCurve();
+    SP<Style::Config> config(SP<Style::Config>& config, const SP<CIntValue>& ms, SCurve& curve) {
+        addCurve(curve);
         if (!config) {
             config             = makeShared<Style::Config>();
             config->overridden = true;
@@ -64,7 +70,7 @@ namespace {
         }
         const auto FADE           = ::Config::animationTree()->getAnimationPropertyConfig("fade");
         const auto VALUES         = FADE ? FADE->pValues.lock() : nullptr;
-        config->internalBezier    = CURVE;
+        config->internalBezier    = curve.name;
         config->internalEnabled   = VALUES ? VALUES->internalEnabled : 1;
         // In tenths of a second, as Hyprland counts animation speed.
         config->internalSpeed = std::max(0.1F, ms->value() / 100.F);
@@ -100,16 +106,22 @@ void Style::init(HANDLE handle) {
         for (int i = 0; i < BUTTONS; ++i)
             g_inks[ink].buttons[i] = COLOR(NAMES[ink][2 + i], "A button on a bar of this lightness", 0xFF808080);
     }
-    g_hover  = MS("plugin:windows:hover_duration", "How long a pointer wash takes, in ms", 120);
-    g_fade   = MS("plugin:windows:fade_duration", "How long a fade or a colour change takes, in ms", 180);
-    g_dwell  = MS("plugin:windows:dwell", "How long the pointer rests at a tiled or fullscreen window's top edge before its bar comes out, in ms", 225);
-    g_linger = MS("plugin:windows:linger", "How long a tiled window's bar stays once the pointer is off it, in ms", 250);
-    g_curve  = ADD(makeShared<CStringValue>("plugin:windows:curve", "The curve every animation is eased on: x1 y1 x2 y2", "0.45 0 0.55 1"));
+    g_hover   = MS("plugin:windows:hover_duration", "How long a pointer wash takes, in ms", 120);
+    g_fade    = MS("plugin:windows:fade_duration", "How long a fade or a colour change takes, in ms", 180);
+    g_rollOut = MS("plugin:windows:roll_out_duration", "How long a title bar takes to roll out of its window's top edge, in ms", 200);
+    g_rollIn  = MS("plugin:windows:roll_in_duration", "How long a title bar takes to roll back into its window's top edge, in ms", 138);
+    g_dwell   = MS("plugin:windows:dwell", "How long the pointer rests at a tiled or fullscreen window's top edge before its bar comes out, in ms", 225);
+    g_linger  = MS("plugin:windows:linger", "How long a tiled window's bar stays once the pointer is off it, in ms", 250);
+    g_standard.value =
+        ADD(makeShared<CStringValue>("plugin:windows:curve", "The curve fades, colour changes and a bar rolling in are eased on: x1 y1 x2 y2", "0.45 0 0.55 1"));
+    g_emphasized.value = ADD(makeShared<CStringValue>("plugin:windows:roll_curve", "The curve a bar rolls out on: x1 y1 x2 y2", "0.33 1 0.68 1"));
 }
 
 void Style::reloaded() {
-    g_curveAdded.clear();
-    addCurve();
+    for (auto* curve : {&g_standard, &g_emphasized}) {
+        curve->added.clear();
+        addCurve(*curve);
+    }
 }
 
 CHyprColor Style::system() {
@@ -126,11 +138,19 @@ Style::SInk Style::inkOn(const CHyprColor& bar) {
 }
 
 SP<Style::Config> Style::hover() {
-    return config(g_hoverConfig, g_hover);
+    return config(g_hoverConfig, g_hover, g_standard);
 }
 
 SP<Style::Config> Style::fade() {
-    return config(g_fadeConfig, g_fade);
+    return config(g_fadeConfig, g_fade, g_standard);
+}
+
+SP<Style::Config> Style::rollOut() {
+    return config(g_rollOutConfig, g_rollOut, g_emphasized);
+}
+
+SP<Style::Config> Style::rollIn() {
+    return config(g_rollInConfig, g_rollIn, g_standard);
 }
 
 int Style::dwell() {
