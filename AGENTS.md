@@ -295,29 +295,29 @@ card alone.
 **Popup pace** — a popup's own motion is `Appearance.t.popupPace` (1.3) times
 as quick as the rest of the shell's: `popupFade`, `popupMove` and
 `popupResize` are `fast`, `base` and `resize` at that pace. Every animation
-of a popup's card (its fade, slide, door, flight, resize and re-anchoring),
+of a popup's card (its fade, door, flight, resize and re-anchoring),
 whatever is timed against those (the card let go after its fade, a hand-off's
 wait for its picture), and quick settings' page swap, which the card's resize
 follows, take them, as does the dock's window preview, which rolls as a
 popup's door does; the controls inside a popup keep the shell's pace, and so
 do the date menu's notifications, which leave as toasts do.
 
-**Door** — how a popup under the bar or above the dock opens and closes when
-no other is open: its card rolls out of that edge, as a garage door, and back
-into it (`OverlayCard.door`, `rolled`). The dock's window preview rolls up out
-of the dock the same way; both hang from one `Door` (`components/`). The
-card's own box grows from the
-edge it hangs from, so its shadow, glass and corners follow with no clip line,
-and its contents ride the moving edge, the far end showing first. It is never
-shorter than its two corners (`Door.shut`), so it is the card's own rounded
-rectangle all the way: grown from nothing it was a capsule until it passed
-them. It fades in from there in `t.popupFade`, as a centred card does, and
-rolls out in `t.popupMove` on `emphasizedEasing`; in again in `t.popupFade`, before the popup
-lets its card go. A centred popup (the launcher, settings) fades and slides in
-instead, and a popup taking over from another flies (*Flight*). The door and
-the slide hold still while a card flies: closed mid-flight, a card lands
-whole and only then rolls in, where it used to land on whatever the door had
-reached meanwhile — 150 px shorter in one frame.
+**Door** — how a popup opens and closes when no other is open: its card rolls
+out of the edge of the panel it opens off, as a garage door, and back into it
+(`OverlayCard.door`, `rolled`) — the dock's above the dock, the bar's under
+it, and a centred popup (the launcher, settings) hangs under the bar too. The
+dock's window preview rolls up out of the dock the same way; both hang from
+one `Door` (`components/`). The card's own box grows from the edge it hangs
+from, so its shadow, glass and corners follow with no clip line, and its
+contents ride the moving edge, the far end showing first. It is never shorter
+than its two corners (`Door.shut`), so it is the card's own rounded rectangle
+all the way: grown from nothing it was a capsule until it passed them. It
+fades in from there in `t.popupFade`, and rolls out in `t.popupMove` on
+`emphasizedEasing`; in again in `t.popupFade`, before the popup lets its card
+go. A popup taking over from another flies instead (*Flight*). The door holds
+still while a card flies: closed mid-flight, a card lands whole and only then
+rolls in, where it used to land on whatever the door had reached meanwhile —
+150 px shorter in one frame.
 
 **Window shadow** — `Appearance.windowShadow`, the one shadow of everything
 that floats, in CSS `drop-shadow` terms (macOS's: dropped 25 px with a 45 px
@@ -430,9 +430,9 @@ had focus (an empty workspace offers nothing), nor the minimized.
 **Not a popup**: it takes no keyboard focus, Hyprland holds every key of it
 (`hyprland.conf`: Alt+Tab enters a `switcher` submap, Alt's release commits),
 and it closes whatever popup is open. `services/Switcher` keeps the order and
-the choice, `modules/switcher` draws it, after `t.glance`: its card comes and
-goes as a centred popup's does, 1.5 times quicker still (`t.switcherPace`,
-`switcherFade`, `switcherMove`), holding what it shows
+the choice, `modules/switcher` draws it, after `t.glance`: its card fades and
+slides into place and back out at the popups' pace, 1.5 times quicker still
+(`t.switcherPace`, `switcherFade`, `switcherMove`), holding what it shows
 through the fade out, and the title under the row changes only once the last
 has faded out.
 
@@ -512,7 +512,7 @@ implemented.
 |---|---|
 | `OverlaySurface` | the one window every popup's card is drawn in (`shell.qml` puts the popups in it): the room between the bar and the dock, its shadow padding, masking to the open popup's card, keyboard focus and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself. Mapped while any card is drawn, so a hand-off never maps or unmaps it |
 | `ShellOverlay` | the base every popup derives from, an item over the surface's room: placement, sizing, the open/settle/fade lifecycle. `liveX`/`liveHeight` are the card's eased rest; `cardItem` the card. Its settle waits for a hand-off's picture, bounded by `t.popupFade`, and its card stays up for one that is holding |
-| `OverlayCard` | the card inside it: the door (`door`, `rolled`) or, centred, the entry slide and the fade (as one flattened layer), clipping, hover reporting to `Overlay`, swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `renewing` (taking over from itself, for a new subject), `depart()`, `arrive()` |
+| `OverlayCard` | the card inside it: the door (`door`, `rolled`) and the fade (as one flattened layer), clipping, hover reporting to `Overlay`, swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `renewing` (taking over from itself, for a new subject), `depart()`, `arrive()` |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
 | `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, the title bars' colours and timings, and the window shadow |

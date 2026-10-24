@@ -8,7 +8,7 @@ import "root:/modules/common"
     Where popups' cards rest on the screen, all of them in the one window
     (OverlaySurface): `popupGap` under the bar or above the dock, whatever the
     placement, and in the same coordinates in every popup, which is what lets
-    one card take over from another's place.
+    one card take over from another's place; and the edge each rolls out of.
 */
 Item {
     Check {
@@ -54,6 +54,9 @@ Item {
         check.near("a centred card, on the screen", topOf(centre), underBar);
         check.near("a card above the dock, on the screen", topOf(above) + above.cardItem.rest.height,
             screen.height - Appearance.m.dockFootprint - Appearance.m.popupGap);
+        check.equal("under the bar: rolls out of it", below.cardItem.door, Qt.TopEdge);
+        check.equal("above the dock: rolls out of it", above.cardItem.door, Qt.BottomEdge);
+        check.equal("centred: rolls out of the bar it hangs under", centre.cardItem.door, Qt.TopEdge);
         check.near("every popup in the same coordinates: x", below.mapToItem(above, 0, 0).x, 0);
         check.near("every popup in the same coordinates: y", below.mapToItem(above, 0, 0).y, 0);
         check.done();

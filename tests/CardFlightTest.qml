@@ -75,7 +75,8 @@ Item {
         check.equal("at rest there is nothing outgoing", card.outgoing, 0);
         check.near("at rest: x", card.x, 500);
         check.near("at rest: width", card.width, 300);
-        check.near("at rest: height", card.height, 200);
+        // Not up yet, so shut in its door: as tall as its corners.
+        check.near("at rest, not up yet: shut", card.height, Appearance.r.panel * 2);
 
         // As ShellOverlay settles a popup taking over: the old card's place,
         // in the window they share, a stand-in picture, and the old card

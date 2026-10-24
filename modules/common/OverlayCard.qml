@@ -32,17 +32,16 @@ Surface {
         ShellOverlay.settled). Until then it is invisible and does not animate. */
     required property bool settled
     /*! Where the card rests in its window, and its size there: what it flies
-        to, and what its contents are laid out at. A card that fades in place
-        slides into it (`entry`); one with a `door` rolls out to it. */
+        to, what it rolls out of its `door` to, and what its contents are
+        laid out at. */
     property rect rest
     /*! Its rest on the way to a new height, its contents already laid out at
         that height (ShellOverlay.liveHeight). */
     property bool resizing: false
     /*! The edge it hangs from, which it rolls out of as it opens and back into
         as it closes, as a garage door does: Qt.TopEdge under the bar,
-        Qt.BottomEdge above the dock. 0, a card with neither (a centred one),
-        fades in place instead. */
-    property int door: 0
+        Qt.BottomEdge above the dock. */
+    property int door: Qt.TopEdge
 
     /*! Keys the card did not handle itself. */
     signal keyPressed(var event)
@@ -87,20 +86,13 @@ Surface {
     property bool handedOver: false
     readonly property bool up: (card.shown || card.holding) && card.settled
 
-    /*!
-        The short slide the card makes as it appears. Animated on its own
-        rather than through `y`, so that the resize compensation in the rest
-        stays exactly in step with the height instead of chasing it on a
-        different curve — which is the bottom edge of the card visibly drifting.
-    */
-    property real entry: card.up || card.flying ? 0 : -Appearance.s.md
     property real fade: card.up ? 1 : 0
     /*! How far out of its `door` it has rolled: 0 shut, 1 at rest. It fades
-        in from shut as it rolls. Held out, as the slide is held in, while the
-        card flies, which they take no part in: closed mid-flight, the card
-        landed on wherever they had got to, a jump of 150 px. */
+        in from shut as it rolls. Held out while the card flies, which it
+        takes no part in: closed mid-flight, the card landed on wherever it
+        had got to, a jump of 150 px. */
     readonly property alias rolled: roller.rolled
-    readonly property bool rolling: card.door !== 0 && roller.rolling
+    readonly property alias rolling: roller.rolling
 
     Door {
         id: roller
@@ -108,10 +100,6 @@ Surface {
         out: card.up || card.flying
         full: card.rest.height
         radius: card.radius
-    }
-
-    Behavior on entry {
-        NumberAnimation { duration: Appearance.t.popupMove; easing.type: Appearance.t.emphasizedEasing }
     }
 
     Behavior on fade {
@@ -126,10 +114,9 @@ Surface {
     x: card.along(card.from.x, card.rest.x)
     // Rolled out, its edge on the door stays put and the other comes and goes.
     y: card.along(card.from.y, card.rest.y)
-        + (card.flying ? 0 : card.door === 0 ? card.entry : roller.drop)
+        + (card.flying ? 0 : roller.drop)
     width: card.along(card.from.width, card.rest.width)
-    height: card.flying || card.door === 0 ? card.along(card.from.height, card.rest.height)
-        : roller.extent
+    height: card.flying ? card.along(card.from.height, card.rest.height) : roller.extent
     // One radius for every panel; no popup picks its own.
     radius: Appearance.r.panel
     // A card in flight is the one that was there: as strong as that one was
@@ -240,7 +227,7 @@ Surface {
             // door's moving edge, as a door's panel is, so a card rolling out
             // shows its far end first.
             x: (parent.width - body.width) / 2
-            y: card.flying || card.door === 0 ? (parent.height - body.height) / 2 : roller.contentY
+            y: card.flying ? (parent.height - body.height) / 2 : roller.contentY
             width: card.rest.width
             height: card.rest.height
             opacity: card.incoming

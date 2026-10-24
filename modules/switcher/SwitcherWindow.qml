@@ -19,8 +19,7 @@ import "root:/services"
     one that happens to be where the card opens must not choose for you. Then
     resting on an entry chooses it, and a click brings it forward.
 
-    It comes and goes as a centred popup's card does (OverlayCard), fading
-    and sliding into place and back out, at a pace of its own
+    It fades and slides into place and back out, at a pace of its own
     (`t.switcherPace`). What it shows
     is held through the fade out, and the title under the row changes only
     once the last has faded out.
@@ -62,7 +61,7 @@ PanelWindow {
     property var named: null
     readonly property bool renaming: root.named !== root.current
 
-    /*! As a centred popup's card: a short slide into place, and the fade. */
+    /*! A short slide into place, and the fade. */
     property real entry: root.shown ? 0 : -Appearance.s.md
     property real fade: root.shown ? 1 : 0
 
