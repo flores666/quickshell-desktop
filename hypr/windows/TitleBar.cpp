@@ -61,6 +61,10 @@ static bool fullscreen(PHLWINDOW window) {
     return window && Fullscreen::controller()->getFullscreenModes(window).internal == Fullscreen::FSMODE_FULLSCREEN;
 }
 
+static bool maximized(PHLWINDOW window) {
+    return window && Fullscreen::controller()->getFullscreenModes(window).internal == Fullscreen::FSMODE_MAXIMIZED;
+}
+
 bool CTitleBar::goesAbove() const {
     // Fullscreen, a floating window's bar is over it as a tiled one's is.
     const auto W = m_window.lock();
@@ -107,6 +111,28 @@ void CTitleBar::onPositioningReply(const SDecorationPositioningReply&) {
 void CTitleBar::reposition() {
     g_pDecorationPositioner->repositionDeco(this);
     damageEntire();
+    // Hyprland lays a maximized window out once, as it maximizes, and not
+    // again when the room it takes from it changes; a recalculation of its
+    // space checks it against the work area less that room.
+    const auto W = m_window.lock();
+    if (maximized(W) && W->layoutTarget() && W->layoutTarget()->space())
+        W->layoutTarget()->space()->recalculate();
+}
+
+void CTitleBar::restoreUnder(const Vector2D& pointer) {
+    const auto W      = m_window.lock();
+    const auto TARGET = W ? W->layoutTarget() : nullptr;
+    if (!TARGET || !W->m_isFloating || !Fullscreen::controller()->isFullscreen(W))
+        return;
+    Fullscreen::controller()->setFullscreenMode(W, Fullscreen::FSMODE_NONE, Fullscreen::FSMODE_NONE);
+    // The size Hyprland kept as it maximized it, the bar above the window
+    // with the pointer where it took the bar. One that never had a size of
+    // its own floating (it opened fullscreen) is left to Hyprland's drag.
+    const auto SIZE = TARGET->lastFloatingSize();
+    if (SIZE.x <= 0 || SIZE.y <= 0)
+        return;
+    const auto GRAB = g_state->grab;
+    g_layoutManager->setTargetGeom({pointer.x - GRAB.x * SIZE.x, pointer.y - GRAB.y + HEIGHT, SIZE.x, SIZE.y}, TARGET);
 }
 
 void CTitleBar::keepOnScreen() {
@@ -123,7 +149,7 @@ void CTitleBar::keepOnScreen() {
         return;
     box.h = std::min(box.h, AREA.y + AREA.h - TOP);
     box.y = TOP;
-    TARGET->setPositionGlobal(box);
+    g_layoutManager->setTargetGeom(box, TARGET);
 }
 
 CBox CTitleBar::windowBox() const {
@@ -191,7 +217,13 @@ void CTitleBar::animate() {
         var->setConfig(config);
         *var = to;
     };
-    EASE(m_roll, m_above ? 1.F : 0.F, m_above ? Style::rollOut() : Style::rollIn());
+    // Over a maximized window the bar is at once what it is: its room is
+    // taken from the window, which is laid out with all of it or none.
+    if (const float OUT = m_above ? 1.F : 0.F; maximized(W)) {
+        if (m_roll->value() != OUT || m_roll->goal() != OUT)
+            m_roll->setValueAndWarp(OUT);
+    } else
+        EASE(m_roll, m_above ? 1.F : 0.F, m_above ? Style::rollOut() : Style::rollIn());
     EASE(m_reveal, usable() && !m_above && g_state->revealed.lock() == W ? 1.F : 0.F, Style::fade());
     EASE(m_hover, g_state->hovered.lock() == W && g_state->overButtons ? 1.F : 0.F, Style::hover());
     EASE(m_focus, Desktop::focusState()->window() == W ? 1.F : 0.F, Style::fade());
@@ -215,8 +247,12 @@ bool CTitleBar::onInputOnDeco(const eInputType type, const Vector2D& pos, std::a
 
         g_state->hover(W, buttonAt(pos) != -1);
         g_state->armed = buttonAt(pos);
-        if (g_state->armed == -1)
+        if (g_state->armed == -1) {
             g_state->dragging = W;
+            // Where along the bar it was taken, and how far down it.
+            const auto BAR = barBox();
+            g_state->grab  = {(pos.x - BAR.x) / BAR.w, pos.y - BAR.y};
+        }
         return true;
     }
 

@@ -8,6 +8,7 @@
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
+#include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/output/Monitor.hpp>
 
@@ -129,8 +130,14 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             // Not the float a tile is dragged in, which follows the pointer
             // and which the drop undoes. Remembered as it changes, not only on
             // close, which a logout may skip.
-            if (g_layoutManager->dragController()->target() != w->layoutTarget())
+            if (g_layoutManager->dragController()->target() != w->layoutTarget()) {
+                // Floated or tiled, a window leaves maximize and fullscreen:
+                // Hyprland puts the mode back after the toggle, and a window
+                // floated again came back maximized, not at its own size.
+                if (Fullscreen::controller()->isFullscreen(w))
+                    Fullscreen::controller()->setFullscreenMode(w, Fullscreen::FSMODE_NONE, Fullscreen::FSMODE_NONE);
                 Placement::floatingChanged(w);
+            }
             Pointer::modeChanged(w, true);
         }),
         // Fullscreen, a floating window's bar moves over it.

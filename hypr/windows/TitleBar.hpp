@@ -83,6 +83,11 @@ class CTitleBar : public IHyprWindowDecoration {
         the bar is in the work area. Only where Hyprland places the window —
         one dragged there is left there. */
     void keepOnScreen();
+    /*! A maximized or fullscreen floating window taken by its bar to be
+        dragged: out of that mode at its own size, the pointer where it took
+        the bar along it and down it. Hyprland would centre it on the pointer,
+        which put the bar above the screen. */
+    void restoreUnder(const Vector2D& pointer);
     /*! Ease towards what the pointer and focus now say, and roll out or in
         to where the window now has the bar. */
     void animate();
@@ -138,8 +143,10 @@ struct SState {
     Vector2D     pointer;
     // The button pressed on the hovered bar; it acts if released there.
     int          armed = -1;
-    // A press on a bar's background: a move, once the pointer moves.
+    // A press on a bar's background: a move, once the pointer moves; and
+    // where it took the bar, as a share of its width and a depth into it.
     PHLWINDOWREF dragging;
+    Vector2D     grab;
     PHLWINDOWREF active;
     std::vector<uint32_t> held;
 

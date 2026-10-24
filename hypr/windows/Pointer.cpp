@@ -150,8 +150,11 @@ void Pointer::move(const Vector2D& pos, Event::SCallbackInfo& info) {
 
     if (const auto W = g_state->dragging.lock()) {
         g_state->dragging.reset();
-        if (std::ranges::contains(g_state->held, BTN_LEFT) && validMapped(W))
+        if (std::ranges::contains(g_state->held, BTN_LEFT) && validMapped(W)) {
+            if (const auto BAR = CTitleBar::of(W))
+                BAR->restoreUnder(pos);
             g_layoutManager->beginDragTarget(W->layoutTarget(), MBIND_MOVE);
+        }
     }
 
     const auto WINDOW = windowAt(pos);

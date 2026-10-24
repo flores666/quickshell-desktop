@@ -7,6 +7,7 @@
 #include <hyprland/src/desktop/rule/windowRule/WindowRuleApplicator.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/layout/space/Space.hpp>
 #include <hyprland/src/layout/target/Target.hpp>
 #include <hyprland/src/managers/XWaylandManager.hpp>
@@ -160,9 +161,21 @@ void Placement::place(PHLWINDOW window) {
 void Placement::floatingChanged(PHLWINDOW window) {
     // Floated from a tile, it takes the size it would open at, rather than
     // whatever Hyprland makes of the tile or of what the application asks.
-    if (window->m_isFloating && managed(window) && !Fullscreen::controller()->isFullscreen(window))
+    // Through the floating layout, which keeps the box: un-maximized or out of
+    // fullscreen, the window goes back to it, and set past the layout it went
+    // back to Hyprland's own pick, centred without its title bar.
+    if (window->m_isFloating && managed(window) && !Fullscreen::controller()->isFullscreen(window)) {
         if (const auto BOX = floatingBox(window))
-            window->layoutTarget()->setPositionGlobal(*BOX);
+            g_layoutManager->setTargetGeom(*BOX, window->layoutTarget());
+    }
+    // Tiled from floating, the size it had floating is no longer the window's
+    // own: Hyprland keeps it on the layout target. Not a tile dropped after a
+    // drag, whose floating size was the drag's.
+    else if (!window->m_isFloating && managed(window) && !g_layoutManager->dragController()->wasDraggingWindow()) {
+        const auto LAST = window->layoutTarget()->lastFloatingSize();
+        if (LAST.x > 0 && LAST.y > 0)
+            g_remembered[window->m_initialClass].size = LAST;
+    }
     remember(window);
 }
 

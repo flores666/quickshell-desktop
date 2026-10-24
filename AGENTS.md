@@ -132,7 +132,10 @@ modules/             the surfaces themselves
 tools/               generators, the lint and test wrappers and
                      save-profile.sh; not loaded at runtime
 tests/               *Test.qml, run by tools/test.sh, and Check, what they
-                     report through
+                     report through; WindowDriver, a kitty the Window*Test
+                     ones switch between modes
+docs/specs/          what a change set out to do, item by item, with the
+                     checks its tests encode
 hyprland.conf        the shell's Hyprland integration, sourced from
                      hypr/conf.d/90-quickshell.conf: the plugins, the shell's
                      global binds, the bindn dismissal binds
@@ -818,6 +821,22 @@ expensive to find.
   subsurface's next damaged commit, was measured frame by frame in a nested
   Hyprland and only traded the band for the page drawn small in the old box.
   It is the application's, and is left alone.
+- **Hyprland's floating ↔ tiled toggle keeps a window's fullscreen mode**:
+  `changeFloatingMode` takes it out, toggles, and puts the old mode back.
+- **A maximized window is laid out once, as it maximizes.** Its box is the
+  work area less the room its decorations reserve, read then; a change of
+  that room later recalculates the window's target, which returns early for
+  a fullscreen window unless a position is queued. Recalculating its space
+  checks the box against the work area again (`syncTargetSizeAndPosition`).
+- **`setPositionGlobal` on a floating target skips the floating layout's
+  record of it** (`lastBox`), which un-maximize and un-fullscreen restore:
+  a window placed so came back where Hyprland had first put it.
+  `g_layoutManager->setTargetGeom` sets the box and the record.
+- **kitty remembers its last size and whether it was maximized**, in
+  `~/.cache/kitty/main.json`, and asks for both as it opens: a kitty run in
+  a nested Hyprland and closed maximized made the session's next one ask to
+  open maximized at the nested screen's size. A test's kitty takes a cache
+  of its own (`KITTY_CACHE_DIRECTORY`).
 - **`hyprctl keyword` applies no option's refresh bits.** A plugin's
   `SColorValueOptions{.refresh = …}` take effect on a config reload only; a
   keyword gets just the side effects `dispatchKeyword` hard-codes by name
@@ -862,6 +881,15 @@ expensive to find.
 
 ### Testing
 
+- **The `Window*Test` tests open a window**: a kitty they switch between
+  modes through hyprctl (`tests/WindowDriver.qml`), so `tools/test.sh` runs
+  with a nested instance's `HYPRLAND_INSTANCE_SIGNATURE` and
+  `WAYLAND_DISPLAY`, its config loading the branch's `windows.so` (built to
+  a scratch path, never over the installed one). A drag by the title bar
+  needs a pointer button, which QML cannot press: that is a
+  wlr-virtual-pointer client on the nested socket (below).
+  `BackdropProbeTest` needs a second screen and a saved wallpaper, and in a
+  nested instance with one screen never finishes.
 - **`hyprctl dispatch movecursor` does not generate pointer enter events.**
   Hover state will not update. Synthetic tests must emit real relative motion
   through `/dev/uinput` first; see the helper scripts pattern in the scratchpad
@@ -1201,7 +1229,11 @@ The bar's box over a tiled window is the whole window, so it claims
 `DECORATION_ALLOWS_MOUSE_INPUT` only while shown. A button acts on release
 over the button it was pressed on; a press on the background becomes a move
 once the pointer moves (`beginDragTarget`, as a mouse bind starts one), which
-for a tile is Hyprland's own tile drag. Hover is the one listener on
+for a tile is Hyprland's own tile drag. A maximized or fullscreen floating
+window is taken out of that mode first, at the size Hyprland kept as it
+maximized it, with the pointer where it took the bar, along it and down it
+(`restoreUnder`): Hyprland's own drag restored it centred on the pointer,
+its bar above the screen. Hover is the one listener on
 `input.mouse.move`, and it skips an event another plugin cancelled — the
 overview takes the pointer while it is open — so the title bars' `plugin =`
 line comes after the overview's. No bar newly takes the pointer while a
@@ -1262,7 +1294,11 @@ window's own, one rounded shape all the way. The room it holds above the
 window follows it frame by frame (`reposition` from the roll's update), so
 the window's shadow is under the bar and nowhere else (see the Hyprland
 gotchas), and is reserved only once the bar is all the way out: a roll never
-resizes a tile or a maximized window. Not from `getPositioningInfo`: a roll
+resizes a tile or a maximized window. Over a maximized window the bar does
+not roll: the room is taken from the window, so it is all there or none at
+once, and the window is laid out again with it (`reposition`, see the
+Hyprland gotchas) — maximized from fullscreen, it used to keep the whole
+height with its bar off the top. Not from `getPositioningInfo`: a roll
 started there places the bar again while the positioner is placing it. Only
 a new window's bar is at once what it is, since the window's own fade brings
 it in. One that is away takes a new colour at once.
@@ -1345,12 +1381,25 @@ work area is a cache refreshed on Hyprland's schedule (a first window after
 an output change was placed by the old one), so it is rechecked first. A
 window the user floats from a tile gets the same box, rather than Hyprland's
 pick from the tile; the float a dragged tile goes through is the drag's.
+Placed through the floating layout (`setTargetGeom`), which keeps the box,
+so maximize and fullscreen give it back (see the Hyprland gotchas); and so
+is a window `keepOnScreen` moves.
+
+**Floating ↔ tiled leaves maximize and fullscreen.** Hyprland's toggle puts
+the mode back afterwards: a maximized window tiled stayed maximized, and
+floated again came back maximized rather than at its own size. The
+`window.floating` listener (outside a drag) sets the mode to none before
+Placement places it. Minimized and restored, a window keeps its mode.
 
 **Remembered**, by app id, in `~/.local/state/hypr-windows/remembered` (one
 line each: floating, width, height, id; written whole through a rename):
 when a window closes, when it is floated or tiled (outside a drag, whose drop
 re-tiles it), and for every window at `exit`, since a logout may close none.
-Machine state, so not in `profile/`.
+A window just tiled has no floating size of its own any more: the one it had
+is its layout target's `lastFloatingSize`, taken as it tiles (not as a
+dropped tile re-tiles, whose was the drag's) — before, a window resized,
+tiled and floated again came back at the size it first opened at. Machine
+state, so not in `profile/`.
 
 **Limits**: the position is not remembered — every window opens centred, two
 of one app on top of each other. Windows of one app share one memory, the
