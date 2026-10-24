@@ -17,7 +17,10 @@ legible to it.
   measured, `""` before any.
 - **follow**: `Settings.accentFollowsWallpaper`, the toggle.
 - **L, C, h**: a colour's OKLCH lightness, chroma and hue (Björn Ottosson's
-  OKLab, sRGB). **tone(x, like)**: x's chroma and hue at like's lightness.
+  OKLab, sRGB). **sat(x)**: C(x) over the most C sRGB holds at L(x) and h(x).
+  **tone(x, like)**: the colour at like's lightness with x's hue and sat. Not
+  x's C: a deep blue lifted at its C came out grey-blue, and black with
+  orange in it beige (checked on sixteen wallpapers).
 - **tuned**: each theme's own accent, `#c15f3c` (day) and `#d97757` (night);
   the terminal's are palette.conf's `accent #7d93ee` and
   `accent_bright #9aaef5`.
@@ -56,7 +59,7 @@ follow the accent as for a picked one. New `config/ColorMath.qml` holds the
 OKLab maths.
 
 - follow, W `#2a3f66` → `day.accent`: L = L(`#c15f3c`) ± 0.01, h = h(W) ± 2°,
-  C = C(W) ± 0.01; `night.accent`: L = L(`#d97757`) ± 0.01, h = h(W) ± 2°.
+  sat = sat(W) ± 0.02; `night.accent`: L = L(`#d97757`) ± 0.01, h = h(W) ± 2°.
   Both legible.
 - follow, W `#ff00ff` → `day.accent` L = L(`#c15f3c`) ± 0.01, h = h(W) ± 3°,
   legible.

@@ -5,9 +5,9 @@ import "root:/services"
 /*!
     The accent follows the wallpaper (docs/specs/wallpaper-accent.md, item 2):
     while Settings.accentFollowsWallpaper is on and the wallpaper has a main
-    colour, each theme's accent is that colour's chroma and hue at the theme's
-    own accent's lightness, never less colourful than a picked accent may be;
-    otherwise the accent is the one chosen.
+    colour, each theme's accent is that colour's hue and saturation at the
+    theme's own accent's lightness, never less colourful than a picked accent
+    may be; otherwise the accent is the one chosen.
 */
 Item {
     id: root
@@ -53,7 +53,7 @@ Item {
             const day = Appearance.day.accent;
             const night = Appearance.night.accent;
             root.toned("a muted blue, day", day, "#2a3f66", root.tunedDay, 2);
-            check.within("a muted blue, day: the wallpaper's chroma", ok.lch(day).c, ok.lch("#2a3f66").c, 0.01);
+            check.within("a muted blue, day: the wallpaper's saturation", ok.saturation(day), ok.saturation("#2a3f66"), 0.02);
             root.toned("a muted blue, night", night, "#2a3f66", root.tunedNight, 2);
             root.legible("a muted blue, day: legible", day);
             root.legible("a muted blue, night: legible", night);
