@@ -1,11 +1,14 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 /*!
     A window for the tests to switch between modes: a kitty of a class of its
     own, so Placement remembers nothing for it, driven through hyprctl in the
     Hyprland the test runs under — a nested one with the branch's plugin,
-    never the session (docs/specs/window-modes.md).
+    never the session (docs/specs/window-modes.md). Its cache is the test's:
+    kitty remembers its last size and whether it was maximized, and the
+    session's kitty opened at the nested screen's size, maximized.
 
     One command at a time: each `open`, `act` and `close` calls back with the
     window's state once Hyprland has settled it — `{ floating, fs, box }`,
@@ -60,7 +63,8 @@ QtObject {
     }
 
     function open(then: var): void {
-        root.run(`hyprctl dispatch exec 'kitty --class ${root.appClass}' >/dev/null
+        const cache = Quickshell.env("XDG_CACHE_HOME") + "/kitty";
+        root.run(`hyprctl dispatch exec 'env KITTY_CACHE_DIRECTORY=${cache} kitty --class ${root.appClass}' >/dev/null
             for i in $(seq 50); do hyprctl clients -j | grep -q '"${root.appClass}"' && break; sleep 0.1; done
             sleep 0.8; hyprctl monitors -j; echo '#'; hyprctl clients -j`, text => {
             const [monitors, clients] = text.split("\n#\n");
