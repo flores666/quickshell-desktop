@@ -133,7 +133,8 @@ tools/               generators, the lint and test wrappers and
                      save-profile.sh; not loaded at runtime
 tests/               *Test.qml, run by tools/test.sh, and Check, what they
                      report through; WindowDriver, a kitty the Window*Test
-                     ones switch between modes
+                     ones switch between modes; bin/, the gsettings and
+                     pkill they run with
 docs/specs/          what a change set out to do, item by item, with the
                      checks its tests encode
 hyprland.conf        the shell's Hyprland integration, sourced from
@@ -182,7 +183,7 @@ something new, the change also records it here.** Concretely:
 | a script a config or bind runs | `bin/`; refer to it by bare name (kitty finds `~/.local/bin` itself; Hyprland binds use `~/.local/bin/<name>`) | links every file in `bin/` into `~/.local/bin` |
 | a system or user service | the package; enabling it is a line in `install.sh` — or, for one that needs the graphical session, an `exec-once` in `hypr/conf.d/20-autostart.conf` (the polkit agent) | enables it if it is off |
 | a setting that lives in dconf | its directory in `tools/save-profile.sh`'s `gtk` list, then run that | writes each key the machine still has at its default |
-| a colour in the terminal, the prompt or neovim | `terminal/palette.conf`, by name | nothing: all three read it |
+| a colour in the terminal, the prompt or neovim | `terminal/palette.conf`, by name; the accent taken from the wallpaper is this machine's state, laid over it from `~/.local/state/quickshell-desktop/palette.conf` (*Wallpaper accent*) | nothing: all three read it |
 | a setting for one particular monitor or input device | nothing in the project: screens are detected (`highres, auto, auto`) and a touchpad by the shell. One machine's arrangement or tuning goes in its own `~/.config/hypr/hyprland.conf`, after the `source` line, keyed by the device (`desc:`, a `device` block's `name`) | nothing |
 | the shell's preferences | nothing new: run `tools/save-profile.sh` and commit `profile/`; it keeps only pins and dock places of applications the package lists install | `Settings` starts from `profile/settings.json` on a machine with none |
 
@@ -391,7 +392,8 @@ way back inside its own control — which is why *Reset all* leaves them alone a
 is only ever about the numbers. The same goes for the on/off preferences: Do
 Not Disturb, *Match window corners* (`roundnessFollowsWindows`) and the dock's
 *Auto-hide* (`dockAutoHide`) and *Match top panel*
-(`dockOpacityFollowsBar`, the dock taking the bar's opacity).
+(`dockOpacityFollowsBar`, the dock taking the bar's opacity), and *Match
+wallpaper* (`accentFollowsWallpaper`; see *Wallpaper accent*).
 
 A colour seed can also come from the picker, which is held to
 `Appearance.seedRange`: the derived family and the hand-tuned text colours only
@@ -407,6 +409,31 @@ built-in choice keeps it in `hiddenColors` (`forgetColor` does both), and ""
 — the theme's own colour, the way back — cannot be removed. User-visible
 text is American English ("color"); the code and its comments are not
 rewritten for it.
+
+**Wallpaper accent** — the accent while *Match wallpaper* is on
+(`Settings.accentFollowsWallpaper`, a toggle under the Accent row, which is
+not offered meanwhile; the toggle is there once a picture has been measured).
+It is the picture's main colour (`Backdrop.mainColor`, measured as the bar's
+probe measures the picture and kept as `Settings.wallpaperAccent`, so a login
+has it at once): the colour covering the most of the picture among its
+colours — pixels tallied in 24 hues, each counting by the square root of its
+chroma, so greys count for nothing and a large muted area outweighs a small
+vivid one. Each theme takes it at its own accent's lightness, with its hue and
+its saturation: its share of the most chroma sRGB holds at that lightness and
+hue, in OKLab (`ColorMath.tone`). At its own chroma a dark wallpaper's colour
+came out grey — Adwaita's deep blue slate, black with orange in it beige — over
+sixteen wallpapers measured. Never less colourful than a picked accent may be
+(`seedRange`): a nearly grey picture gives the nearest colour that is, a grey
+one the theme's own hue. While on, it goes out of the shell too, worked out by
+`DesktopTheme` and set by `DesktopAccent`, each put back when it stops:
+Hyprland's active border (`CompositorTheme`; the config's comes back with a
+reload), GTK's `accent-color` (the libadwaita name nearest it; the one before
+is kept in `gtkAccentBefore`), and the terminal's `accent` and
+`accent_bright`, which are its ANSI blue and its links, through
+`~/.local/state/quickshell-desktop/palette.conf`, which `kitty-colors.py` and
+neovim lay over palette.conf: running kittys are sent `SIGUSR1`, and reload
+their config, only when that file changes; neovim and the fish prompt take it
+as they start.
 
 **Placement** — where a popup attaches: `BelowBar`, `AboveDock`, `Centre`.
 
@@ -465,12 +492,14 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 
 | Service | Owns | Key surface |
 |---|---|---|
-| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `barOpacity`/`dockOpacity` (0–1 of the glass; the dock's may be the bar's), `glassOver` (a thinned panel's tint over what shows through), `schemeOn` (the theme, or the other, whichever's text reads better on a colour), `laid` (a fill at a share over a colour), `contrast`, `luminance`, `s` `r` `m` `t` `font`, `windowShadow`, `shadowFor(level)` (layers in CSS `drop-shadow` terms, and `pad`), `seedRange(seed)`, `inSeedRange` |
+| `Appearance` (in `config/`) | the whole palette and every metric | `c` (colours), `day`/`night` (each theme's scheme, from its own seed), `barOpacity`/`dockOpacity` (0–1 of the glass; the dock's may be the bar's), `glassOver` (a thinned panel's tint over what shows through), `schemeOn` (the theme, or the other, whichever's text reads better on a colour), `laid` (a fill at a share over a colour), `contrast`, `luminance`, `s` `r` `m` `t` `font`, `windowShadow`, `shadowFor(level)` (layers in CSS `drop-shadow` terms, and `pad`), `seedRange(seed)`, `inSeedRange`, `followsWallpaper` and `fromWallpaper(tuned)` (see *Wallpaper accent*), `gtkAccents` (libadwaita's, by name) |
+| `ColorMath` (in `config/`) | colour in OKLab: what the wallpaper accent is made with and matched by | `lab`, `rgb`, `tone(seed, like, enough)`, `most` (the chroma sRGB holds at a lightness and hue), `nearest` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
-| `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`; a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
-| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's, the title bars' and the windows' shadow — set by `CompositorTheme`) |
+| `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`, read and written by `SettingsFile` (at once, a moment after a burst of changes, never before it is read; see the QML gotchas); a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `accentFollowsWallpaper`, `wallpaperAccent` and `gtkAccentBefore` (this machine's, saved empty in `profile/`), `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
+| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's, the title bars', the windows' shadow and, while the accent follows the wallpaper, the active border — set by `CompositorTheme`; one that goes away is put back by a reload, as a cleared override is) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorXOf` (each popup's anchor, by name, set only as that popup opens: one anchor for all slid the card being taken over from towards the next popup's button), `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `flight` (`{ from, to, rect, strength, contents, away }`, and `at` and `subject` for a popup taking over from itself; see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
+| `DesktopAccent` | the accent handed outside the shell while it follows the wallpaper: GTK's `accent-color` and the terminal's palette file, each put back when it stops; nothing before `Settings.ready` | `gtk` (a libadwaita name), `terminal` (`{ accent, accent_bright }`), `palette` (`terminal/palette.conf`), `stateFile` |
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
 | `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
@@ -503,7 +532,7 @@ implemented.
 |---|---|
 | `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation (Space/Enter click; Menu or Shift+F10 right-click). Everything clickable derives from it. `scheme` is the `ColorScheme` its state layer and ring are drawn in, `Appearance.c` unless it stands on thinned glass |
 | `Surface` | a glass panel: `c.chrome` (the surface at `c.glass` opacity), a hairline and a `Shadow`; the compositor blurs what is behind it. `glass` fades all three together, eased, and leaves the content alone. Given its `screen` and where it rests there (`placedAt`), as the bar and the dock are, its `scheme` (the tint) and `schemeOver(item)` (the colours for anything on it, from where that rests: parents' positions read one by one so a binding hears each move) follow the wallpaper behind it (see *Backdrop*) |
-| `Backdrop` | the wallpaper's mean colour under any rectangle of a screen (`colorUnder`), from a summed-area table per screen; `measured`, `measure`, `gauge` (one pixel per `cell`, 8 logical px) |
+| `Backdrop` | the wallpaper's mean colour under any rectangle of a screen (`colorUnder`), from a summed-area table per screen; `measured`, `measure`, `gauge` (one pixel per `cell`, 8 logical px); and the picture's main colour (`mainColor`), kept as `Settings.wallpaperAccent` |
 | `BackdropProbe` | measures one screen's picture for `Backdrop` whenever it or the screen's size changes: decoded off the main thread, already shrunk, into a canvas nobody sees (a canvas needs a window; the bar holds it) |
 | `RoundedClip` | its children cut to a rounded rectangle by one mask while `active` (two layers and a `MultiEffect`), and drawn as they are while not: `ColorPicker`'s square gradients, a popup card's contents while it flies or resizes |
 | `Shadow` | a `RectangularShadow` per layer of `Appearance.shadowFor(level)`; `level` 1–3, 3 being the window shadow |
@@ -527,7 +556,8 @@ implemented.
 | `OverlayCard` | the card inside it: the door (`door`, `rolled`) and the fade (as one flattened layer), clipping, hover reporting to `Overlay`, swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `renewing` (taking over from itself, for a new subject), `depart()`, `arrive()` |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
-| `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, the title bars' colours and timings, and the window shadow |
+| `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, the title bars' colours and timings, the window shadow, and the active border while the accent follows the wallpaper |
+| `DesktopTheme` | the design system's share of other applications' settings, handed to `DesktopAccent`: while the accent follows the wallpaper, the libadwaita accent nearest it and the terminal's accents (the wallpaper's colour at palette.conf's own accents' lightness) |
 | `MenuItemRow` | one row of a popup menu |
 
 ---
@@ -614,6 +644,21 @@ expensive to find.
   the failed read before it has finished (measured with `writeAdapter()` and
   `setText()` alike, in a bare `qs -p` test). `Settings` defers the write with
   `Qt.callLater`; the adapter still picks up what is written.
+- **A `FileView`'s write on a thread takes back what was set meanwhile.** A
+  write started while another is under way waits for that one, whose data is
+  then read back into the adapter (0.3.2's `saveAsync` → `cancelAsync` →
+  `waitForJob`): two keys set in one go read as the first alone until the
+  next write landed, and on a first run the second could be lost. Measured
+  with `Settings` in a `qs -p` probe. `SettingsFile` writes on the thread it
+  is on (`blockWrites`), once a burst of changes has settled (250 ms).
+- **`FileView.loaded` turns true before the data is in its adapter**
+  (`updateState` emits it ahead of `dataChanged`), **and a first write leaves
+  it false**, the writer having looked for the file before writing it.
+  `Settings.ready` was true while the store held its defaults — a key set then
+  was overwritten by the file — and on a fresh state directory came true only
+  if the watcher saw the file appear, 2 runs in 6, so the first test of a
+  `tools/test.sh` run often hung. `SettingsFile.loaded` comes from the
+  `loaded` and `saved` signals instead.
 - **A key taken out of `SettingsStore` leaves settings.json at the next
   write**: the adapter writes only what it declares, and the hot reload of
   the edit rewrote the file within seconds (`dockBackground`, replaced by
@@ -890,6 +935,12 @@ expensive to find.
   wlr-virtual-pointer client on the nested socket (below).
   `BackdropProbeTest` needs a second screen and a saved wallpaper, and in a
   nested instance with one screen never finishes.
+- **No test reaches the machine's dconf or the user's terminals**:
+  `tools/test.sh` puts `tests/bin` first on their `PATH` — a `gsettings` that
+  keeps what is set in a file of the run's own (`TEST_GSETTINGS`) and a
+  `pkill` that only notes what it was asked (`TEST_SIGNALS`). A test that
+  would set either checks that they are the stand-ins first, and fails
+  rather than run without them.
 - **`hyprctl dispatch movecursor` does not generate pointer enter events.**
   Hover state will not update. Synthetic tests must emit real relative motion
   through `/dev/uinput` first; see the helper scripts pattern in the scratchpad

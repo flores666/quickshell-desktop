@@ -3,14 +3,12 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
 
 /*!
     Persisted user preferences.
 
-    Backed by a single JSON file under the Quickshell state directory.  Writes
-    are debounced by the adapter itself (one write per property change batch) and
-    the file is watched so an external edit is picked up live.
+    Backed by a single JSON file under the Quickshell state directory
+    (SettingsFile), watched so that an external edit is picked up live.
 */
 Singleton {
     id: root
@@ -30,6 +28,10 @@ Singleton {
     readonly property var pinnedColors: store.pinnedColors
     /*! Built-in colour choices the user has removed from their rows. */
     readonly property var hiddenColors: store.hiddenColors
+    // The wallpaper's colour as the accent; see SettingsStore.
+    readonly property bool accentFollowsWallpaper: store.accentFollowsWallpaper
+    readonly property string wallpaperAccent: store.wallpaperAccent
+    readonly property string gtkAccentBefore: store.gtkAccentBefore
     /*! How many unpinned colours are remembered, across all the seeds. */
     readonly property int recentColorLimit: 24
     readonly property string fontFamily: store.fontFamily
@@ -121,6 +123,18 @@ Singleton {
 
     function setAccentColor(value: string): void {
         store.accentColor = value;
+    }
+
+    function setAccentFollowsWallpaper(on: bool): void {
+        store.accentFollowsWallpaper = on;
+    }
+
+    function setWallpaperAccent(value: string): void {
+        store.wallpaperAccent = value;
+    }
+
+    function setGtkAccentBefore(value: string): void {
+        store.gtkAccentBefore = value;
     }
 
     /*! Applies to whichever theme is active; the other keeps its own colour. */
@@ -256,26 +270,8 @@ Singleton {
         id: store
     }
 
-    FileView {
+    SettingsFile {
         id: file
-
-        path: Quickshell.statePath("settings.json")
         adapter: store
-        watchChanges: true
-        printErrors: false
-
-        onFileChanged: file.reload()
-        onAdapterUpdated: file.writeAdapter()
-        // None on first run: start from profile/ (tools/save-profile.sh), or the
-        // defaults, written out to edit by hand. Deferred: see AGENTS.md, FileView.
-        onLoadFailed: Qt.callLater(() => profile.text() !== ""
-            ? file.setText(profile.text()) : file.writeAdapter())
-    }
-
-    FileView {
-        id: profile
-        path: Quickshell.shellPath("profile/settings.json")
-        blockAllReads: true
-        printErrors: false
     }
 }

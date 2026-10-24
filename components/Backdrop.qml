@@ -10,7 +10,8 @@ import "root:/services"
     the picture there, as hyprpaper lays it — scaled to cover the screen and
     centred, the overflow cut off. The bar and the dock read it where the user
     has thinned their glass (Surface.schemeOver), so that what is drawn on them
-    stays legible over a pale sky and a dark forest alike.
+    stays legible over a pale sky and a dark forest alike. And its main colour
+    (mainColor), which the accent may follow (Settings.wallpaperAccent).
 
     Each screen's picture is measured once, by that screen's bar
     (BackdropProbe), and kept as a summed-area table: the mean under any
@@ -65,6 +66,9 @@ QtObject {
         const next = Object.assign({}, root.tables);
         next[screen.name] = { path, gauge: gauge.toString(), width: w, height: h, sums };
         root.tables = next;
+        // Kept, so that an accent following the wallpaper has it at login.
+        if (path === Wallpaper.current)
+            Settings.setWallpaperAccent(root.mainColor(px, w, h).toString());
     }
 
     /*! Adds row `y` of the picture's pixels to the table. */
@@ -78,6 +82,73 @@ QtObject {
             sums[o] = sums[o - row] + r;
             sums[o + 1] = sums[o + 1 - row] + g;
             sums[o + 2] = sums[o + 2 - row] + b;
+        }
+    }
+
+    /*! How many hues the main colour is told apart by. */
+    readonly property int hues: 24
+
+    /*!
+        The picture's main colour (RGBA bytes, row by row): the colour covering
+        the most of it among its colours. A pixel counts by the square root of
+        its chroma, its brightest channel less its dimmest, so greys count for
+        nothing and a large muted area outweighs a small vivid one. Pixels are
+        tallied by hue, each bin scored with half of each neighbour's, and the
+        answer is the weighted mean of the pixels in the best bin and its two
+        neighbours. A picture with no colour at all gives its mean grey; one
+        with no pixels, null.
+    */
+    function mainColor(px: var, w: int, h: int): var {
+        if (w === 0 || h === 0)
+            return null;
+        // Per bin: the weight, then the weighted red, green and blue; last,
+        // plain sums for the mean grey.
+        const bins = new Float64Array(root.hues * 4 + 3);
+        for (let y = 0; y < h; ++y)
+            root.tallyRow(px, bins, w, y);
+        const at = i => (i + root.hues) % root.hues * 4;
+        let best = -1, most = 0;
+        for (let i = 0; i < root.hues; ++i) {
+            const score = bins[at(i)] + (bins[at(i - 1)] + bins[at(i + 1)]) / 2;
+            if (score > most) {
+                most = score;
+                best = i;
+            }
+        }
+        if (best < 0) {
+            const grey = root.hues * 4;
+            const n = w * h * 255;
+            return Qt.rgba(bins[grey] / n, bins[grey + 1] / n, bins[grey + 2] / n, 1);
+        }
+        const sum = [0, 0, 0, 0];
+        for (const i of [best - 1, best, best + 1])
+            for (let k = 0; k < 4; ++k)
+                sum[k] += bins[at(i) + k];
+        return Qt.rgba(sum[1] / sum[0] / 255, sum[2] / sum[0] / 255, sum[3] / sum[0] / 255, 1);
+    }
+
+    /*! Adds row `y` of the picture's pixels to mainColor's bins, a call a row
+        for the reason sumRow is. */
+    function tallyRow(px: var, bins: var, w: int, y: int): void {
+        const grey = root.hues * 4;
+        for (let x = 0, i = y * w * 4; x < w; ++x, i += 4) {
+            const r = px[i], g = px[i + 1], b = px[i + 2];
+            bins[grey] += r;
+            bins[grey + 1] += g;
+            bins[grey + 2] += b;
+            const max = Math.max(r, g, b);
+            const chroma = max - Math.min(r, g, b);
+            if (chroma === 0)
+                continue;
+            // The hue in sixths of the circle, as HSV has it.
+            const sixth = max === r ? (g - b) / chroma + (g < b ? 6 : 0)
+                : max === g ? (b - r) / chroma + 2 : (r - g) / chroma + 4;
+            const o = Math.floor(sixth / 6 * root.hues) % root.hues * 4;
+            const weight = Math.sqrt(chroma / 255);
+            bins[o] += weight;
+            bins[o + 1] += weight * r;
+            bins[o + 2] += weight * g;
+            bins[o + 3] += weight * b;
         }
     }
 

@@ -6,8 +6,9 @@ import "root:/services"
 
 /*!
     The design system's share of Hyprland's options: the hyprexpo overview's
-    colours and shape, the title bars' colours and timings, and the shadow
-    under every window.
+    colours and shape, the title bars' colours and timings, the shadow under
+    every window, and the active window's border while the accent follows the
+    wallpaper.
 
     All are drawn by the compositor, so their look lives in Hyprland's options
     rather than in the design system. Rather than let the two drift, the options
@@ -91,6 +92,14 @@ Binding {
         }, ink("light", Appearance.day), ink("dark", Appearance.night));
     }
 
+    /*! The active window's border: the accent while it follows the
+        wallpaper, and the config's own otherwise — gone from `derived`, it is
+        put back by a reload (CompositorOptions). A function, as titleBars is. */
+    function border(): var {
+        return Appearance.followsWallpaper
+            ? { "general:col.active_border": root.rgba(Appearance.c.accent) } : {};
+    }
+
     target: CompositorOptions
     property: "derived"
     value: Object.assign({
@@ -104,5 +113,5 @@ Binding {
         // A workspace tile is a card like any other, so it takes the one
         // panel radius, which follows the roundness setting or the windows.
         "plugin:hyprexpo:tile_rounding": String(Appearance.r.panel)
-    }, root.titleBars(), root.windowShadow)
+    }, root.titleBars(), root.windowShadow, root.border())
 }

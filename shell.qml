@@ -56,6 +56,8 @@ ShellRoot {
 
     CompositorTheme {}
 
+    DesktopTheme {}
+
     // Every popup's card is drawn in this one window.
     OverlaySurface {
         QuickSettings {}

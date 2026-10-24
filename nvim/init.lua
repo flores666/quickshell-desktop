@@ -554,22 +554,30 @@ vim.opt.rtp:prepend(lazypath)
 
 -- The terminal's palette, Soft Surface, read from terminal/palette.conf in the
 -- desktop project (this config is linked from it), so that neovim is the same
--- surface as the kitty window it runs in rather than a black panel inside it.
--- Nil when the file is not there; the theme then stays lackluster's own.
+-- surface as the kitty window it runs in rather than a black panel inside it;
+-- then this machine's state file over it, as kitty-colors.py does (the shell's
+-- accent, while it follows the wallpaper). Nil when palette.conf is not
+-- there; the theme then stays lackluster's own.
 local soft = (function()
   local here = vim.fn.resolve(vim.fn.stdpath("config"))
   local file = io.open(here .. "/../terminal/palette.conf")
   if not file then
     return nil
   end
-  local palette = {}
-  for line in file:lines() do
-    local name, hex = line:match("^([%w_]+)%s+(#%x%x%x%x%x%x)%s*$")
-    if name then
-      palette[name] = hex
-    end
+  local state = os.getenv("XDG_STATE_HOME")
+  if not state or state == "" then
+    state = vim.fn.expand("~/.local/state")
   end
-  file:close()
+  local palette = {}
+  for _, f in ipairs({ file, io.open(state .. "/quickshell-desktop/palette.conf") }) do
+    for line in f:lines() do
+      local name, hex = line:match("^([%w_]+)%s+(#%x%x%x%x%x%x)%s*$")
+      if name then
+        palette[name] = hex
+      end
+    end
+    f:close()
+  end
   return palette
 end)()
 

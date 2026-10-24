@@ -28,6 +28,14 @@ JsonAdapter {
     property list<string> recentColors: []
     property list<string> pinnedColors: []
     property list<string> hiddenColors: []
+    /*! On, the accent is the wallpaper's main colour (Appearance.accentFor). */
+    property bool accentFollowsWallpaper: false
+    /*! The wallpaper's main colour as last measured (Backdrop.mainColor):
+        this machine's, kept so that the accent has it at login. */
+    property string wallpaperAccent: ""
+    /*! GTK's accent as it was before the shell first set it (DesktopAccent);
+        empty while the shell has not. */
+    property string gtkAccentBefore: ""
     /*! Empty means the built-in font family. */
     property string fontFamily: ""
     property string systemFontBefore: ""

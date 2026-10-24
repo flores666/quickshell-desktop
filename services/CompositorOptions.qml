@@ -153,6 +153,11 @@ Singleton {
         for (const option in wanted)
             if (root.appliedDerived[option] !== wanted[option])
                 root.pending.push(`keyword ${option} ${wanted[option]}`);
+        // One no longer derived goes back to the config's, as a cleared
+        // override does.
+        for (const option in root.appliedDerived)
+            if (wanted[option] === undefined)
+                root.reloadWanted = true;
         root.appliedDerived = wanted;
         root.flush();
     }

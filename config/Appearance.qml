@@ -34,15 +34,19 @@ Singleton {
         ? root.barOpacity : Tuning.pick("dockOpacity") / 100
 
     readonly property ColorScheme day: ColorScheme {
+        id: dayScheme
+
         base: root.lightSeed !== "" ? root.lightSeed : "#faf9f5"
         surface: root.lightSeed !== "" ? root.lift(root.lightSeed, 0.029) : "#ffffff"
 
         accent: root.accentFor("#c15f3c")
-        accentText: root.accentInkFor("#ffffff")
-        accentSoft: Qt.alpha(root.accentFor("#c15f3c"), 0.16)
+        accentText: root.accentInkFor("#ffffff", dayScheme.accent)
+        accentSoft: Qt.alpha(dayScheme.accent, 0.16)
     }
 
     readonly property ColorScheme night: ColorScheme {
+        id: nightScheme
+
         base: root.darkSeed !== "" ? root.darkSeed : "#191817"
         surface: root.darkSeed !== "" ? root.lift(root.darkSeed, 0.039) : "#232221"
         glass: 0.88
@@ -59,8 +63,8 @@ Singleton {
         knob: "#f2f0ea"
 
         accent: root.accentFor("#d97757")
-        accentText: root.accentInkFor("#231409")
-        accentSoft: Qt.alpha(root.accentFor("#d97757"), 0.3)
+        accentText: root.accentInkFor("#231409", nightScheme.accent)
+        accentSoft: Qt.alpha(nightScheme.accent, 0.3)
 
         success: "#6bbf83"
         warning: "#d7a13f"
@@ -81,10 +85,16 @@ Singleton {
     // when one is set, the surface is derived from it by the same lightness step
     // that separates the tuned values, and the washes take on the rest.
     // Each theme reads its own seed, so either can be drawn while the other is
-    // up — the settings panel previews both.
+    // up — the settings panel previews both. The accent may instead follow the
+    // wallpaper's main colour (Settings.accentFollowsWallpaper), each theme
+    // taking it at its own accent's lightness.
 
     readonly property string accentSeed: Settings.accentColor
-    readonly property bool hasAccent: root.accentSeed !== ""
+    /*! The wallpaper's main colour while the accent follows it and it has
+        been measured; empty otherwise, and the accent is the one chosen. */
+    readonly property string wallpaperSeed: Settings.accentFollowsWallpaper ? Settings.wallpaperAccent : ""
+    readonly property bool followsWallpaper: root.wallpaperSeed !== ""
+    readonly property bool hasAccent: root.followsWallpaper || root.accentSeed !== ""
     readonly property string lightSeed: Settings.backgroundLight
     readonly property string darkSeed: Settings.backgroundDark
 
@@ -118,16 +128,38 @@ Singleton {
     }
 
     function accentFor(tuned: color): color {
-        return root.hasAccent ? root.accentSeed : tuned;
+        if (root.followsWallpaper)
+            return root.fromWallpaper(tuned);
+        return root.accentSeed !== "" ? root.accentSeed : tuned;
+    }
+
+    /*!
+        The wallpaper's main colour at `tuned`'s lightness (ColorMath.tone):
+        its hue and saturation, so it matches the picture, at the lightness an
+        accent was tuned to read at, and never less colourful than a picked
+        accent may be. A wallpaper with hardly any colour gives the nearest
+        that is; one with none, the tuned colour's hue.
+    */
+    function fromWallpaper(tuned: color): color {
+        return ColorMath.tone(root.wallpaperSeed, tuned,
+            c => root.inSeedRange(c, root.seedRange("accent")));
     }
 
     /*! Whichever of near-black or white reads better on the accent. */
-    function accentInkFor(tuned: color): color {
+    function accentInkFor(tuned: color, accent: color): color {
         if (!root.hasAccent)
             return tuned;
-        return root.contrast(root.accentSeed, root.ink) >= root.contrast(root.accentSeed, "#ffffff")
+        return root.contrast(accent, root.ink) >= root.contrast(accent, "#ffffff")
             ? root.ink : "#ffffff";
     }
+
+    /*! libadwaita's accent colours, by the names GTK's `accent-color` takes:
+        the one nearest the accent is GTK's while it follows the wallpaper
+        (modules/common/DesktopTheme). */
+    readonly property var gtkAccents: ({
+        blue: "#3584e4", teal: "#2190a4", green: "#3a944a", yellow: "#c88800", orange: "#ed5b00",
+        red: "#e62d42", pink: "#d56199", purple: "#9141ac", slate: "#6f8396"
+    })
 
     readonly property color ink: "#1c1508"
 
