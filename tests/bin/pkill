@@ -1,0 +1,5 @@
+#!/bin/sh
+# The tests' pkill, first on their PATH (tools/test.sh): it signals nothing and
+# notes what it was asked in $TEST_SIGNALS, a line a call, so that no test
+# reaches the user's processes and a test can see what would have been sent.
+printf '%s\n' "$*" >> "${TEST_SIGNALS:?not under tools/test.sh}"

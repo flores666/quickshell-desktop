@@ -7,7 +7,9 @@
 # cache directories of its own, so Settings starts from profile/ and writes
 # nothing real. A test reports through tests/Check.qml — a PASS or FAIL line
 # per check and a closing line — and since nothing in QML can make qs quit,
-# the script stops it once that line is out.
+# the script stops it once that line is out. tests/bin comes first on their
+# PATH: a gsettings with a store of the run's own and a pkill that signals
+# nothing, so no test writes the machine's dconf or reaches its processes.
 set -euo pipefail
 
 src="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,6 +27,8 @@ for test in "$src"/tests/*Test.qml; do
         > "$work/tree/shell.qml"
 
     XDG_STATE_HOME="$work/state" XDG_CACHE_HOME="$work/cache" \
+        PATH="$work/tree/tests/bin:$PATH" \
+        TEST_GSETTINGS="$work/gsettings" TEST_SIGNALS="$work/signals" \
         qs -p "$work/tree/shell.qml" > "$log" 2>&1 &
     pid=$!
     for _ in $(seq 150); do

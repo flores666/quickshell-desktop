@@ -1,0 +1,19 @@
+#!/bin/sh
+# The tests' gsettings, first on their PATH (tools/test.sh): `get` and `set`
+# against a file of the run's own, $TEST_GSETTINGS, so that no test writes the
+# machine's dconf. A key never set reads empty.
+store="${TEST_GSETTINGS:?not under tools/test.sh}"
+case $1 in
+get)
+    value=$(grep -F -- "$2 $3 " "$store" 2>/dev/null | tail -n 1 | cut -d ' ' -f 3-)
+    [ -n "$value" ] && printf "'%s'\n" "$value"
+    ;;
+set)
+    value=${4#\'}
+    printf '%s %s %s\n' "$2" "$3" "${value%\'}" >> "$store"
+    ;;
+*)
+    echo "tests/bin/gsettings: only get and set" >&2
+    exit 1
+    ;;
+esac

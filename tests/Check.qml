@@ -28,6 +28,29 @@ QtObject {
         root.report(name, Math.abs(actual - expected) < 0.001, "got " + actual + ", expected " + expected);
     }
 
+    /*! Numbers, to within `tolerance`. */
+    function within(name: string, actual: real, expected: real, tolerance: real): void {
+        root.report(name, Math.abs(actual - expected) <= tolerance,
+            "got " + actual + ", expected " + expected + " ± " + tolerance);
+    }
+
+    /*! Colours, each channel to within `steps` of 255; null is no colour. */
+    function sameColor(name: string, actual: var, expected: color, steps: int): void {
+        const ok = actual !== null && actual !== undefined
+            && ["r", "g", "b"].every(k => Math.abs(actual[k] - expected[k]) * 255 <= steps + 0.001);
+        root.report(name, ok, "got " + actual + ", expected " + expected);
+    }
+
+    /*! Runs `body`, checks and all: whatever it throws fails `name`, so a
+        step whose code is not there yet fails instead of stopping the test. */
+    function attempt(name: string, body: var): void {
+        try {
+            body();
+        } catch (e) {
+            root.report(name, false, String(e));
+        }
+    }
+
     /*! An item's box, against a rect. */
     function box(name: string, item: Item, expected: rect): void {
         const ok = Math.abs(item.x - expected.x) < 0.001 && Math.abs(item.y - expected.y) < 0.001
