@@ -52,18 +52,19 @@ Clickable {
     selected: root.active
     scheme: root.panel.schemeOver(root)
 
+    Behavior on slide {
+        // Only while a drag is in flight. At the drop the dock's order changes
+        // in the same frame, so every offset has to vanish with it; animating
+        // them away instead leaves the icons sliding out of a layout that no
+        // longer exists (DockRow.rearranging).
+        enabled: root.rearranging
+        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
+    }
+
+    // Not eased itself: the icon under the pointer has to track the hand
+    // exactly, and lands at once. Its own slide is always 0.
     transform: Translate {
         x: root.dragging ? root.dragX : root.slide
-
-        Behavior on x {
-            // Only while a drag is in flight, and never for the icon under the
-            // pointer — that one has to track the hand exactly. At the drop the
-            // dock's order changes in the same frame, so every offset has to
-            // vanish with it; animating them away instead leaves the icons
-            // sliding out of a layout that no longer exists.
-            enabled: root.rearranging && !root.dragging
-            NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
-        }
     }
 
     /*!

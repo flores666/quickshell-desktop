@@ -41,6 +41,16 @@ Row {
         reordered anything yet.
     */
     property var drag: null
+    /*!
+        Whether the icons ease aside for `drag`. Not `drag !== null`: at the
+        drop this has to be off before the offsets go, and two bindings on one
+        property hear of its change in whatever order QML happened to connect
+        them. Measured, the offsets went first and eased away over the new
+        order: every icon that had stepped aside started a slot further over
+        and slid back. Written before `drag` at either end, so the order is
+        this file's.
+    */
+    property bool rearranging: false
 
     readonly property int slotStride: Appearance.m.dockSlot + Appearance.m.dockGap
 
@@ -104,24 +114,33 @@ Row {
             screen: root.screen
             panel: root.panel
             slide: root.slideFor(this.slot)
-            rearranging: root.drag !== null
+            rearranging: root.rearranging
             onClicked: (item, centerX) => root.activated(item, centerX)
             onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)
             // Not from inside the slot's own signal, which dropping it destroys.
             onGone: key => Qt.callLater(root.forget, key)
 
-            onDragMoved: dx => root.drag = ({
-                from: this.slot,
-                to: Math.max(0, Math.min(Dock.items.length - 1,
-                    this.slot + Math.round(dx / root.slotStride)))
-            })
+            onDragMoved: dx => {
+                root.rearranging = true;
+                root.drag = ({
+                    from: this.slot,
+                    to: Math.max(0, Math.min(Dock.items.length - 1,
+                        this.slot + Math.round(dx / root.slotStride)))
+                });
+            }
             onDragEnded: {
                 const drag = root.drag;
                 // Cleared before the move, so the offsets are already gone by
-                // the time the new order is laid out.
+                // the time the new order is laid out, and not eased away.
+                root.rearranging = false;
                 root.drag = null;
-                if (drag)
+                if (drag) {
                     Dock.moveItem(drag.from, drag.to);
+                    // Laid out now, not at the next frame's polish: Qt checks
+                    // hover before that, and found the old order's icon under
+                    // the pointer, its wash on for six frames.
+                    root.forceLayout();
+                }
             }
         }
     }
