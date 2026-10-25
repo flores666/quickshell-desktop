@@ -18,7 +18,9 @@ legible to it.
 - **follow**: `Settings.accentFollowsWallpaper`, the toggle.
 - **L, C, h**: a colour's OKLCH lightness, chroma and hue (Björn Ottosson's
   OKLab, sRGB). **sat(x)**: C(x) over the most C sRGB holds at L(x) and h(x).
-  **tone(x, like)**: the colour at like's lightness with x's hue and sat. Not
+  **tone(x, like)**: the colour at like's lightness with x's hue and sat(x)^¼
+  (a main colour is a mean, duller than the picture looks: sat itself gave a
+  slate wallpaper a washed-out blue). Not
   x's C: a deep blue lifted at its C came out grey-blue, and black with
   orange in it beige (checked on sixteen wallpapers).
 - **tuned**: each theme's own accent, `#c15f3c` (day) and `#d97757` (night);

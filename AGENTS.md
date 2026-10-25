@@ -420,7 +420,9 @@ colours — pixels tallied in 24 hues, each counting by the square root of its
 chroma, so greys count for nothing and a large muted area outweighs a small
 vivid one. Each theme takes it at its own accent's lightness, with its hue and
 its saturation: its share of the most chroma sRGB holds at that lightness and
-hue, in OKLab (`ColorMath.tone`). At its own chroma a dark wallpaper's colour
+hue, in OKLab (`ColorMath.tone`), taken at its fourth root — the main colour
+is a mean, duller than the picture looks: at its own share a slate
+wallpaper gave a washed-out blue, and at its square root still a dim one. At its own chroma a dark wallpaper's colour
 came out grey — Adwaita's deep blue slate, black with orange in it beige — over
 sixteen wallpapers measured. Never less colourful than a picked accent may be
 (`seedRange`): a nearly grey picture gives the nearest colour that is, a grey

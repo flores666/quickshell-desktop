@@ -47,10 +47,14 @@ Singleton {
     }
 
     /*!
-        `seed` at `like`'s lightness: its hue, and as large a share of the
-        most chroma sRGB holds at that lightness and hue as the seed has of
-        what sRGB holds at its own — its saturation, so that a deep blue
-        lifted stays a clear blue rather than greying — raised as little as
+        `seed` at `like`'s lightness: its hue, and a share of the most chroma
+        sRGB holds at that lightness and hue that follows the share the seed
+        has of what sRGB holds at its own — its saturation, so that a deep
+        blue lifted stays a clear blue rather than greying — taken at its
+        fourth root, since a wallpaper's main colour is a mean and duller
+        than the picture looks (a slate's 44% gave a washed-out blue, its
+        square root's 66% still a dim one; 81% reads clear), then raised as
+        little as
         `enough` (a colour → bool) asks, if any chroma will do. A seed with
         no hue at all takes `like`'s.
     */
@@ -60,7 +64,7 @@ Singleton {
         const chroma = Math.hypot(sa, sb);
         const [, la, lb] = root.lab(like);
         const hue = chroma > 1e-4 ? Math.atan2(sb, sa) : Math.atan2(lb, la);
-        const share = chroma > 1e-4 ? Math.min(1, chroma / root.most(sl, hue)) : 0;
+        const share = chroma > 1e-4 ? Math.pow(Math.min(1, chroma / root.most(sl, hue)), 0.25) : 0;
         const at = c => root.rgb([lightness, c * Math.cos(hue), c * Math.sin(hue)]);
         const most = root.most(lightness, hue);
         let c = share * most;
