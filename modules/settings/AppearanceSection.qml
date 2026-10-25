@@ -8,7 +8,7 @@ import "root:/services"
 /*!
     The design system: theme, the two colour seeds the rest of the palette is
     derived from, the type, and the two numbers every surface in the shell is
-    drawn with.
+    drawn with, and how much of their glass the popups lay down.
 
     The last of those used to sit under the top panel labelled "Everywhere",
     which was an admission that it did not belong there. A border and a corner
@@ -108,6 +108,45 @@ Column {
             value: Tuning.pick("roundness")
             suffix: qsTr("%")
             step: 5
+        }
+    }
+
+    SettingGroup {
+        width: root.width
+        title: qsTr("Popups")
+
+        SettingRow {
+            width: parent.width
+            key: "popupOpacity"
+            label: qsTr("Opacity")
+            min: Tuning.spec.popupOpacity.min
+            max: Tuning.spec.popupOpacity.max
+            value: Tuning.pick("popupOpacity")
+            suffix: qsTr("%")
+        }
+
+        /*! Hyprland's blur radius: only the compositor can blur what is behind
+            a surface, and it has one strength for everything it blurs. Absent
+            while blur is off (Windows) or cannot be read. */
+        SettingRow {
+            id: blurRow
+            width: parent.width
+            visible: CompositorOptions.value("hyprBlur") !== 0 && CompositorOptions.known("hyprBlurSize")
+            key: "hyprBlurSize"
+            label: qsTr("Blur")
+            min: CompositorOptions.spec.hyprBlurSize.min
+            max: CompositorOptions.spec.hyprBlurSize.max
+            value: CompositorOptions.value("hyprBlurSize")
+            suffix: ""
+        }
+
+        Label {
+            width: parent.width
+            visible: blurRow.visible
+            text: qsTr("Blur is the compositor's: the panels and see-through windows take it too.")
+            role: Label.Role.Caption
+            faint: true
+            wrapMode: Text.Wrap
         }
     }
 }

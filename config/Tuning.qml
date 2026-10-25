@@ -35,7 +35,10 @@ Singleton {
         roundness:   { min: 0,  max: 150, def: 100 },
         fontScale:   { min: 85, max: 125, def: 100 },
         barOpacity:  { min: 0,  max: 100, def: 100 },
-        dockOpacity: { min: 0,  max: 100, def: 100 }
+        dockOpacity: { min: 0,  max: 100, def: 100 },
+        // Not below 70: a popup reads its colours off no backdrop, and its
+        // text stays legible, and its glass frosted, down to there.
+        popupOpacity: { min: 70, max: 100, def: 100 }
     })
 
     /*! A user override, clamped — or the tuned value, when unset (negative). */

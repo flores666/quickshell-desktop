@@ -350,7 +350,12 @@ wallpaper beneath them, which is what lets one set serve any palette. Use
 surface. The bar and the dock lay down a share of the glass the user sets
 (`Appearance.barOpacity`, `dockOpacity`; `Surface.glass`): 100% is the theme's
 own and never more, 0 none — and below about 57% the panel is no longer over
-half opaque, so nothing behind it is blurred.
+half opaque, so nothing behind it is blurred. The popups' cards take a share
+too (`Appearance.popupOpacity`, held to 70–100% so a card always frosts and
+its text reads over any wallpaper), and an engaged quick-settings tile's
+accent fill as much (`Appearance.popupAccent`); how strongly the glass is blurred is
+Hyprland's one blur radius (`hyprBlurSize`, `decoration:blur:size`), shared
+by everything it blurs.
 
 **Backdrop** — what the wallpaper is under a part of a screen: its mean colour
 there, as hyprpaper lays the picture (cover). Thinned, the bar's and the dock's

@@ -55,6 +55,7 @@ JsonAdapter {
     property int fontScale: -1
     property int barOpacity: -1
     property int dockOpacity: -1
+    property int popupOpacity: -1
     property int notificationTimeout: -1
     property int dockHideDelay: -1
     /*! Hyprland overrides, pushed as keywords by CompositorOptions. */
@@ -63,6 +64,7 @@ JsonAdapter {
     property int hyprBorder: -1
     property int hyprRounding: -1
     property int hyprBlur: -1
+    property int hyprBlurSize: -1
     property int hyprAnimations: -1
     property int hyprActiveOpacity: -1
     property int hyprInactiveOpacity: -1

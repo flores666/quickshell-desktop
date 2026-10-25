@@ -32,6 +32,21 @@ Singleton {
     readonly property real barOpacity: Tuning.pick("barOpacity") / 100
     readonly property real dockOpacity: Settings.dockOpacityFollowsBar
         ? root.barOpacity : Tuning.pick("dockOpacity") / 100
+    /*! The same for every popup's card (OverlayCard), held where the card
+        still frosts and its text still reads over any wallpaper. */
+    readonly property real popupOpacity: Tuning.pick("popupOpacity") / 100
+
+    /*!
+        An engaged quick-settings tile (QsTile): the accent as glass, as
+        strong as the card it rests on (the theme's glass at popupOpacity);
+        what is set on it in near-black or white, whichever reads better on
+        that over the card, the status line a little fainter; and a wash of
+        that ink for its icon's disc.
+    */
+    readonly property color popupAccent: Qt.alpha(root.c.accent, root.c.glass * root.popupOpacity)
+    readonly property color popupAccentInk: root.inkOn(root.laid(root.popupAccent, root.c.surface, 1))
+    readonly property color popupAccentInkMuted: Qt.alpha(root.popupAccentInk, 0.72)
+    readonly property color popupAccentLayer: Qt.alpha(root.popupAccentInk, 0.18)
 
     readonly property ColorScheme day: ColorScheme {
         id: dayScheme
@@ -145,12 +160,14 @@ Singleton {
             c => root.inSeedRange(c, root.seedRange("accent")));
     }
 
-    /*! Whichever of near-black or white reads better on the accent. */
+    /*! The tuned ink while the accent is the theme's own; else inkOn it. */
     function accentInkFor(tuned: color, accent: color): color {
-        if (!root.hasAccent)
-            return tuned;
-        return root.contrast(accent, root.ink) >= root.contrast(accent, "#ffffff")
-            ? root.ink : "#ffffff";
+        return root.hasAccent ? root.inkOn(accent) : tuned;
+    }
+
+    /*! Whichever of near-black or white reads better on a colour. */
+    function inkOn(under: color): color {
+        return root.contrast(under, root.ink) >= root.contrast(under, root.white) ? root.ink : root.white;
     }
 
     /*! libadwaita's accent colours, by the names GTK's `accent-color` takes:
@@ -162,6 +179,7 @@ Singleton {
     })
 
     readonly property color ink: "#1c1508"
+    readonly property color white: "#ffffff"
 
     /*!
         The scheme a panel's glass is tinted with, laying `share` of it over

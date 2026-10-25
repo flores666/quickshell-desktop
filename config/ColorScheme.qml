@@ -50,8 +50,8 @@ QtObject {
 
     property color accent: "#c15f3c"
     property color accentText: "#ffffff"
-    /*! The accent as a container: an engaged tile, the chosen segment. Text
-        on it is the ordinary text colour, not `accentText`. */
+    /*! The accent as a tint: the chosen segment, a swatch's halo. Text on it
+        is the ordinary text colour, not `accentText`. */
     property color accentSoft: "#2ec15f3c"
 
     property color success: "#3f7d51"

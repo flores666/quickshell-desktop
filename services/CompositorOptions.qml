@@ -43,6 +43,7 @@ Singleton {
         hyprBorder:          { option: "general:border_size", kind: "int", min: 0, max: 6 },
         hyprRounding:        { option: "decoration:rounding", kind: "int", min: 0, max: 24 },
         hyprBlur:            { option: "decoration:blur:enabled", kind: "bool" },
+        hyprBlurSize:        { option: "decoration:blur:size", kind: "int", min: 1, max: 16 },
         hyprAnimations:      { option: "animations:enabled", kind: "bool" },
         hyprActiveOpacity:   { option: "decoration:active_opacity", kind: "percent", min: 50, max: 100 },
         hyprInactiveOpacity: { option: "decoration:inactive_opacity", kind: "percent", min: 50, max: 100 },

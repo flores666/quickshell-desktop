@@ -67,6 +67,7 @@ Singleton {
     readonly property int fontScale: store.fontScale
     readonly property int barOpacity: store.barOpacity
     readonly property int dockOpacity: store.dockOpacity
+    readonly property int popupOpacity: store.popupOpacity
     readonly property int notificationTimeout: store.notificationTimeout
     readonly property int dockHideDelay: store.dockHideDelay
     // Hyprland options; ranges and encoding in CompositorOptions.spec.
@@ -75,6 +76,7 @@ Singleton {
     readonly property int hyprBorder: store.hyprBorder
     readonly property int hyprRounding: store.hyprRounding
     readonly property int hyprBlur: store.hyprBlur
+    readonly property int hyprBlurSize: store.hyprBlurSize
     readonly property int hyprAnimations: store.hyprAnimations
     readonly property int hyprActiveOpacity: store.hyprActiveOpacity
     readonly property int hyprInactiveOpacity: store.hyprInactiveOpacity
@@ -89,9 +91,9 @@ Singleton {
     /*! Every key `setOverride` accepts, and everything `resetOverrides` clears. */
     readonly property var overrideKeys: [
         "barHeight", "barGap", "barSideGap", "dockIcon", "border",
-        "roundness", "fontScale", "barOpacity", "dockOpacity",
+        "roundness", "fontScale", "barOpacity", "dockOpacity", "popupOpacity",
         "notificationTimeout", "dockHideDelay",
-        "hyprGapsIn", "hyprGapsOut", "hyprBorder", "hyprRounding", "hyprBlur",
+        "hyprGapsIn", "hyprGapsOut", "hyprBorder", "hyprRounding", "hyprBlur", "hyprBlurSize",
         "hyprAnimations", "hyprActiveOpacity", "hyprInactiveOpacity", "hyprMouseSpeed",
         "hyprMouseAccel", "hyprTouchpadSpeed", "hyprNaturalScroll", "hyprTapToClick",
         "hyprMouseScroll", "hyprTouchpadScroll"

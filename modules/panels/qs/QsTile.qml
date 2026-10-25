@@ -8,9 +8,9 @@ import "root:/components"
     A quick-settings tile: an icon, a title, a status line, and — when the
     feature has a detail page — a chevron button inside it that opens it.
 
-    Engaged reads as the tile taking on the accent: a tint across the whole
-    tile and the accent itself in the icon's disc, with the text left in the
-    ordinary ink so it stays legible on any accent the user picks.
+    Engaged reads as the tile filled with the accent, as much glass as the
+    card under it (Appearance.popupAccent), everything on it in the ink that
+    reads best there, and the icon's disc a wash of that ink.
 */
 Item {
     id: root
@@ -37,7 +37,7 @@ Item {
         hoverEnabled: root.toggleEnabled
         pressEnabled: root.toggleEnabled
         focusable: root.toggleEnabled
-        background: root.active ? Appearance.c.accentSoft : Appearance.c.raised
+        background: root.active ? Appearance.popupAccent : Appearance.c.raised
         onClicked: if (root.toggleEnabled) root.toggled()
 
         Behavior on background {
@@ -51,7 +51,7 @@ Item {
             width: 34
             height: 34
             radius: height / 2
-            color: root.active ? Appearance.c.accent : Appearance.c.sunken
+            color: root.active ? Appearance.popupAccentLayer : Appearance.c.sunken
 
             Behavior on color {
                 ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
@@ -62,14 +62,14 @@ Item {
                 visible: !root.busy
                 name: root.icon
                 size: Appearance.m.icon
-                color: root.active ? Appearance.c.accentText : Appearance.c.text
+                color: root.active ? Appearance.popupAccentInk : Appearance.c.text
             }
 
             Spinner {
                 anchors.centerIn: parent
                 visible: root.busy
                 size: Appearance.m.icon
-                color: root.active ? Appearance.c.accentText : Appearance.c.text
+                color: root.active ? Appearance.popupAccentInk : Appearance.c.text
             }
         }
 
@@ -83,7 +83,12 @@ Item {
                 width: parent.width
                 text: root.title
                 role: Label.Role.Small
+                color: root.active ? Appearance.popupAccentInk : Appearance.c.text
                 font.weight: Font.DemiBold
+
+                Behavior on color {
+                    ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+                }
             }
 
             Label {
@@ -91,7 +96,11 @@ Item {
                 visible: root.status !== ""
                 text: root.status
                 role: Label.Role.Caption
-                muted: true
+                color: root.active ? Appearance.popupAccentInkMuted : Appearance.c.textMuted
+
+                Behavior on color {
+                    ColorAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+                }
             }
         }
     }
@@ -107,7 +116,7 @@ Item {
         icon: "chevron-right"
         iconSize: Appearance.m.iconSm
         size: 28
-        iconColor: Appearance.c.textMuted
+        iconColor: root.active ? Appearance.popupAccentInkMuted : Appearance.c.textMuted
         onClicked: root.pageRequested()
     }
 }
