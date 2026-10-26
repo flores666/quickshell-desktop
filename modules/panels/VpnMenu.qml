@@ -18,6 +18,15 @@ ShellOverlay {
     overlayId: Overlay.vpnMenu
     cardHeight: column.implicitHeight + Appearance.s.md * 2
 
+    // Latency has no event of its own: every row is measured as the menu
+    // opens, which is when it is read.
+    onShownChanged: {
+        if (root.shown) {
+            Vpn.measure();
+            V2rayn.measure();
+        }
+    }
+
     Column {
         id: column
 

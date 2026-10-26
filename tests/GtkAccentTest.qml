@@ -29,14 +29,16 @@ Item {
 
     readonly property string key: "org.gnome.desktop.interface accent-color"
 
-    /*! GTK's accent once it is `want`, or as it stands after two seconds. */
+    Settle {
+        id: gtk
+        busy: DesktopAccent.settingGtk
+    }
+
+    /*! GTK's accent once it is `want`, read as each of DesktopAccent's GTK
+        steps ends — its bookkeeping, which the checks read too, comes after
+        the key is set — or as it stands after two seconds. */
     function accent(want: string, then: var): void {
-        sh.run(`for i in $(seq 20); do
-                v=$(gsettings get ${root.key})
-                [ "$v" = "'$1'" ] && break
-                sleep 0.1
-            done
-            printf '%s' "$v"`, [want], then);
+        gtk.until(`gsettings get ${root.key}`, [], v => v.trim() === `'${want}'`, v => then(v.trim()));
     }
 
     function follow(wallpaper: string): void {

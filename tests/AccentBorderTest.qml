@@ -26,15 +26,17 @@ Item {
 
     readonly property string option: "general:col.active_border"
 
-    /*! Hyprland's border once it is no longer `from` (or is `to`, given
-        one), or as it stands after two seconds. */
+    Settle {
+        id: pushes
+        busy: CompositorOptions.pushing
+    }
+
+    /*! Hyprland's border once it is no longer `from`, read as each of the
+        shell's pushes lands — Hyprland says nothing when an option is set —
+        or as it stands after two seconds. */
     function border(from: string, then: var): void {
-        sh.run(`for i in $(seq 20); do
-                v=$(hyprctl getoption ${root.option} | head -n 1)
-                [ "$v" != "$1" ] && break
-                sleep 0.1
-            done
-            printf '%s' "$v"`, [from], then);
+        pushes.until(`hyprctl getoption ${root.option} | head -n 1`, [],
+            now => now.trim() !== from.trim(), now => then(now.trim()));
     }
 
     /*! How hyprctl writes a colour back: aarrggbb. */

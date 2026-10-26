@@ -84,12 +84,24 @@ compositor do the right thing". Use the real session:
 1. **Nothing outside `config/` hardcodes a colour, size, duration or font.** If
    you need a value that does not exist, add it to the right token file.
 2. **No full-screen surfaces that take input.** Ever. See *Popups* below.
-3. **Event-driven, never polled.** There is exactly one periodic timer in normal
-   operation (`Time`, one tick per minute, shared by all monitors). Three bounded
-   exceptions are documented in the code; one is the VPN menu's latency
-   (`Vpn`'s tick, which measures every row), every five minutes while there is
-   a VPN to measure, since nothing signals a change in round-trip time. If you
-   add a `Timer` with `repeat`, justify it in a comment.
+3. **Events only: nothing in the project polls.** Not the shell, the
+   plugins, the scripts, the tools or the tests. Nothing asks on a schedule
+   whether something has changed, and nothing loops `check; sleep`. Wait on
+   whatever says so: a signal or a property change, a line of a process's
+   output, an event stream (Hyprland's socket, `nmcli monitor`, `gdbus
+   monitor`, `ip monitor`), a file watch (`FileView` with `watchChanges` sees
+   a file made, written or removed; `tests/FileWait` waits on one), `waitpid`
+   on a process ending, and where what a service sets says nothing itself (a
+   Hyprland option, a gsettings key), that service's step ending
+   (`CompositorOptions.pushing`; `tests/Settle` waits on one). Where nothing reports a change, measure on the
+   events it matters at, never on a timer: the VPN menu's latency is taken as
+   the menu opens and as a connection comes up. A `Timer` is single-shot — a
+   settle after an event, a dwell, a bound on a wait — and none repeats. The
+   one periodic wakeup is a clock showing time itself passing, which no event
+   can say: a `SystemClock` (`Time`'s minute; the media card's second while a
+   track plays in view), running only while what it shows is on screen and
+   asking nothing outside the shell. A single wait for what sends no event
+   when it is done (a window's animation settling) is a delay, not a poll.
 4. **Every widget's interaction states come from `Clickable`.** Do not
    re-implement hover/press/selected/disabled/focus.
 5. **Degrade, never fake.** If hardware or a service is absent, the control is
@@ -141,9 +153,10 @@ native/              the shell's native QML module, Desktop.Native, in C++:
                      ~/.local/share/quickshell-desktop/qml, the unit's
                      QML_IMPORT_PATH (hyprland.conf)
 tests/               *Test.qml, run by tools/test.sh, and Check, what they
-                     report through; WindowDriver, a kitty the Window*Test
-                     ones switch between modes; bin/, the gsettings and
-                     pkill they run with
+                     report through; FileWait and Settle, a wait on a file
+                     and on a service's step; WindowDriver, a kitty the
+                     Window*Test ones switch between modes; bin/, the
+                     gsettings and pkill they run with
 docs/specs/          what a change set out to do, item by item, with the
                      checks its tests encode
 hyprland.conf        the shell's Hyprland integration, sourced from
@@ -512,19 +525,19 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `ColorMath` (in `config/`) | colour in OKLab: what the wallpaper accent is made with and matched by | `lab`, `rgb`, `tone(seed, like, enough)`, `most` (the chroma sRGB holds at a lightness and hue), `nearest` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`, read and written by `SettingsFile` (at once, a moment after a burst of changes, never before it is read; see the QML gotchas); a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `accentFollowsWallpaper`, `wallpaperAccent` and `gtkAccentBefore` (this machine's, saved empty in `profile/`), `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
-| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `derived` (options that follow the design system — the overview's, the title bars', the windows' shadow and, while the accent follows the wallpaper, the active border — set by `CompositorTheme`; one that goes away is put back by a reload, as a cleared override is) |
+| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `pushing` (falling as what was set is in: Hyprland says nothing itself), `derived` (options that follow the design system — the overview's, the title bars', the windows' shadow and, while the accent follows the wallpaper, the active border — set by `CompositorTheme`; one that goes away is put back by a reload, as a cleared override is) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorXOf` (each popup's anchor, by name, set only as that popup opens: one anchor for all slid the card being taken over from towards the next popup's button), `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `flight` (`{ from, to, rect, strength, contents, away }`, and `at` and `subject` for a popup taking over from itself; see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
-| `DesktopAccent` | the accent handed outside the shell while it follows the wallpaper: GTK's `accent-color` and the terminal's palette file, each put back when it stops; nothing before `Settings.ready` | `gtk` (a libadwaita name), `terminal` (`{ accent, accent_bright }`), `palette` (`terminal/palette.conf`), `stateFile` |
+| `DesktopAccent` | the accent handed outside the shell while it follows the wallpaper: GTK's `accent-color` and the terminal's palette file, each put back when it stops; nothing before `Settings.ready` | `gtk` (a libadwaita name), `settingGtk` (falling as it is set and the one before kept), `terminal` (`{ accent, accent_bright }`), `palette` (`terminal/palette.conf`), `stateFile` |
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
 | `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `IconThemes` | the icon themes as the shell reads them: read again whenever one changes on disk, through the native module (`IconThemeWatch`), so an application installed while the shell runs comes with its icon; without the module, as they were at start | `revision` (whatever resolves an icon by name reads it: `AppIcon`), `watch` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
-| `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `setScanning`, `restartWifi`, `restarting`, `passwordRequested`, `failure` |
-| `Vpn` | the VPN menu: the NetworkManager connections `Settings.vpnConnections` names (states from `nmcli monitor`, switched with `nmcli`, latency a ping to the tunnel's far end), whether anything in the menu is up, and the one five-minute tick that measures every row | `available`, `anyActive`, `connections`, `states`, `isActive`, `status`, `toggle` |
-| `V2rayn` | v2rayN, from the files it writes: the active server, its latency (a request through v2rayN's proxy), and in TUN mode a switch — the TUN core's Clash API mode, Rule or Direct, so no root is needed and the TUN stays up. Measured again when `ip monitor` sees the TUN come up | `available`, `active`, `status`, `canSwitch`, `direct`, `toggle`, `measure` |
+| `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `scan` (one, as the Wi-Fi list opens), `restartWifi`, `restarting`, `passwordRequested`, `failure` |
+| `Vpn` | the VPN menu: the NetworkManager connections `Settings.vpnConnections` names (states from `nmcli monitor`, switched with `nmcli`, latency a ping to the tunnel's far end), whether anything in the menu is up; latency measured as the menu opens and as a connection comes up, never on a schedule | `available`, `anyActive`, `connections`, `states`, `isActive`, `status`, `toggle` |
+| `V2rayn` | v2rayN, from the files it writes: the active server, its latency (a request through v2rayN's proxy), and in TUN mode a switch — the TUN core's Clash API mode, Rule or Direct, so no root is needed and the TUN stays up. Measured on events alone: its settings or its core's config written, the TUN coming up (`ip monitor`), the menu opening, and the core ending (`waitpid` on the proxy port's process) | `available`, `active`, `status`, `canSwitch`, `direct`, `toggle`, `measure` |
 | `Bt` | BlueZ adapter and devices | `available`, `enabled`, `listed`, `icon`, `label`, `setEnabled`, `toggleConnection` |
 | `Power` | UPower battery and power-profiles-daemon, and the battery's charge limit (UPower's, kept across reboots; watched with `gdbus monitor`, since `busctl monitor` needs root on the system bus) | `hasBattery`, `percentage`, `held` (on power and not charging: the limit reached), `icon` (plugged in, no bolt, while held), `timeLabel`, `hasProfiles`, `profile`, `setProfile`, `hasChargeLimit`, `chargeLimited`, `chargeLimit` (0 where the firmware picks it), `limitLabel` (said on power in place of "until full": quick settings' footer), `setChargeLimited` |
 | `Brightness` | the backlight: read and watched in sysfs, written through logind | `available` (once read), `value`, `set`, `step` |

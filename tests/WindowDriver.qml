@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 
 /*!
@@ -62,11 +63,36 @@ QtObject {
         return c ? { floating: c.floating, fs: c.fullscreen, box: [c.at[0], c.at[1], c.size[0], c.size[1]] } : null;
     }
 
+    /*! The window's opening, waited on: Hyprland's openwindow event for its
+        class, or five seconds. */
+    property var opening: null
+
+    readonly property Connections opened: Connections {
+        target: Hyprland
+
+        function onRawEvent(event: HyprlandEvent): void {
+            if (root.opening !== null && event.name === "openwindow" && event.parse(4)[2] === root.appClass)
+                root.settle();
+        }
+    }
+
+    readonly property Timer openBound: Timer {
+        interval: 5000
+        onTriggered: root.settle()
+    }
+
+    function settle(): void {
+        const then = root.opening;
+        root.opening = null;
+        root.openBound.stop();
+        if (then !== null)
+            then();
+    }
+
     function open(then: var): void {
         const cache = Quickshell.env("XDG_CACHE_HOME") + "/kitty";
-        root.run(`hyprctl dispatch exec 'env KITTY_CACHE_DIRECTORY=${cache} kitty --class ${root.appClass}' >/dev/null
-            for i in $(seq 50); do hyprctl clients -j | grep -q '"${root.appClass}"' && break; sleep 0.1; done
-            sleep 0.8; hyprctl monitors -j; echo '#'; hyprctl clients -j`, text => {
+        // Placed and settled a moment after it maps: no event says when.
+        root.opening = () => root.run(`sleep 0.8; hyprctl monitors -j; echo '#'; hyprctl clients -j`, text => {
             const [monitors, clients] = text.split("\n#\n");
             const m = JSON.parse(monitors).find(m => m.focused);
             root.monitor = [m.x, m.y, m.width, m.height];
@@ -77,6 +103,9 @@ QtObject {
             root.workspace = c.workspace.id;
             then(root.state(clients));
         });
+        root.openBound.restart();
+        Quickshell.execDetached(["hyprctl", "dispatch", "exec",
+            `env KITTY_CACHE_DIRECTORY=${cache} kitty --class ${root.appClass}`]);
     }
 
     /*! Each of `names`, from `actions`, in turn: each one batch, as the bar

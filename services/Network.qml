@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Networking
 
 /*!
@@ -149,10 +150,20 @@ Singleton {
         function onStateChanged(): void { root.resumeRestart(); }
     }
 
-    /*! Scanning costs power and airtime, so only the Wi-Fi list turns it on. */
-    function setScanning(on: bool): void {
+    /*!
+        One scan, as the Wi-Fi list opens. What any scan finds — this one, or
+        NetworkManager's own in the background — arrives as its events, so
+        the list keeps up without more: Quickshell's scanner, which asks for
+        another every ten seconds while it is on, is never turned on.
+    */
+    function scan(): void {
         if (root.wifi)
-            root.wifi.scannerEnabled = on;
+            rescan.running = true;
+    }
+
+    Process {
+        id: rescan
+        command: ["nmcli", "device", "wifi", "rescan"]
     }
 
     function connect(network: WifiNetwork): void {

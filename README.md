@@ -136,21 +136,26 @@ does nothing.
 Its layout and gestures live in `hyprland.conf`; its three colours are pushed by
 the shell (`modules/common/CompositorTheme.qml`) so the overview follows the theme.
 
-### Event-driven, not polled
+### Events only, never polled
 
-There is exactly one periodic timer in normal operation: the `Time` service's
-clock at minute precision, shared by every monitor. Everything else is push-driven —
-PipeWire and NetworkManager signals, the Hyprland event socket, inotify on the
-settings file and the backlight.
+Nothing in the project asks on a schedule whether something has changed —
+not the shell, the compositor plugins, the scripts or the tests. Everything is
+push-driven: PipeWire and NetworkManager signals, the Hyprland event socket,
+`nmcli`/`gdbus`/`ip monitor`, inotify on the settings file and the backlight,
+`waitpid` on a process ending.
 
-Three bounded exceptions, all deliberate:
+Where nothing reports a change, it is measured on the events it matters at:
 
-- The media seek bar polls MPRIS position once a second, and only while the date
-  menu is open and something is actually playing. MPRIS does not signal position.
-- Wi-Fi scanning and Bluetooth discovery run only while their page is on screen.
-- The VPN menu's latencies are measured every five minutes, and only while
-  there is a VPN to measure; nothing signals a change in round-trip time. A
-  connection coming up, or v2rayN changing server, is measured at once.
+- The VPN menu's latencies are measured as the menu opens and as a connection
+  comes up; v2rayN also as its settings or core change, and as its core ends.
+- The Wi-Fi list asks for one scan as it opens; what turns up comes as
+  NetworkManager's events. Bluetooth discovery runs only while its page is on
+  screen, and its devices arrive as BlueZ's events.
+
+The only periodic wakeups are clocks showing time passing, which no event can
+say: the `Time` service's minute, shared by every monitor, and the media seek
+bar's second while the date menu shows something playing (MPRIS does not
+signal position; Quickshell works it out, so the tick asks the player nothing).
 
 Two things are asked for once at startup because no event carries them until
 they change: the backlight device, and the current keyboard layout.

@@ -37,24 +37,22 @@ Item {
     readonly property string colors: Quickshell.shellPath("terminal/kitty-colors.py")
     readonly property string signals: Quickshell.env("TEST_SIGNALS")
 
-    /*! The state file once it is there (`present`) or gone, or as it stands
-        after two seconds; then what kitty-colors.py prints, and what pkill was
-        asked, after a line of '#' each. */
-    function look(present: bool, then: var): void {
-        sh.run(`for i in $(seq 20); do
-                if [ "$2" = yes ]; then [ -e "$1" ] && break; else [ -e "$1" ] || break; fi
-                sleep 0.1
-            done
-            sleep 0.3
-            cat "$1" 2>/dev/null
-            echo '#'
-            python3 "$3"
-            echo '#'
-            cat "$4" 2>/dev/null`,
-            [root.stateFile, present ? "yes" : "no", root.colors, root.signals], text => {
-                const [file, kitty, signals] = text.split("#\n");
-                then(root.pairs(file), root.pairs(kitty), signals.split("\n").filter(l => l !== ""));
-            });
+    FileWait {
+        id: asked
+    }
+
+    /*! Once pkill has been asked for kitty's `reloads`th reload, read as it
+        is asked — DesktopAccent's last step, after the state file is written
+        or gone — or as things stand after two seconds: the state file, what
+        kitty-colors.py prints, and what pkill was asked. */
+    function look(reloads: int, then: var): void {
+        asked.until(root.signals, text => root.reloads(text.split("\n")) >= reloads, () => {
+            sh.run(`cat "$1" 2>/dev/null; echo '#'; python3 "$2"; echo '#'; cat "$3" 2>/dev/null`,
+                [root.stateFile, root.colors, root.signals], text => {
+                    const [file, kitty, signals] = text.split("#\n");
+                    then(root.pairs(file), root.pairs(kitty), signals.split("\n").filter(l => l !== ""));
+                });
+        });
     }
 
     /*! "name value" lines as an object, and the names in order as `names`. */
@@ -97,14 +95,14 @@ Item {
             Settings.setAccentFollowsWallpaper(false);
             Settings.setWallpaperAccent("");
         });
-        root.look(false, (_, plain, signalsBefore) => {
+        root.look(0, (_, plain, signalsBefore) => {
             theme.active = true;
             check.equal("DesktopTheme loads", theme.status, Loader.Ready);
             check.attempt("following", () => {
                 Settings.setWallpaperAccent("#2050c0");
                 Settings.setAccentFollowsWallpaper(true);
             });
-            root.look(true, (file, kitty, signals) => {
+            root.look(root.reloads(signalsBefore) + 1, (file, kitty, signals) => {
                 check.equal("following: the accent and its brighter one, only",
                     JSON.stringify(file.names), JSON.stringify(["accent", "accent_bright"]));
                 check.attempt("following: the colours", () => {
@@ -123,7 +121,7 @@ Item {
                 check.equal("following: kitty told to reload", root.reloads(signals) - root.reloads(signalsBefore), 1);
 
                 check.attempt("not following", () => Settings.setAccentFollowsWallpaper(false));
-                root.look(false, (gone, back, after) => {
+                root.look(root.reloads(signals) + 1, (gone, back, after) => {
                     check.equal("not following: the file gone", gone.names.length, 0);
                     check.equal("not following: kitty's own blue", back.color4, "#7d93ee");
                     check.equal("not following: kitty's own bright blue", back.color12, "#9aaef5");

@@ -21,8 +21,11 @@ import Quickshell.Io
     every new connection at once; those already open finish as they are.
     sing-box keeps the mode across restarts, and nothing in v2rayN sets it.
 
-    The core starts after its config is written, so it is measured again
-    once its TUN comes up, which `ip monitor` reports.
+    Measured on events alone: its settings changing, the menu opening
+    (VpnMenu), its core starting — the core starts a moment after its config
+    is written, and in TUN mode after its TUN comes up, which `ip monitor`
+    reports — and the core ending: `waitpid` on the process holding the
+    proxy port returns as it exits.
 */
 Singleton {
     id: root
@@ -140,6 +143,8 @@ Singleton {
         const answered = exitCode === "0" && Number(httpCode) >= 200 && Number(httpCode) < 400;
         root.reach = answered ? "up" : exitCode === "7" ? "off" : "failing";
         root.latency = answered ? Math.round(parseFloat(seconds) * 1000) : -1;
+        if (answered && !ending.running)
+            ending.running = true;
     }
 
     // The latency of the whole path, as v2rayN's own delay test takes it: a
@@ -193,6 +198,20 @@ Singleton {
         onTriggered: root.measure()
     }
 
+    // The core ending has no event of its own, but the process holding the
+    // proxy port exiting is one: waitpid waits on it through a pidfd. Only a
+    // core run as this user names its process to ss; one run as root, in TUN
+    // mode, takes its TUN down as it goes, which ip monitor reports.
+    Process {
+        id: ending
+        command: ["sh", "-c", "pid=$(ss -Hltnp \"sport = :$1\" | grep -o 'pid=[0-9]*' | head -n 1); "
+            + "[ -n \"$pid\" ] && exec waitpid \"${pid#pid=}\"", "sh", String(root.port)]
+        onExited: code => {
+            if (code === 0)
+                root.measure();
+        }
+    }
+
     FileView {
         id: settings
         path: root.dir + "/guiConfigs/guiNConfig.json"
@@ -201,6 +220,15 @@ Singleton {
         onFileChanged: settings.reload()
         onLoaded: root.readSettings(settings.text())
         onLoadFailed: root.port = 0
+    }
+
+    // Written as v2rayN (re)starts its core, in either mode: what it reads.
+    FileView {
+        path: root.dir + "/binConfigs/config.json"
+        watchChanges: true
+        printErrors: false
+        preload: false
+        onFileChanged: started.restart()
     }
 
     FileView {

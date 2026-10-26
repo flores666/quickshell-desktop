@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import Quickshell.Widgets
 import "root:/config"
 import "root:/components"
@@ -33,14 +34,14 @@ Surface {
     elevation: 0
     bordered: false
 
-    Timer {
-        // The one place the shell polls: Quickshell's own advice for a
-        // position that moves without a signal. Reading `position` is always
-        // current; this only tells the bindings to read it again.
-        running: root.visible && root.tracking && root.hasLength && Players.playing
-        interval: 1000
-        repeat: true
-        onTriggered: Players.current.positionChanged()
+    // Time passing has no event, so while a track plays in view a clock on
+    // the second has the bindings read the position again. Reading it asks
+    // the player nothing — Quickshell works it out from the last position it
+    // reported — so this is a clock, as Time's minute is, not a poll.
+    SystemClock {
+        enabled: root.visible && root.tracking && root.hasLength && Players.playing
+        precision: SystemClock.Seconds
+        onDateChanged: Players.current.positionChanged()
     }
 
     Row {

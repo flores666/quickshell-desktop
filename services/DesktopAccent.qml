@@ -73,6 +73,9 @@ Singleton {
 
     property bool gtkDirty: false
     property bool restoring: false
+    /*! GTK's accent is being set; this falling is when it is, the one it
+        replaced kept or given back. */
+    readonly property bool settingGtk: gtkSetter.running
 
     function pushGtk(): void {
         if (!Settings.ready)

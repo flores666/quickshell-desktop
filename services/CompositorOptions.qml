@@ -129,6 +129,9 @@ Singleton {
     property var appliedDerived: ({})
     property var pending: []
     property bool reloadWanted: false
+    /*! A push is under way. Hyprland says nothing when an option is set, so
+        this falling is when what was set is in. */
+    readonly property bool pushing: push.running
 
     readonly property var overrides: root.keys.map(k => Settings[k])
     onOverridesChanged: root.sync()

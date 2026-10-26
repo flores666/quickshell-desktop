@@ -14,9 +14,10 @@ import Quickshell.Io
     NetworkManager also keeps profiles nobody wants one click away.
 
     Connection states are event-driven: `nmcli monitor` reports every change
-    and the list is read again after it. Latency has no event to listen to, so
-    every row's is measured every five minutes, and at once when a connection
-    comes up.
+    and the list is read again after it. Latency has no event of its own, so
+    it is measured on the events it matters at: a connection coming up, and
+    the menu opening (VpnMenu), which is when anyone reads it. Nothing is
+    measured on a schedule.
 */
 Singleton {
     id: root
@@ -38,7 +39,6 @@ Singleton {
     readonly property bool available: root.connections.length > 0 || V2rayn.available
     readonly property bool anyActive: root.upConnections.length > 0 || V2rayn.active
 
-    readonly property int latencyInterval: 5 * 60 * 1000
     /*! Seconds a ping may take. */
     readonly property int pingTimeout: 3
     /*! nmcli monitor reports one change as several lines. */
@@ -169,18 +169,5 @@ Singleton {
             + "| sed -n 's|^rtt[^=]*= [^/]*/\\([^/]*\\)/.*|\\1|p'); "
             + "printf '%s\\t%s\\n' \"$name\" \"${ms:--1}\"; done", "sh"].concat(root.upConnections)
         stdout: StdioCollector { onStreamFinished: root.readLatencies(this.text) }
-    }
-
-    // One of the shell's two repeating timers (Time's clock is the other):
-    // latency changes with no event to say so. Every five minutes, and only
-    // while there is something to measure.
-    Timer {
-        interval: root.latencyInterval
-        repeat: true
-        running: root.upConnections.length > 0 || V2rayn.available
-        onTriggered: {
-            root.measure();
-            V2rayn.measure();
-        }
     }
 }

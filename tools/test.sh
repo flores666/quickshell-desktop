@@ -31,19 +31,23 @@ for test in "$src"/tests/*Test.qml; do
     printf 'import Quickshell\nimport "root:/tests"\n\nShellRoot {\n    %s {}\n}\n' "$name" \
         > "$work/tree/shell.qml"
 
-    XDG_STATE_HOME="$work/state" XDG_CACHE_HOME="$work/cache" XDG_DATA_HOME="$work/data" \
-        QML_IMPORT_PATH="$work/native/qml" \
+    # Its output read line by line as it comes, until the closing line, qs
+    # exiting or fifteen seconds: a wait on the output, not on a clock.
+    exec {out}< <(exec env XDG_STATE_HOME="$work/state" XDG_CACHE_HOME="$work/cache" \
+        XDG_DATA_HOME="$work/data" QML_IMPORT_PATH="$work/native/qml" \
         PATH="$work/tree/tests/bin:$PATH" \
         TEST_GSETTINGS="$work/gsettings" TEST_SIGNALS="$work/signals" \
-        qs -p "$work/tree/shell.qml" > "$log" 2>&1 &
+        qs -p "$work/tree/shell.qml" 2>&1)
     pid=$!
-    for _ in $(seq 150); do
-        grep -q 'TESTS DONE' "$log" && break
-        kill -0 "$pid" 2>/dev/null || break
-        sleep 0.1
+    : > "$log"
+    deadline=$((SECONDS + 15))
+    while ((SECONDS < deadline)) && IFS= read -r -t "$((deadline - SECONDS))" -u "$out" line; do
+        printf '%s\n' "$line" >> "$log"
+        [[ "$line" == *'TESTS DONE'* ]] && break
     done
     kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
+    exec {out}<&-
 
     echo "== $name"
     # Every line but Quickshell's own start-up chatter, without its colours.

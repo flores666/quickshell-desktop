@@ -12,8 +12,9 @@ import "root:/services"
     Wi-Fi networks in range: join one, leave it, and for a saved one change
     its password or forget it.
 
-    Scanning is switched on only while this page is on screen, so the radio is
-    not kept busy by a panel nobody is looking at.
+    It asks for one scan as it opens (Network.scan); what turns up then and
+    afterwards comes as NetworkManager's events, and the radio is never kept
+    scanning.
 */
 Item {
     id: root
@@ -35,8 +36,7 @@ Item {
         ? prompt.implicitHeight
         : Math.min(340, header.height + failure.height + list.contentHeight + Appearance.s.md)
 
-    Component.onCompleted: Network.setScanning(true)
-    Component.onDestruction: Network.setScanning(false)
+    Component.onCompleted: Network.scan()
 
     Connections {
         target: Network
