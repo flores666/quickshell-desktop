@@ -60,5 +60,7 @@ firefox
 # building the overview plugin, and the tools in tools/
 git
 base-devel
+# building the shell's native module (tools/build-native-module.sh)
+cmake
 pkgconf
 python

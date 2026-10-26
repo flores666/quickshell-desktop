@@ -10,7 +10,10 @@ A desktop shell for Wayland / Hyprland written in QML against
 [Quickshell](https://quickshell.outfoxxed.me) 0.3 and Qt 6.12. It is the whole
 desktop UI: top bar, dock, launcher, quick settings, notifications, OSD, session
 lock. There is no build step — Quickshell interprets the QML directly and
-reloads on file change.
+reloads on file change — but for `native/`, a small QML module in C++ for what
+QML cannot reach (having Qt read the icon themes again, `IconThemes`), built
+by a script as the compositor plugins are, and optional: the shell runs
+without it.
 
 The project is also the rest of the desktop: the packages it needs, the
 configs of Hyprland, hyprpaper, kitty, fish and neovim, the scripts it binds,
@@ -27,6 +30,7 @@ qs -c shell ipc call shell <action>   # drive it; see ShellIpc.actions
 python3 tools/genicons.py         # regenerate components/Icons.qml
 ./tools/build-overview-plugin.sh  # rebuild the hyprexpo plugin (--if-stale: only if out of date)
 ./tools/build-windows-plugin.sh   # rebuild the window plugin (--if-stale: likewise)
+./tools/build-native-module.sh    # rebuild the shell's native module (--if-stale: likewise)
 ```
 
 **Always run `./tools/lint.sh` and check the runtime log before claiming done.**
@@ -44,8 +48,8 @@ own directory, though the generated qmldirs declare every one.
 `./tools/test.sh` runs `tests/*Test.qml`. Quickshell is built into `qs`, so
 `qmltestrunner` cannot import it: each test is run as the whole shell, under
 `qs -p`, in a copy of the tree whose `shell.qml` holds that test alone, with
-state and cache directories of its own (Settings starts from `profile/` and
-writes nothing real). A test reports through `tests/Check.qml` — a `PASS` or
+state, cache and data directories of its own (Settings starts from `profile/`
+and writes nothing real) and the native module built from the branch. A test reports through `tests/Check.qml` — a `PASS` or
 `FAIL` line per check, then `TESTS DONE n failed` — and the script stops the
 instance after that line, since nothing in QML can make `qs` quit. What the
 tests reach is the logic a popup hangs on (the hand-off, a card's geometry);
@@ -131,6 +135,11 @@ modules/             the surfaces themselves
                      overview theming
 tools/               generators, the lint and test wrappers and
                      save-profile.sh; not loaded at runtime
+native/              the shell's native QML module, Desktop.Native, in C++:
+                     IconThemeWatch, which IconThemes loads. Built by
+                     tools/build-native-module.sh into
+                     ~/.local/share/quickshell-desktop/qml, the unit's
+                     QML_IMPORT_PATH (hyprland.conf)
 tests/               *Test.qml, run by tools/test.sh, and Check, what they
                      report through; WindowDriver, a kitty the Window*Test
                      ones switch between modes; bin/, the gsettings and
@@ -511,6 +520,7 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
 | `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
+| `IconThemes` | the icon themes as the shell reads them: read again whenever one changes on disk, through the native module (`IconThemeWatch`), so an application installed while the shell runs comes with its icon; without the module, as they were at start | `revision` (whatever resolves an icon by name reads it: `AppIcon`), `watch` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
 | `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `setScanning`, `restartWifi`, `restarting`, `passwordRequested`, `failure` |
 | `Vpn` | the VPN menu: the NetworkManager connections `Settings.vpnConnections` names (states from `nmcli monitor`, switched with `nmcli`, latency a ping to the tunnel's far end), whether anything in the menu is up, and the one five-minute tick that measures every row | `available`, `anyActive`, `connections`, `states`, `isActive`, `status`, `toggle` |
@@ -545,7 +555,7 @@ implemented.
 | `Shadow` | a `RectangularShadow` per layer of `Appearance.shadowFor(level)`; `level` 1–3, 3 being the window shadow |
 | `Door` | how a card hanging from an edge rolls out of it and back (see *Door*): `edge`, `out`, `full`, `radius` in; `rolled`, `rolling`, `shut`, `extent` (its height), `drop` (where its box starts), `contentY` out. A popup's card and the dock's window preview hang from one |
 | `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
-| `AppIcon` | an application icon from the XDG theme, with fallbacks; `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's); `ink` draws it among the shell's glyphs (the tray's): desaturated, and a one-tone glyph levelled (Qt5Compat's `LevelAdjust`) so its tone comes out in the ink; artwork of both tones, a light sign on a dark plate, reads on either and keeps them |
+| `AppIcon` | an application icon from the XDG theme, with fallbacks, asked again whenever the themes change (`IconThemes.revision`); `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's); `ink` draws it among the shell's glyphs (the tray's): desaturated, and a one-tone glyph levelled (Qt5Compat's `LevelAdjust`) so its tone comes out in the ink; artwork of both tones, a light sign on a dark plate, reads on either and keeps them |
 | `IconShapes` | what `optical` and `ink` measure: how much of its box each icon covers, once per icon, the scale and offset that follow, and how much of its artwork is `light` |
 | `Label` | text with the type scale applied; use instead of bare `Text`. `scheme` as `Clickable`'s |
 | `ColorPicker` | an HSV plane and hue strip, optionally held to a saturation/value band; `moved`/`committed` like `Slider`, arrow keys, no wheel |
@@ -596,6 +606,16 @@ expensive to find.
   `Component.onCompleted` of a window's content, say. The result arrives a
   frame or two later (45–85 ms measured for a popup's card); its `url` is good
   for as long as the result object is held.
+- **Qt reads each icon theme once per process.** `QIconLoader` keeps every
+  theme it has read, its `icon-theme.cache` mapped, for good (`themeList` in
+  6.12's `qiconloader.cpp`), with no watcher: Zen, installed while the shell
+  ran, got the dock's fallback glyph, since pacman's hook renames a new cache
+  into hicolor and Qt kept reading the old one. A hot reload is the same
+  process and does not help. Only `QIcon::setThemeSearchPaths` drops what Qt
+  read — QML cannot call it and Quickshell never does — so `native/`'s
+  `IconThemeWatch` calls it with the same paths when a directory under them
+  changes, and `IconThemes.revision` has `AppIcon` ask again. Qt also
+  searches only the icon directories there were when it started.
 - **`Palette` collides with a QtQuick type.** The palette component is called
   `ColorScheme` for this reason. Watch for the same with `Icon`, `Label`,
   `Slider` if `QtQuick.Controls` is ever imported (it currently is not).

@@ -5,6 +5,7 @@ import QtQuick.Effects
 import Qt5Compat.GraphicalEffects
 import Quickshell
 import "root:/config"
+import "root:/services"
 
 /*!
     An application icon resolved through the XDG icon theme.
@@ -47,6 +48,9 @@ Item {
     implicitHeight: root.size
 
     readonly property string resolved: {
+        // Asked again whenever the icon themes change on disk, so an icon
+        // installed since (a new application's) is found.
+        void IconThemes.revision;
         const s = root.source;
         if (s === "")
             return "";

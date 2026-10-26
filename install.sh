@@ -101,6 +101,11 @@ done
 
 link "$repo" "$shell_dir"
 
+# The shell's native module (native/: Qt reads the icon themes again when an
+# install changes them), built when missing, or built against another Qt or
+# from other sources; hyprland.conf runs the same check at every login.
+"$repo/tools/build-native-module.sh" --if-stale
+
 # The compositor plugins: the overview, and the windows' (title bars, and
 # windows that open floating where they were left). Each is built when
 # missing, or built against another Hyprland or from other sources;
