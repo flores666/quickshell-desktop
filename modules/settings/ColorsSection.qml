@@ -41,7 +41,7 @@ Column {
         visible: Settings.wallpaperAccent !== ""
         flush: true
         title: qsTr("Match wallpaper")
-        subtitle: qsTr("The accent follows the wallpaper's main color")
+        subtitle: qsTr("Accent from the wallpaper, for GTK apps and the terminal too")
         onClicked: Settings.setAccentFollowsWallpaper(!Settings.accentFollowsWallpaper)
 
         ToggleSwitch {
@@ -62,7 +62,7 @@ Column {
 
     Label {
         width: root.width
-        text: qsTr("Only this shell is affected, unless the accent matches the wallpaper: GTK applications, the terminal and the window border then take it too. Right-click a color to pin or remove it.")
+        text: qsTr("Right-click a color to pin or remove it.")
         role: Label.Role.Caption
         faint: true
         wrapMode: Text.Wrap

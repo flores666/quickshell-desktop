@@ -43,14 +43,6 @@ Column {
                 onClicked: Settings.setTheme("dark")
             }
         }
-
-        Label {
-            width: parent.width
-            text: qsTr("Both themes are hand-tuned; the colors below apply to each separately.")
-            role: Label.Role.Caption
-            faint: true
-            wrapMode: Text.Wrap
-        }
     }
 
     SettingGroup {
@@ -143,7 +135,7 @@ Column {
         Label {
             width: parent.width
             visible: blurRow.visible
-            text: qsTr("Blur is the compositor's: the panels and see-through windows take it too.")
+            text: qsTr("Also blurs the panels and translucent windows.")
             role: Label.Role.Caption
             faint: true
             wrapMode: Text.Wrap

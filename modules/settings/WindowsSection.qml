@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import "root:/config"
-import "root:/components"
 import "root:/services"
 
 /*! Hyprland's windows: the space around them, their frame, and the effects
@@ -40,13 +39,5 @@ Column {
         SettingToggle { width: parent.width; key: "hyprAnimations"; title: qsTr("Animations") }
         HyprRow { key: "hyprActiveOpacity"; label: qsTr("Focused window opacity"); suffix: qsTr("%") }
         HyprRow { key: "hyprInactiveOpacity"; label: qsTr("Other windows' opacity"); suffix: qsTr("%") }
-    }
-
-    Label {
-        width: root.width
-        text: qsTr("Changes apply at once and are kept by the shell; hyprland.conf is never rewritten.")
-        role: Label.Role.Caption
-        faint: true
-        wrapMode: Text.Wrap
     }
 }

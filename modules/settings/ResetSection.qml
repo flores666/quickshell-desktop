@@ -43,12 +43,4 @@ Column {
             }
         }
     }
-
-    Label {
-        width: root.width
-        text: qsTr("Colors, the font and the wallpaper are kept; each has its own way back where it is chosen.")
-        role: Label.Role.Caption
-        faint: true
-        wrapMode: Text.Wrap
-    }
 }

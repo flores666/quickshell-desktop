@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import "root:/config"
-import "root:/components"
 
 /*! The top bar: how tall it stands, how far off the edges it sits, and how
     much of its glass it lays down. */
@@ -50,13 +49,5 @@ Column {
             value: Tuning.pick("barOpacity")
             suffix: qsTr("%")
         }
-    }
-
-    Label {
-        width: root.width
-        text: qsTr("Height and the gap above it are taken from every window on the screen.")
-        role: Label.Role.Caption
-        faint: true
-        wrapMode: Text.Wrap
     }
 }

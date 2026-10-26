@@ -21,6 +21,8 @@ pipewire-pulse
 wireplumber
 networkmanager
 upower
+# gdbus: watching UPower for the battery's charge limit (services/Power)
+glib2
 power-profiles-daemon
 bluez
 

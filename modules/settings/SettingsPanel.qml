@@ -37,7 +37,8 @@ ShellOverlay {
     cardWidth: Math.min(820, (root.screen ? root.screen.width : 1920) - Appearance.s.huge * 2)
     cardHeight: Math.min(580, (root.screen ? root.screen.height : 1080) - Appearance.s.huge * 3)
 
-    /*! Every section, in the order the sidebar lists them. */
+    /*! Every section, in the order the sidebar lists them; Battery only where
+        there is a charge limit to set. */
     readonly property var sections: [
         { key: "appearance", title: qsTr("Appearance"), icon: "night-light", component: appearanceSection },
         { key: "wallpaper", title: qsTr("Wallpaper"), icon: "wallpaper", component: wallpaperSection },
@@ -46,6 +47,8 @@ ShellOverlay {
         { key: "notifications", title: qsTr("Notifications"), icon: "bell", component: notificationsSection },
         { key: "windows", title: qsTr("Windows"), icon: "window", component: windowsSection },
         { key: "input", title: qsTr("Input"), icon: "mouse", component: inputSection },
+        ...(Power.hasChargeLimit
+            ? [{ key: "battery", title: qsTr("Battery"), icon: "battery-80", component: batterySection }] : []),
         { key: "reset", title: qsTr("Reset"), icon: "refresh", component: resetSection }
     ]
 
@@ -266,5 +269,6 @@ ShellOverlay {
     Component { id: notificationsSection; NotificationsSection { width: pane.width } }
     Component { id: windowsSection; WindowsSection { width: pane.width } }
     Component { id: inputSection; InputSection { width: pane.width } }
+    Component { id: batterySection; BatterySection { width: pane.width } }
     Component { id: resetSection; ResetSection { width: pane.width } }
 }

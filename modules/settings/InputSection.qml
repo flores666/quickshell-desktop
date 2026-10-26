@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import "root:/config"
-import "root:/components"
 import "root:/services"
 
 /*! How the pointer feels. The touchpad half is absent on a machine without
@@ -37,14 +36,6 @@ Column {
             subtitle: qsTr("Faster movements travel further")
         }
         HyprRow { key: "hyprMouseScroll"; label: qsTr("Scroll speed") }
-
-        Label {
-            width: parent.width
-            text: qsTr("Applies to every pointer without its own device block in hyprland.conf.")
-            role: Label.Role.Caption
-            faint: true
-            wrapMode: Text.Wrap
-        }
     }
 
     SettingGroup {

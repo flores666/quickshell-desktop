@@ -79,14 +79,4 @@ Column {
             suffix: qsTr("ms")
         }
     }
-
-    Label {
-        width: root.width
-        text: Settings.dockAutoHide
-            ? qsTr("The dock reserves no space; windows sit under it.")
-            : qsTr("Windows stop above the dock, the way they stop below the bar.")
-        role: Label.Role.Caption
-        faint: true
-        wrapMode: Text.Wrap
-    }
 }

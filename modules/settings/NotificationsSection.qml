@@ -41,12 +41,4 @@ Column {
             suffix: qsTr("ms")
         }
     }
-
-    Label {
-        width: root.width
-        text: qsTr("Urgent notifications ignore the dwell and wait to be dismissed.")
-        role: Label.Role.Caption
-        faint: true
-        wrapMode: Text.Wrap
-    }
 }
