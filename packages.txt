@@ -13,10 +13,10 @@ quickshell
 qt6-imageformats
 # LevelAdjust: the tray's icons drawn in the bar's ink (components/AppIcon)
 qt6-5compat
+# administrator rights asked for (pkexec: the task manager applying
+# earlyoom's options; mounting a disk in nautilus): the shell is the session's
+# agent and asks for the password itself (services/Polkit)
 polkit
-# asks for the password when an application needs administrator rights
-# (mounting a disk in nautilus); started in hypr/conf.d/20-autostart.conf
-hyprpolkitagent
 
 # what the shell's services read: sound, network, power, Bluetooth
 pipewire

@@ -14,6 +14,8 @@ FieldWell {
     property alias text: field.text
     property alias placeholder: placeholderLabel.text
     property alias input: field
+    /*! TextInput.Password for a secret: dots in place of what is typed. */
+    property alias echoMode: field.echoMode
 
     signal accepted
 
@@ -35,6 +37,7 @@ FieldWell {
         clip: true
         renderType: Text.NativeRendering
         inputMethodHints: Qt.ImhNoPredictiveText
+        passwordCharacter: "•"
         onAccepted: root.accepted()
     }
 

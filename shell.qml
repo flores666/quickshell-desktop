@@ -14,6 +14,7 @@ import "root:/modules/osd"
 import "root:/modules/switcher"
 import "root:/modules/lock"
 import "root:/modules/notifications"
+import "root:/modules/polkit"
 
 /*!
     Shell entry point.
@@ -44,7 +45,10 @@ ShellRoot {
               // Likewise: this tells every other application light or dark.
               DesktopScheme.scheme,
               // Likewise: this posts earlyoom's kills as notifications.
-              EarlyOom.available];
+              EarlyOom.available,
+              // Likewise: this registers the shell as the session's polkit
+              // agent, before anything asks for a password.
+              Polkit.available];
     }
 
     Variants {
@@ -73,6 +77,11 @@ ShellRoot {
         TrayMenu {}
         VpnMenu {}
         DockMenu {}
+    }
+
+    // The password prompt, above the popups: what asks is often one of them.
+    AuthWindow {
+        flow: Polkit.flow
     }
 
     Lock {}

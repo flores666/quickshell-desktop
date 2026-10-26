@@ -81,9 +81,18 @@ Singleton {
         outside it, though the shell has lost the pointer to it.
     */
     function dismissOnOutsideClick(): void {
-        if (root.anyOpen && !root.pointerOverShell && !Compositor.covered)
+        if (root.anyOpen && !root.authorizing && !root.pointerOverShell && !Compositor.covered)
             root.close();
     }
+
+    /*!
+        Whether the polkit agent's password prompt is up, over the popups
+        (modules/polkit/AuthWindow sets it, from the moment it maps until its
+        fade is over). Meanwhile neither Escape's bind nor a press outside
+        closes anything: the popup under the prompt — the task manager
+        applying earlyoom's options — waits on it, and Escape is the prompt's.
+    */
+    property bool authorizing: false
 
     function isOpen(name: string): bool {
         return root.active === name;
@@ -208,10 +217,11 @@ Singleton {
 
     /*!
         Escape: a context menu goes first, and the popup only once none is up.
-        Escape into something covering the screen is its own.
+        Escape into something covering the screen is its own, and so is
+        Escape into the password prompt.
     */
     function dismissOnEscape(): void {
-        if (Compositor.covered)
+        if (Compositor.covered || root.authorizing)
             return;
         if (root.menu !== null)
             root.closeMenu();
