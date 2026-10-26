@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import "root:/config"
+import "root:/components"
 import "root:/services"
 
 /*! How the pointer feels. The touchpad half is absent on a machine without

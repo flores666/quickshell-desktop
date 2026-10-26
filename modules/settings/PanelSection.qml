@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import "root:/config"
+import "root:/components"
 
 /*! The top bar: how tall it stands, how far off the edges it sits, and how
     much of its glass it lays down. */

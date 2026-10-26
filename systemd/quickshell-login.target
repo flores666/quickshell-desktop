@@ -1,0 +1,6 @@
+# What runs once each time the desktop's session starts: the task manager's
+# tasks "At login" are wanted by this. Hyprland restarts it as it starts
+# (hypr/conf.d/20-autostart.conf), so its wants run again at every login,
+# whether or not the user manager outlived the last session.
+[Unit]
+Description=The desktop's session has started

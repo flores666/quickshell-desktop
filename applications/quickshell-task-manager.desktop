@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Task Manager
+Comment=Processes, memory and scheduled tasks
+Icon=utilities-system-monitor
+Exec=qs -c shell ipc call shell taskManager
+Categories=System;Monitor;
+Keywords=processes;kill;memory;earlyoom;schedule;timer;cron;

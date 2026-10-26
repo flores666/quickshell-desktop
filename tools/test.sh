@@ -10,8 +10,11 @@
 # the run. A test reports through tests/Check.qml — a PASS or FAIL line
 # per check and a closing line — and since nothing in QML can make qs quit,
 # the script stops it once that line is out. tests/bin comes first on their
-# PATH: a gsettings with a store of the run's own and a pkill that signals
-# nothing, so no test writes the machine's dconf or reaches its processes.
+# PATH: a gsettings with a store of the run's own, a pkill that signals
+# nothing and a notify-send that shows nothing, so no test writes the
+# machine's dconf, reaches its processes or posts to its notifications.
+#
+# Every test, or those named: tools/test.sh ProcessesTest TasksTest
 set -euo pipefail
 
 src="$(cd "$(dirname "$0")/.." && pwd)"
@@ -24,8 +27,14 @@ tar -C "$src" --exclude=./.git --exclude=./.forge -cf - . | tar -C "$work/tree" 
 cmake -S "$src/native" -B "$work/native" -DCMAKE_BUILD_TYPE=Release --log-level=WARNING >/dev/null
 cmake --build "$work/native" -j >/dev/null
 
+tests=("$src"/tests/*Test.qml)
+if (($#)); then
+    tests=()
+    for name in "$@"; do tests+=("$src/tests/$name.qml"); done
+fi
+
 status=0
-for test in "$src"/tests/*Test.qml; do
+for test in "${tests[@]}"; do
     name="$(basename "$test" .qml)"
     log="$work/$name.log"
     printf 'import Quickshell\nimport "root:/tests"\n\nShellRoot {\n    %s {}\n}\n' "$name" \
@@ -36,7 +45,7 @@ for test in "$src"/tests/*Test.qml; do
     exec {out}< <(exec env XDG_STATE_HOME="$work/state" XDG_CACHE_HOME="$work/cache" \
         XDG_DATA_HOME="$work/data" QML_IMPORT_PATH="$work/native/qml" \
         PATH="$work/tree/tests/bin:$PATH" \
-        TEST_GSETTINGS="$work/gsettings" TEST_SIGNALS="$work/signals" \
+        TEST_GSETTINGS="$work/gsettings" TEST_SIGNALS="$work/signals" TEST_NOTIFY="$work/notify" \
         qs -p "$work/tree/shell.qml" 2>&1)
     pid=$!
     : > "$log"

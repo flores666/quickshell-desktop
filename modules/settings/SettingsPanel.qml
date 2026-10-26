@@ -34,8 +34,8 @@ ShellOverlay {
 
     overlayId: Overlay.settings
     placement: ShellOverlay.Placement.Centre
-    cardWidth: Math.min(820, (root.screen ? root.screen.width : 1920) - Appearance.s.huge * 2)
-    cardHeight: Math.min(580, (root.screen ? root.screen.height : 1080) - Appearance.s.huge * 3)
+    cardWidth: Math.min(Appearance.m.paneCardWidth, (root.screen ? root.screen.width : 1920) - Appearance.s.huge * 2)
+    cardHeight: Math.min(Appearance.m.paneCardHeight, (root.screen ? root.screen.height : 1080) - Appearance.s.huge * 3)
 
     /*! Every section, in the order the sidebar lists them; Battery only where
         there is a charge limit to set. */
@@ -135,7 +135,7 @@ ShellOverlay {
             root.section = root.matches[j].key;
     }
 
-    readonly property int navWidth: 196
+    readonly property int navWidth: Appearance.m.navWidth
 
     Item {
         anchors.fill: parent

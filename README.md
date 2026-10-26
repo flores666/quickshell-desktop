@@ -66,6 +66,8 @@ modules/                  the surfaces themselves
   panels/                 quick settings, date menu, tray menu, VPN menu
     qs/                     quick-settings sub-pages
   launcher/               application launcher
+  tasks/                  task manager: processes, memory and earlyoom,
+                          scheduled tasks
   notifications/          toasts and the notification centre
   osd/                    volume / brightness indicator
   lock/                   session lock
@@ -77,6 +79,9 @@ packages.txt              the packages it needs (packages-aur.txt: the AUR ones)
 hypr/                     the Hyprland and hyprpaper config
 terminal/                 kitty, and the fish prompt
 nvim/                     neovim
+earlyoom/                 earlyoom's options, as install.sh first puts them
+systemd/                  the user unit the task manager's login tasks hang from
+applications/             the task manager's launcher entry
 bin/                      the scripts the configs run
 profile/                  saved preferences and GTK settings
 ```
@@ -104,12 +109,15 @@ D-Bus, PipeWire or Hyprland directly, and never duplicates a derivation.
 | `Vpn` | `nmcli monitor` (the profiles `vpnConnections` names) | no rows; VPN button hidden without v2rayN either |
 | `V2rayn` | v2rayN's config and database; in TUN mode its core's Clash API | no row; without TUN mode, no switch |
 | `Dock` | `Compositor` + `Settings` | pinned entries only |
+| `Processes` | `/proc`, read while the task manager shows it | — |
+| `EarlyOom` | its unit file, `/etc/default/earlyoom`, its journal | `available` false; memory gauges only |
+| `Tasks` | systemd user timers and the user journal | no tasks |
 | `Session`, `Settings`, `Time`, `Osd`, `Overlay`, `InputMode` | — | — |
 
 Two of these deserve a note:
 
 - **`Overlay`** is the arbiter for full-screen surfaces. The launcher, overview,
-  quick settings, date menu, VPN menu and the two popup menus all route their open/close
+  quick settings, date menu, task manager, VPN menu and the two popup menus all route their open/close
   through it, which is what makes "only one at a time" true by construction
   rather than by everyone remembering to close everyone else.
 - **`Settings`** is the only writable state, persisted as JSON under
@@ -156,6 +164,11 @@ The only periodic wakeups are clocks showing time passing, which no event can
 say: the `Time` service's minute, shared by every monitor, and the media seek
 bar's second while the date menu shows something playing (MPRIS does not
 signal position; Quickshell works it out, so the tick asks the player nothing).
+And one reading: the task manager's process list and memory gauges, read from
+`/proc` every two seconds while one of them is on screen, since the kernel
+says nothing when a process works or memory fills; a CPU share is the change
+between two readings. Its scheduled tasks are systemd's to wait for, and their
+runs are heard from the journal.
 
 Two things are asked for once at startup because no event carries them until
 they change: the backlight device, and the current keyboard layout.
@@ -217,6 +230,22 @@ Each open window gets its own icon — three terminals are three icons, each
 activating its own window and carrying its own focused state. A pinned
 application collapses to one launcher icon only while it has no windows open,
 and one that is not installed on this machine is not shown.
+
+## The task manager
+
+`Ctrl+Shift+Esc`, or *Task Manager* in the launcher. **Processes** lists every
+process with its CPU, memory and OOM score; your own can be ended from a row's
+menu, and any can be protected from earlyoom or marked to go first.
+**Memory** shows the memory and swap left against the levels earlyoom acts
+at, earlyoom's options — applied together, through a password prompt, since
+they are root's — and what it has stopped. **Scheduled** runs commands on
+systemd user timers — once, hourly, daily, weekly, by any calendar
+expression, or at login — and shows how each last run went.
+
+[earlyoom](https://github.com/rfjakob/earlyoom) stops the process using the
+most memory before the machine runs out. `install.sh` installs it with the
+project's options (`earlyoom/earlyoom`) and enables it; every process it stops
+comes up as a notification.
 
 ## Interaction
 

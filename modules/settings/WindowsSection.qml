@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import "root:/config"
+import "root:/components"
 import "root:/services"
 
 /*! Hyprland's windows: the space around them, their frame, and the effects

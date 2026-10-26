@@ -9,6 +9,7 @@ import "root:/modules/panels"
 import "root:/modules/common"
 import "root:/modules/launcher"
 import "root:/modules/settings"
+import "root:/modules/tasks"
 import "root:/modules/osd"
 import "root:/modules/switcher"
 import "root:/modules/lock"
@@ -41,7 +42,9 @@ ShellRoot {
               // Likewise: this is what re-applies the Hyprland overrides.
               CompositorOptions.hasTouchpad,
               // Likewise: this tells every other application light or dark.
-              DesktopScheme.scheme];
+              DesktopScheme.scheme,
+              // Likewise: this posts earlyoom's kills as notifications.
+              EarlyOom.available];
     }
 
     Variants {
@@ -66,6 +69,7 @@ ShellRoot {
         DateMenu {}
         Launcher {}
         SettingsPanel {}
+        TaskManager {}
         TrayMenu {}
         VpnMenu {}
         DockMenu {}

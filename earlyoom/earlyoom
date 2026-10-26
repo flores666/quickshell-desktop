@@ -1,0 +1,10 @@
+# quickshell-desktop
+# earlyoom's options (man earlyoom), kept by the desktop's task manager:
+# its Memory tab rewrites this file, and install.sh leaves it alone.
+#
+# As install.sh first puts it: SIGTERM once available memory and free swap
+# are both at 10% or below, SIGKILL at 5%; no hourly report in the journal
+# (-r 0). Spared (300 off their score): the compositor, Xwayland, the shell
+# and the sound server, whose loss ends the session or silences it. Taken
+# first: a browser's tab processes, whose loss is one tab.
+EARLYOOM_ARGS="-r 0 -m 10,5 -s 10,5 --avoid ^(Hyprland|Xwayland|qs|pipewire|wireplumber)$ --prefer ^(Web[[:space:]]Content|Isolated[[:space:]]Web[[:space:]]Co)$"

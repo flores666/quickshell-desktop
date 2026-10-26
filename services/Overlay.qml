@@ -8,7 +8,8 @@ import Quickshell
     The arbiter for the shell's popups.
 
     Exactly one of them — the launcher, quick settings, the date menu, the
-    settings panel, or the tray, VPN or dock menu — can be open at a time, and
+    settings panel, the task manager, or the tray, VPN or dock menu — can be
+    open at a time, and
     it opens on one specific screen. Routing every open/close through here is
     what makes that invariant hold without any of the popups knowing about
     each other.
@@ -24,6 +25,7 @@ Singleton {
     readonly property string vpnMenu: "vpnMenu"
     readonly property string dockMenu: "dockMenu"
     readonly property string settings: "settings"
+    readonly property string taskManager: "taskManager"
 
     property string active: root.none
     property ShellScreen screen: null

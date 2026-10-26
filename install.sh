@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Set a computer up as this desktop: the packages it needs, the Quickshell
 # config "shell", the overview and window plugins, and the configs of
-# Hyprland, hyprpaper, kitty, fish and neovim, the scripts in bin/, and the
+# Hyprland, hyprpaper, kitty, fish, neovim and earlyoom, the scripts in bin/,
+# the task manager's launcher entry and login target, and the
 # preferences and GTK settings saved in profile/ (tools/save-profile.sh). The
 # wallpapers are the one thing to bring by hand, into the Pictures folder's
 # Wallpapers.
@@ -82,6 +83,26 @@ fi
 
 enable_service bluetooth.service
 enable_service power-profiles-daemon.service
+
+# earlyoom's options are the project's (earlyoom/earlyoom) until the task
+# manager's Memory tab changes them: the machine's file is replaced only
+# while it is not the desktop's — it lacks the marker line the project's
+# starts with — so a re-run keeps those changes.
+earlyoom_conf=/etc/default/earlyoom
+if [[ -e /usr/lib/systemd/system/earlyoom.service ]] \
+    && ! grep -qxF '# quickshell-desktop' "$earlyoom_conf" 2>/dev/null; then
+    if [[ -e "$earlyoom_conf" ]]; then
+        sudo mv -- "$earlyoom_conf" "$earlyoom_conf.bak-$stamp"
+        say "kept your $earlyoom_conf as $earlyoom_conf.bak-$stamp"
+    fi
+    sudo install -m 644 -- "$repo/earlyoom/earlyoom" "$earlyoom_conf"
+    say "wrote $earlyoom_conf"
+    if systemctl is-active -q earlyoom.service; then
+        sudo systemctl restart earlyoom.service
+        say "restarted earlyoom.service"
+    fi
+fi
+enable_service earlyoom.service
 # Only where nothing else manages the network, so as not to cut off the
 # connection this may be running over.
 network_others=(systemd-networkd.service iwd.service connman.service dhcpcd.service)
@@ -149,6 +170,12 @@ if [[ -n "$fish" && "$(getent passwd "$(id -un)" | cut -d: -f7)" != "$fish" ]]; 
 fi
 
 link "$shell_dir/nvim" "$config/nvim"
+
+# The task manager: its launcher entry, and the target its tasks "At login"
+# hang from, which Hyprland restarts as it starts.
+link "$shell_dir/applications/quickshell-task-manager.desktop" \
+    "${XDG_DATA_HOME:-$HOME/.local/share}/applications/quickshell-task-manager.desktop"
+link "$shell_dir/systemd/quickshell-login.target" "$config/systemd/user/quickshell-login.target"
 
 for script in "$repo"/bin/*; do
     link "$shell_dir/bin/${script##*/}" "$HOME/.local/bin/${script##*/}"

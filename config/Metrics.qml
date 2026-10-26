@@ -96,6 +96,18 @@ QtObject {
     readonly property int menuWidth: 180
     /*! A row of a sidebar: the launcher's categories, the settings sections. */
     readonly property int navRowHeight: 36
+    /*! The settings panel's and the task manager's card at most, and the
+        list of tabs down its left. */
+    readonly property int paneCardWidth: 820
+    readonly property int paneCardHeight: 580
+    readonly property int navWidth: 196
+    /*! A column of figures in the task manager's lists: CPU, OOM score; a
+        size or a user's name. */
+    readonly property int figureColumn: 60
+    readonly property int wideColumn: 92
+    /*! A gauge's bar, and a threshold's mark across it. */
+    readonly property int gaugeHeight: 8
+    readonly property int gaugeMark: 2
 
     /*! A colour swatch, and the pin badge a pinned one wears. */
     readonly property int swatch: 28

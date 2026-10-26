@@ -28,6 +28,12 @@ upower
 glib2
 power-profiles-daemon
 bluez
+# stops the process using the most memory before the machine runs out; its
+# options are earlyoom/earlyoom, its kills shown by the task manager
+# (services/EarlyOom); gawk reads /proc for its process list
+# (services/Processes)
+earlyoom
+gawk
 
 # what the shell runs: screenshots (hyprpicker freezes the screen under a
 # region shot), the clipboard, notifications, settings

@@ -1,0 +1,5 @@
+#!/bin/sh
+# The tests' notify-send, first on their PATH (tools/test.sh): it shows
+# nothing and notes each call in $TEST_NOTIFY, a line a call, so that no test
+# posts to the session's notifications and a test can see what was posted.
+printf '%s\n' "$*" >> "${TEST_NOTIFY:?not under tools/test.sh}"

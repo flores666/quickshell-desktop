@@ -16,7 +16,8 @@ by a script as the compositor plugins are, and optional: the shell runs
 without it.
 
 The project is also the rest of the desktop: the packages it needs, the
-configs of Hyprland, hyprpaper, kitty, fish and neovim, the scripts it binds,
+configs of Hyprland, hyprpaper, kitty, fish, neovim and earlyoom, the scripts
+it binds,
 and the saved preferences. `./install.sh` sets a new computer
 up as this desktop from the checkout alone; see *The rest of the desktop*.
 
@@ -26,7 +27,7 @@ up as this desktop from the checkout alone; see *The rest of the desktop*.
 qs -c shell                       # run it (resolves ~/.config/quickshell/shell)
 qs -c shell ipc call shell <action>   # drive it; see ShellIpc.actions
 ./tools/lint.sh                   # qmllint over the whole tree
-./tools/test.sh                   # the tests in tests/, each as the whole shell under qs -p
+./tools/test.sh [Name…]           # the tests in tests/ (or those named), each as the whole shell under qs -p
 python3 tools/genicons.py         # regenerate components/Icons.qml
 ./tools/build-overview-plugin.sh  # rebuild the hyprexpo plugin (--if-stale: only if out of date)
 ./tools/build-windows-plugin.sh   # rebuild the window plugin (--if-stale: likewise)
@@ -100,7 +101,11 @@ compositor do the right thing". Use the real session:
    one periodic wakeup is a clock showing time itself passing, which no event
    can say: a `SystemClock` (`Time`'s minute; the media card's second while a
    track plays in view), running only while what it shows is on screen and
-   asking nothing outside the shell. A single wait for what sends no event
+   asking nothing outside the shell. The one reading taken on a clock is the
+   task manager's (`Processes`): `/proc` says nothing when a process works or
+   memory fills, so it is read every `sampleInterval`, the next timed from the
+   end of the last, only while the task manager shows Processes or Memory. A
+   single wait for what sends no event
    when it is done (a window's animation settling) is a delay, not a poll.
 4. **Every widget's interaction states come from `Clickable`.** Do not
    re-implement hover/press/selected/disabled/focus.
@@ -134,14 +139,18 @@ config/              the design system — pure tokens, no logic
 services/            one singleton per source of system state
 components/          reusable widgets, all built on Clickable
 modules/             the surfaces themselves
-  bar/ dock/ panels/ launcher/ settings/ notifications/ osd/ lock/
+  bar/ dock/ panels/ launcher/ settings/ notifications/ osd/ lock/ tasks/
   panels/qs/         quick settings' pages: FrontPage, the sub-pages it opens,
                      and their tiles and rows
   settings/          one *Section per tab, its rows (SettingRow /
-                     SettingToggle) on SettingGroup cards; ThemeCard previews a
+                     SettingToggle) on SettingGroup cards (components/);
+                     ThemeCard previews a
                      theme; SeedPicker is one colour seed: one row of choices
                      and a picker; ResetSection is the one place "Reset all"
                      lives
+  tasks/             the task manager: TaskManager, a pane per tab
+                     (ProcessPane, MemoryPane, SchedulePane), their rows,
+                     EarlyOomSettings and TaskEditor
   common/            shared surface chrome (OverlaySurface, ShellOverlay,
                      OverlayCard), IPC,
                      overview theming
@@ -153,10 +162,11 @@ native/              the shell's native QML module, Desktop.Native, in C++:
                      ~/.local/share/quickshell-desktop/qml, the unit's
                      QML_IMPORT_PATH (hyprland.conf)
 tests/               *Test.qml, run by tools/test.sh, and Check, what they
-                     report through; FileWait and Settle, a wait on a file
-                     and on a service's step; WindowDriver, a kitty the
+                     report through; FileWait, Settle and Until, a wait on a
+                     file, on a service's step and on a service's state;
+                     WindowDriver, a kitty the
                      Window*Test ones switch between modes; bin/, the
-                     gsettings and pkill they run with
+                     gsettings, pkill and notify-send they run with
 docs/specs/          what a change set out to do, item by item, with the
                      checks its tests encode
 hyprland.conf        the shell's Hyprland integration, sourced from
@@ -177,6 +187,11 @@ terminal/            kitty.conf (the whole kitty config, in the Soft Surface
                      tokens
 nvim/                the neovim config; its theme is lackluster recoloured
                      with palette.conf, and plain lackluster without it
+earlyoom/            earlyoom's options, /etc/default/earlyoom as install.sh
+                     first puts it (the task manager's Memory tab rewrites it)
+systemd/             quickshell-login.target, the user unit the task
+                     manager's tasks "At login" hang from
+applications/        the task manager's desktop entry, for the launcher
 bin/                 scripts the configs run, linked into ~/.local/bin
 profile/             state saved from a machine set up already, for the next:
                      settings.json (the shell's) and gtk.dconf
@@ -202,6 +217,8 @@ something new, the change also records it here.** Concretely:
 | a package from the AUR | `packages-aur.txt` | installs it with `yay`/`paru`, or lists it |
 | a font, icon or cursor theme | its package, in one of the lists — never a file copied into `~/.local/share/fonts` | as above |
 | a config of another application | its own directory or file in the project (`hypr/`, `terminal/`, `nvim/`, …) | links it into place: one `link` line |
+| a system service's options, a file under `/etc` | its own directory (`earlyoom/`), the file starting with the `# quickshell-desktop` marker | installs it with sudo where the machine's lacks the marker, keeping the old one; what the shell has written since keeps it |
+| a desktop entry, a user systemd unit | `applications/`, `systemd/` | links it into `~/.local/share/applications`, `~/.config/systemd/user` |
 | a script a config or bind runs | `bin/`; refer to it by bare name (kitty finds `~/.local/bin` itself; Hyprland binds use `~/.local/bin/<name>`) | links every file in `bin/` into `~/.local/bin` |
 | a system or user service | the package; enabling it is a line in `install.sh` — or, for one that needs the graphical session, an `exec-once` in `hypr/conf.d/20-autostart.conf` (the polkit agent) | enables it if it is off |
 | a setting that lives in dconf | its directory in `tools/save-profile.sh`'s `gtk` list, then run that | writes each key the machine still has at its default |
@@ -267,8 +284,8 @@ persistent ones (bar, dock) and transient ones (popups, OSD, toasts). Every
 surface has a `WlrLayershell.namespace` of `shell-<name>`, which is how you
 identify it in `hyprctl layers`; the popups share one, `shell-popups`.
 
-**Popup** — launcher, quick settings, settings, date menu, tray menu, dock menu,
-VPN menu.
+**Popup** — launcher, quick settings, settings, task manager, date menu, tray
+menu, dock menu, VPN menu.
 Each is a `ShellOverlay`, and all their cards are drawn in the one window,
 `OverlaySurface`. Exactly one can be open at a time.
 
@@ -466,6 +483,24 @@ as they start.
 
 **Placement** — where a popup attaches: `BelowBar`, `AboveDock`, `Centre`.
 
+**Task manager** — the centred popup `Ctrl+Shift+Escape` opens
+(`shell:taskManager`, and a desktop entry the launcher lists): what runs, memory
+and earlyoom, and scheduled tasks, a tab each, laid out as the settings panel.
+**earlyoom** is the daemon that stops the process using the most memory once
+memory and swap are both low (`EarlyOom`): its options are root's
+(`/etc/default/earlyoom`), so the Memory tab gathers edits and applies them
+together through one `pkexec` (one password prompt), and a process's menu
+puts its name in `--avoid` (*Protected*) or `--prefer` (*Kill first*) at once.
+Its kills come from its journal and each one while the shell runs is a
+notification. A **scheduled task** is a pair of systemd user units the shell
+writes (`qs-task-<id>.service` and `.timer`, `TaskUnits`), the task held in
+their `X-QsTask-*` keys; systemd does the waiting, so it runs with the shell
+down, and a run missed while the machine was off happens at the next start. A
+task "At login" is wanted by `quickshell-login.target`, which Hyprland restarts
+as it starts (`20-autostart.conf`, after importing the display into the user
+manager so a task can open a window). A "once" task stays listed with its
+result after it ran, until deleted.
+
 **State layer** — the translucent hover/press/selected wash `Clickable` paints
 under a widget's content.
 
@@ -533,6 +568,11 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
 | `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
+| `Processes` | every process (kernel threads aside) and memory, sampled from `/proc` by one gawk run while `watched` (see hard rule 3); CPU as a share of the whole machine between two samples | `watched` (bound by the task manager), `sampleInterval`, `samples`, `list` (`{ pid, uid, ppid, ticks, rss, oomScore, oomAdj, name, cpu, own, user }`), `byPid`, `memory` (KiB), `uid`, `parse`, `cpu`, `sample`, `terminate`/`forceKill` (own processes only), `formatSize` |
+| `EarlyOom` | earlyoom: installed (its unit file), running, its options (`/etc/default/earlyoom`, watched), its kills (its journal, followed: wheel, adm and systemd-journal may read it) and their notifications, memory and the next victim as it reckons them | `available`, `running`, `logReadable`, `config`, `kills`, `usage`, `next`, `victim`, `preference`, `withPreference`, `protect`/`preferKill`/`clear`, `apply` (pkexec), `pending`, `failure`, `fileText`, `readEntry` |
+| `EarlyOomArgs` | EARLYOOM_ARGS read and written: the levels, the two lists as names (each escaped with bracket expressions and no space or backslash, which systemd would take apart), what else a list holds kept as written (`avoidExtra`), every other option in `rest` | `parse`, `format`, `regex`, `listable`, `matches`, `matcher` |
+| `Tasks` | scheduled tasks: their units in `~/.config/systemd/user`, changed one script at a time and read again after each; runs heard from the user manager's journal lines; the user's other timers, read-only | `prefix`, `tasks` (`{ id, name, command, schedule, enabled, next, last, result, status }`), `others`, `read`, `save`, `runNow`, `setEnabled`, `remove`, `validate` (systemd-analyze), `formatWhen` |
+| `TaskUnits` | a task as units: its schedule (`once`, `hourly`, `daily`, `weekly`, `calendar`, `login`) as OnCalendar, its command quoted for ExecStart, the units' text and the task read back | `parts`, `validSchedule`, `calendar`, `describe`, `validCommand`, `exec`, `files`, `read`, `days` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
 | `IconThemes` | the icon themes as the shell reads them: read again whenever one changes on disk, through the native module (`IconThemeWatch`), so an application installed while the shell runs comes with its icon; without the module, as they were at start | `revision` (whatever resolves an icon by name reads it: `AppIcon`), `watch` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
@@ -574,6 +614,8 @@ implemented.
 | `Label` | text with the type scale applied; use instead of bare `Text`. `scheme` as `Clickable`'s |
 | `ColorPicker` | an HSV plane and hue strip, optionally held to a saturation/value band; `moved`/`committed` like `Slider`, arrow keys, no wheel |
 | `Filmstrip` | a sideways-scrolling row of choices wider than its room: wallpaper previews, font samples |
+| `SettingGroup` | rows that belong together on one `raised` card, a heading above it: the settings panel's and the task manager's |
+| `InputField` | a line of text to type in a `FieldWell`, with a placeholder: SearchField without the glyph and the clear button |
 | `MenuRow` | a popover list row; `flush` drops the inset and wash so it sits among a settings pane's sliders |
 | `FieldWell` | the well every text input sits in: no border, a wash on hover and a stronger one while the input has the keyboard; its hover is a `Clickable` laid over the input taking no buttons, and anything with its own hover goes in `trailing` above it |
 | `IconButton`, `TextButton` (`compact` for in-row actions), `ToggleSwitch`, `Slider`, `SearchField`, `Spinner`, `Divider`, `ThinScrollBar`, `Tooltip` (`below` for one at the top of a popup) | the rest of the kit |
@@ -603,9 +645,9 @@ expensive to find.
 
 ### QML / Qt
 
-- **`escape` is an illegal QML method name**, as are other JS globals. This has
-  bitten three times (`Apps.escapeRegExp`, `ShellIpc.escapeKey`,
-  `Overlay.dismissOnEscape`). Symptom: `Illegal method name` at load, and the
+- **`escape` is an illegal QML method name**, as are other JS globals
+  (`unescape` too). This has bitten four times (`Apps.escapeRegExp`,
+  `ShellIpc.escapeKey`, `Overlay.dismissOnEscape`, `EarlyOomArgs.quote`). Symptom: `Illegal method name` at load, and the
   whole shell fails to start — **qmllint does not catch it**; only the
   runtime log does.
 - **An `Item` cannot declare a property named `top`** (or `left`, `bottom`,
@@ -720,6 +762,7 @@ expensive to find.
   has been called a few times, so a loop run once stays interpreted: building
   `Backdrop`'s table in one loop took 17–20 ms per screen at startup, a call per
   row 10–12.
+- **`String.prototype.trimEnd` is missing** from the engine; a regex does it.
 - **Qt5Compat's `LevelAdjust` levels alpha as it does colour**: from the output
   colours' own alphas. Give the low end alpha 0 and the high end 1, or an
   icon's transparent background comes out in the low colour.
@@ -942,6 +985,11 @@ expensive to find.
   pointer over the window focus left. `Compositor.focusWindow` turns it on
   inside one `hyprctl --batch` around the dispatch and puts the value it read
   back; Hyprland runs a batch with nothing in between.
+- **A glob in `journalctl --user-unit` (or `-u`) only matches units the
+  journal has entries for already**: with none it fails at once (`Failed to
+  add filter for units: No data available`) and the follow ends. `Tasks`
+  follows the user manager's own lines (`_SYSTEMD_USER_UNIT=init.scope`, an
+  exact match) and picks its units out by `USER_UNIT`.
 - **Applications are launched with Hyprland's `exec` dispatcher**
   (`Compositor.exec`), never `DesktopEntry.execute()`. Hyprland's
   `misc:initial_workspace_tracking` only follows processes it spawned itself:
@@ -984,6 +1032,12 @@ expensive to find.
   `pkill` that only notes what it was asked (`TEST_SIGNALS`). A test that
   would set either checks that they are the stand-ins first, and fails
   rather than run without them.
+- **`TasksTest` runs against the user's own systemd user manager**, there
+  being no other: under a prefix of its own (`qs-tasktest-`), every unit of
+  which it removes first and last, so nothing of it shows among the user's
+  tasks or outlives it. No test reaches earlyoom or pkexec: its options and
+  kills are tested as functions, and a kill's notification through
+  `tests/bin/notify-send`, which notes what it is asked in `$TEST_NOTIFY`.
 - **`hyprctl dispatch movecursor` does not generate pointer enter events.**
   Hover state will not update. Synthetic tests must emit real relative motion
   through `/dev/uinput` first; see the helper scripts pattern in the scratchpad
