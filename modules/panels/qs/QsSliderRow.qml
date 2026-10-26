@@ -21,16 +21,25 @@ Item {
     implicitWidth: 300
     implicitHeight: 36
 
+    // A mute button where the row has one. Without one the glyph only names
+    // the slider, and is drawn as a glyph: a disabled button is Clickable's
+    // "unavailable", and the brightness row's read as off while it worked.
     IconButton {
         id: leadingButton
         anchors.verticalCenter: parent.verticalCenter
+        visible: root.toggleEnabled
         icon: root.icon
         size: 32
-        enabled: root.toggleEnabled
-        focusable: root.toggleEnabled
-        hoverEnabled: root.toggleEnabled
         iconColor: root.muted || !root.enabled ? Appearance.c.textMuted : Appearance.c.text
         onClicked: root.iconClicked()
+    }
+
+    Icon {
+        anchors.centerIn: leadingButton
+        visible: !root.toggleEnabled
+        name: root.icon
+        size: Appearance.m.icon
+        color: root.enabled ? Appearance.c.text : Appearance.c.textMuted
     }
 
     Slider {
