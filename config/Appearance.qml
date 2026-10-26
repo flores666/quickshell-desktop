@@ -85,6 +85,13 @@ Singleton {
         warning: "#d7a13f"
         danger: "#e0705f"
 
+        seriesCpu: "#3987e5"
+        seriesMemory: "#9085e9"
+        seriesGpu: "#d55181"
+        seriesDisk: "#199e70"
+        seriesIn: "#3987e5"
+        seriesOut: "#d95926"
+
         hoverLayer: "#14ffffff"
         pressLayer: "#26ffffff"
         selectLayer: "#1affffff"

@@ -117,6 +117,18 @@ QtObject {
     readonly property int pickerStrip: 14
     readonly property int pickerKnob: 16
 
+    /*! A chart's line, and the dot a lone sample is. */
+    readonly property int chartLine: 2
+    readonly property int chartDot: 3
+    /*! The room its axis labels take: the value labels' width at the left,
+        the span labels' height below. */
+    readonly property int chartAxisWidth: 36
+    readonly property int chartAxisHeight: 16
+    /*! The fill under a line, as its strongest opacity (at the line). */
+    readonly property real chartFill: 0.3
+    /*! The hover crosshair's width. */
+    readonly property int chartCrosshair: 1
+
     readonly property int iconSm: 14
     readonly property int icon: 16
     readonly property int iconLg: 20

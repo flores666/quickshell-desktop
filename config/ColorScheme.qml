@@ -58,6 +58,18 @@ QtObject {
     property color warning: "#9a6b12"
     property color danger: "#b3392b"
 
+    /*! Chart series, each a distinct hue that holds apart from the others
+        under colour-vision deficiency, in both themes. Text near a chart
+        stays in the text tokens, never these. */
+    property color seriesCpu: "#2a78d6"
+    property color seriesMemory: "#6250d6"
+    property color seriesGpu: "#e87ba4"
+    property color seriesDisk: "#1baf7a"
+    /*! A chart's two directions: download and disk read, upload and disk
+        write. */
+    property color seriesIn: "#2a78d6"
+    property color seriesOut: "#eb6834"
+
     /*! Transient interaction layers, composited over whatever is beneath. */
     property color hoverLayer: "#0f000000"
     property color pressLayer: "#1f000000"

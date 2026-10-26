@@ -126,6 +126,13 @@ ICONS = {
     "cat-system": "applications-system",
     "cat-settings": "preferences-system",
     "cat-utilities": "applications-utilities",
+    # task manager: tabs and the network cards' arrows
+    "performance": "applications-engineering",
+    "disk": "drive-harddisk",
+    "network-transfer": "network-transmit-receive",
+    "gpu": "video-joined-displays",
+    "download": "go-down",
+    "upload": "go-up",
     # drawn for the shell (tools/icons)
     "magic-wand": "magic-wand",
 }
