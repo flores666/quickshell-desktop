@@ -205,9 +205,23 @@ Surface {
         Overlay.arrive(card.overlayId);
     }
 
+    /*!
+        Whether the pointer is on this card while it is the popup open: what
+        keeps a click on it from closing it (Overlay.dismissOnOutsideClick).
+        Each card answers for itself, under its own key, and as either half
+        changes. One key for every card let the card taken over from clear
+        it, as it went, after the new one under a resting pointer had set it
+        — every click on the task manager flown to from the date menu's usage
+        cards closed it — and a card opened again before it had gone, the
+        pointer on it all along, never set it at all.
+    */
+    readonly property bool pointed: pointer.hovered && card.shown
+
+    onPointedChanged: Overlay.setPointerOver("popup:" + card.overlayId, card.pointed)
+    Component.onDestruction: Overlay.setPointerOver("popup:" + card.overlayId, false)
+
     HoverHandler {
         id: pointer
-        onHoveredChanged: Overlay.setPointerOver("popup", pointer.hovered && card.shown)
     }
 
     RoundedClip {

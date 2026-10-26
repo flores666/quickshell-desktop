@@ -48,7 +48,10 @@ ShellRoot {
               EarlyOom.available,
               // Likewise: this registers the shell as the session's polkit
               // agent, before anything asks for a password.
-              Polkit.available];
+              Polkit.available,
+              // Likewise: this keeps the machine's last minute of usage,
+              // there whenever a chart opens.
+              Usage.span];
     }
 
     Variants {

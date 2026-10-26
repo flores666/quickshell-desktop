@@ -104,9 +104,12 @@ compositor do the right thing". Use the real session:
    asking nothing outside the shell. The one reading taken on a clock is
    `Processes`': `/proc` and `/sys` say nothing when a process works, memory
    fills or a disk or the network moves, so it is read every
-   `sampleInterval`, the next timed from the end of the last, only while the
-   task manager (any tab but Scheduled) or the date menu shows a reading,
-   each watching by its own key (`Processes.watch`). A
+   `sampleInterval`, the next timed from the end of the last. The machine's
+   counters (CPU, memory, disks, network, GPU) are read for as long as the
+   shell runs — the user's choice, so that every chart opens with the last
+   minute in it; one run without the processes costs about 6 ms of CPU.
+   Each process is read as well only while a tab that lists them is on
+   screen, each watcher by its own key (`Processes.watch`): about 40 ms. A
    single wait for what sends no event
    when it is done (a window's animation settling) is a delay, not a poll.
 4. **Every widget's interaction states come from `Clickable`.** Do not
@@ -521,10 +524,10 @@ comes up, so that the subject is in first. Processes lists Name (the
 application's icon where a desktop entry matches the process name), CPU,
 Memory, Disk (I/O a second, readable for the user's own processes alone) and
 PID, by CPU to begin with; there is no network column, which Linux keeps
-from anyone but root. Every tab but Scheduled is a reading, watched
-(`Processes.watch("taskManager")`) only while shown, as the date menu's
-cards are while it is; every chart covers `Usage.span` and starts empty each
-visit.
+from anyone but root. Each process is read only while Processes, Disk or
+Memory is shown (`Processes.watch("taskManager")`); the machine's readings
+are kept always (`Usage`), so every chart, the date menu's cards' too, opens
+with the last `Usage.span` in it.
 **earlyoom** is the daemon that stops the process using the most memory once
 memory and swap are both low (`EarlyOom`): its options are root's
 (`/etc/default/earlyoom`), so the Memory tab gathers edits and applies them
@@ -607,8 +610,8 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
 | `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
-| `Processes` | every process (kernel threads aside), memory and the machine's counters — CPU ticks and frequency, whole disks, the root filesystem, physical interfaces, the first GPU reporting `gpu_busy_percent` — sampled from `/proc` and `/sys` by one gawk run (`ProcessSampler`, whose empty `ENDFILE {}` keeps a read failing part way from ending the run) while anything watches (see hard rule 3); CPU and disk I/O between two samples | `watch(key, on)`, `watched` (any key on), `sampleInterval`, `samples`, `sampled(previous, current)`, `list` (`{ pid, uid, ppid, ticks, rss, oomScore, oomAdj, readBytes, writeBytes, name, cpu, io, own, user }`; `io` -1 for another user's), `byPid`, `memory` (KiB), `uid`, `parse` (also `cpuTicks`, `cpuFreq`, `disks`, `fs`, `nets`, `gpu`), `cpu`, `io`, `sample`, `terminate`/`forceKill` (own processes only), `formatSize` |
-| `Usage` | the machine's usage from consecutive samples of `Processes`: rates (-1 until two samples of the watch are in), the facts beside them, and a minute of history for the charts; rates and history are cleared when nothing watches, so a chart never shows an earlier visit | `cpu`, `memory`, `gpu`, `disk` (the busiest disk's busy time), `diskRead`/`diskWrite`, `netDown`/`netUp` (bytes/s), `cpuFreq`, `memoryUsed`/`memoryTotal`, `hasGpu`, `gpuName` (one `lspci` run), `vramUsed`/`vramTotal`, `gpuTemp`, `fsUsed`/`fsTotal`, `diskModel`, `history` (`{ t, v }` per series), `now`, `span`, `rates`, `trim`, `formatBytes`, `formatRate` |
+| `Processes` | every process (kernel threads aside), memory and the machine's counters — CPU ticks and frequency, whole disks, the root filesystem, physical interfaces, the first GPU reporting `gpu_busy_percent` — sampled from `/proc` and `/sys` by one gawk run (`ProcessSampler`, whose empty `ENDFILE {}` keeps a read failing part way from ending the run): the counters always, each process only while anything watches (see hard rule 3), a sample without them leaving `list` as it was; a process's CPU and disk I/O between two samples that read it | `watch(key, on)`, `watched` (any key on: the processes read), `sampleInterval`, `samples`, `sampled(previous, current)`, `listed` (samples with the processes in this watch), `list` (`{ pid, uid, ppid, ticks, rss, oomScore, oomAdj, readBytes, writeBytes, name, cpu, io, own, user }`; `io` -1 for another user's), `byPid`, `memory` (KiB), `uid`, `parse` (also `cpuTicks`, `cpuFreq`, `disks`, `fs`, `nets`, `gpu`), `cpu`, `io`, `sample`, `terminate`/`forceKill` (own processes only), `formatSize` |
+| `Usage` | the machine's usage from every sample of `Processes`, from the shell's start (shell.qml brings it up): rates (-1 until two samples are in; a sample less than `least` after the last one rated is passed over, its rates noise), the facts beside them, and the last minute of each for the charts | `cpu`, `memory`, `gpu`, `disk` (the busiest disk's busy time), `diskRead`/`diskWrite`, `netDown`/`netUp` (bytes/s), `cpuFreq`, `memoryUsed`/`memoryTotal`, `hasGpu`, `gpuName` (one `lspci` run), `vramUsed`/`vramTotal`, `gpuTemp`, `fsUsed`/`fsTotal`, `diskModel`, `history` (`{ t, v }` per series), `now`, `span`, `least`, `rates`, `trim`, `formatBytes`, `formatRate` |
 | `EarlyOom` | earlyoom: installed (its unit file), running, its options (`/etc/default/earlyoom`, watched), its kills (its journal, followed: wheel, adm and systemd-journal may read it) and their notifications, memory and the next victim as it reckons them | `available`, `running`, `logReadable`, `config`, `kills`, `usage`, `next`, `victim`, `preference`, `withPreference`, `protect`/`preferKill`/`clear`, `apply` (pkexec), `pending`, `failure`, `fileText`, `readEntry` |
 | `EarlyOomArgs` | EARLYOOM_ARGS read and written: the levels, the two lists as names (each escaped with bracket expressions and no space or backslash, which systemd would take apart), what else a list holds kept as written (`avoidExtra`), every other option in `rest` | `parse`, `format`, `regex`, `listable`, `matches`, `matcher` |
 | `Tasks` | scheduled tasks: their units in `~/.config/systemd/user`, changed one script at a time and read again after each; runs heard from the user manager's journal lines; the user's other timers, read-only | `prefix`, `tasks` (`{ id, name, command, schedule, enabled, next, last, result, status }`), `others`, `read`, `save`, `runNow`, `setEnabled`, `remove`, `validate` (systemd-analyze), `formatWhen` |
@@ -669,7 +672,7 @@ implemented.
 |---|---|
 | `OverlaySurface` | the one window every popup's card is drawn in (`shell.qml` puts the popups in it): the room between the bar and the dock, its shadow padding, masking to the open popup's card, keyboard focus and outside-click dismissal. Its `frame` samples the bar's and dock's footprints when the surface maps and holds them until it unmaps — those are user-settable, and the popup that changes them is the settings panel itself. Mapped while any card is drawn, so a hand-off never maps or unmaps it |
 | `ShellOverlay` | the base every popup derives from, an item over the surface's room: placement, sizing, the open/settle/fade lifecycle. `liveX`/`liveHeight` are the card's eased rest; `cardItem` the card. Its settle waits for a hand-off's picture, bounded by `t.popupFade`, and its card stays up for one that is holding |
-| `OverlayCard` | the card inside it: the door (`door`, `rolled`) and the fade (as one flattened layer), clipping, hover reporting to `Overlay`, swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `renewing` (taking over from itself, for a new subject), `depart()`, `arrive()` |
+| `OverlayCard` | the card inside it: the door (`door`, `rolled`) and the fade (as one flattened layer), clipping, hover reporting to `Overlay` (under the card's own key, `popup:<overlayId>`, as hover or `shown` changes: with one key for every card, the card flown from cleared it after the one flown to had set it, and every click on that one closed it), swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `renewing` (taking over from itself, for a new subject), `depart()`, `arrive()` |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
 | `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, the title bars' colours and timings, the window shadow, and the active border while the accent follows the wallpaper |

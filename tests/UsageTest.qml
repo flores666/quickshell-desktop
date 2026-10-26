@@ -2,10 +2,10 @@ import QtQuick
 import "root:/services"
 
 /*!
-    The machine's usage (Usage): rates worked out between two samples, the
-    readings of the last minute kept for the charts, nothing kept or shown
-    once nothing watches, and the sizes and rates written as the task
-    manager writes them.
+    The machine's usage (Usage): rates worked out between two samples, read
+    always — no watch — so the readings of the last minute are there for
+    the charts whenever one opens, and the sizes and rates written as the
+    task manager writes them.
 */
 Item {
     id: root
@@ -79,9 +79,8 @@ Item {
 
         let live = false;
         check.attempt("live", () => {
-            check.equal("before a watch: no reading", Usage.cpu, -1);
-            check.equal("before a watch: no history", Usage.history.cpu.length, 0);
-            Processes.watch("usage", true);
+            check.equal("before two samples: no reading", Usage.cpu, -1);
+            check.equal("before a sample: no history", Usage.history.cpu.length, 0);
             until.bound = 3000;
             until.until(Usage.cpuChanged, () => Usage.cpu >= 0, read => root.read(read));
             live = true;
@@ -91,7 +90,8 @@ Item {
     }
 
     function read(read: bool): void {
-        check.report("live: CPU after two samples", read && Usage.cpu <= 100, String(Usage.cpu));
+        check.report("live: CPU after two samples, with nothing watching", read && Usage.cpu <= 100
+            && !Processes.watched, Usage.cpu + (Processes.watched ? ", watched" : ""));
         check.report("live: memory", Usage.memory > 0 && Usage.memory < 100, String(Usage.memory));
         check.report("live: memory's facts", Usage.memoryUsed > 0 && Usage.memoryUsed < Usage.memoryTotal,
             Usage.memoryUsed + " of " + Usage.memoryTotal);
@@ -103,22 +103,30 @@ Item {
         check.equal("live: a GPU exactly when one reports busy", Usage.hasGpu, (Processes.last?.gpu ?? null) !== null);
         if (!Usage.hasGpu) {
             check.report("live: no GPU here, so no name asked", Usage.gpuName === "", Usage.gpuName);
-            root.unwatch();
+            root.kept();
             return;
         }
         until.until(Usage.gpuNameChanged, () => Usage.gpuName !== "", named => {
             check.report("live: the GPU's name", named, "lspci said nothing");
-            root.unwatch();
+            root.kept();
         });
     }
 
-    function unwatch(): void {
+    /*! A watch begun and ended changes nothing of it: the history goes on
+        from where it was. */
+    function kept(): void {
+        const points = Usage.history.cpu.length;
+        Processes.watch("usage", true);
         Processes.watch("usage", false);
-        root.same("unwatched: no reading",
-            [Usage.cpu, Usage.memory, Usage.gpu, Usage.disk, Usage.diskRead, Usage.diskWrite, Usage.netDown, Usage.netUp],
-            [-1, -1, -1, -1, -1, -1, -1, -1]);
-        check.equal("unwatched: no history", Object.values(Usage.history).every(points => points.length === 0), true);
-        check.equal("unwatched: the facts stay", Usage.memoryTotal > 0, true);
-        check.done();
+        // The watch's sample at once is a moment after the last: no rate is
+        // said over so short a time; the next is a whole interval on.
+        until.bound = Processes.sampleInterval * 2;
+        until.until(Usage.historyChanged, () => Usage.history.cpu.length > points, more => {
+            check.equal("a watch ended: the history goes on", more, true);
+            check.equal("a watch ended: a reading still", Usage.cpu >= 0 && Usage.memory > 0, true);
+            check.equal("no two points closer than the least span", Usage.history.cpu.every(
+                (p, i, all) => i === 0 || p.t - all[i - 1].t >= Usage.least), true);
+            check.done();
+        });
     }
 }

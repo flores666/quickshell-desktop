@@ -7,16 +7,12 @@ import "root:/services"
 
 /*!
     The date menu's CPU and memory, side by side: a figure and the last
-    minute of each. A click opens the task manager on its Performance tab, as
-    a flight from the date menu.
-
-    Sampling runs while `tracking`, which the date menu binds to its being
-    shown, so nothing is read while it is closed.
+    minute of each, which Usage keeps whether or not anything shows it. A
+    click opens the task manager on its Performance tab, as a flight from the
+    date menu.
 */
 Item {
     id: root
-
-    property bool tracking: false
 
     readonly property string cpuFigure: root.figureOf(Usage.cpu)
     readonly property string memoryFigure: root.figureOf(Usage.memory)
@@ -35,9 +31,6 @@ Item {
         Overlay.openWith(Overlay.taskManager, Overlay.screen, root.mapToItem(null, root.width / 2, 0).x,
             { tab: "performance" });
     }
-
-    onTrackingChanged: Processes.watch("dateMenu", root.tracking)
-    Component.onDestruction: Processes.watch("dateMenu", false)
 
     Row {
         anchors.fill: parent

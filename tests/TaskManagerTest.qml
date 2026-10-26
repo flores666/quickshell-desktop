@@ -104,8 +104,10 @@ Item {
             for (const key of root.withGpu) {
                 manager.tab = key;
                 check.equal(key + ": its pane loaded", root.loaded(), true);
-                check.equal(key + ": " + (key === "scheduled" ? "unwatched" : "watched"), Processes.watched,
-                    key !== "scheduled");
+                // Only a tab that lists processes reads each one's files; the
+                // machine's counters are read always.
+                const listing = ["processes", "disk", "memory"].includes(key);
+                check.equal(key + ": " + (listing ? "watched" : "unwatched"), Processes.watched, listing);
             }
         });
 
@@ -162,7 +164,7 @@ Item {
             root.built = 0;
             Overlay.openWith(Overlay.taskManager, null, 0, { tab: "performance" });
             check.equal("on the tab asked for", manager.tab, "performance");
-            check.equal("for a tab: watched", Processes.watched, true);
+            check.equal("for a tab that lists none: unwatched", Processes.watched, false);
         });
         root.whenBuilt(() => {
             check.equal("for a tab: that pane built first, and no other", root.built, 1);

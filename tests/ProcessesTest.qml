@@ -5,9 +5,10 @@ import "root:/services"
 /*!
     The process list (Processes): a sample of /proc and /sys read whole — the
     processes, and the machine's CPU, disks, root filesystem, network and GPU
-    — CPU and disk I/O worked out between two samples, sampling only while
-    something watches, each watcher by its own key, and ending a process —
-    the test's own, never anyone else's. Starts unwatched.
+    — CPU and disk I/O worked out between two samples; the machine's
+    counters sampled always and each process only while something watches,
+    each watcher by its own key; and ending a process — the test's own,
+    never anyone else's. Starts unwatched.
 */
 Item {
     id: root
@@ -130,11 +131,13 @@ Item {
             check.equal("io: none for one unreadable since", io[4], -1);
         });
 
-        check.equal("unwatched: nothing sampled", Processes.samples, 0);
-        // Past the interval, so a sample it should not take would be in.
         until.bound = Processes.sampleInterval + 500;
         until.until(Processes.samplesChanged, () => Processes.samples > 0, sampled => {
-            check.equal("unwatched: still nothing sampled", sampled, false);
+            check.equal("unwatched: the machine's counters sampled", sampled, true);
+            check.report("unwatched: CPU ticks read", (Processes.last?.cpuTicks?.total ?? 0) > 0,
+                JSON.stringify(Processes.last?.cpuTicks));
+            check.equal("unwatched: no process read", Processes.last?.list.length, 0);
+            check.equal("unwatched: none listed", Processes.list.length, 0);
             root.watch();
         });
     }
@@ -145,8 +148,8 @@ Item {
         until.bound = 1000;
         check.attempt("watch", () => Processes.watch("test", true));
         check.equal("watched: by the test's key", Processes.watched, true);
-        until.until(Processes.samplesChanged, () => Processes.samples > 0, sampled => {
-            check.equal("watched: a sample at once", sampled, true);
+        until.until(Processes.listChanged, () => Processes.list.length > 0, sampled => {
+            check.equal("watched: the processes listed at once", sampled, true);
             until.bound = 2000;
             // The second sample, the first with I/O, `firstInterval` after.
             until.until(Processes.listChanged, () => (Processes.byPid[termed.processId]?.io ?? -1) >= 0,
@@ -179,7 +182,7 @@ Item {
             until.until(Processes.samplesChanged, () => Processes.samples > samples, again => {
                 check.equal("end: sampled again at once", again, true);
                 // Heard by now: each goes out once its sample is in, after `list`.
-                root.same("sampled: the first of a watch had none before it, the next one",
+                root.same("sampled: the shell's first had none before it, the next one",
                     root.heard.slice(0, 2).map(h => h.previous), [false, true]);
                 check.equal("sampled: each after the one before",
                     root.heard.length > 1 && root.heard[1].before === root.heard[0].uptime, true);
@@ -188,7 +191,6 @@ Item {
                 until.until(killed.runningChanged, () => !killed.running, gone => {
                     check.equal("force kill: it ended", gone, true);
                     root.watchers();
-                    check.done();
                 });
             });
         });
@@ -203,6 +205,19 @@ Item {
             Processes.watch("other", true);
             Processes.watch("other", false);
             check.equal("watchers: a key is on or off, not counted", Processes.watched, false);
+        });
+        // Unwatched again, the samples read the counters alone — once the one
+        // the watch began, if any, is in — and leave the list as it was.
+        until.bound = Processes.sampleInterval * 3;
+        until.until(Processes.samplesChanged, () => Processes.last.list.length === 0, alone => {
+            check.equal("unwatched again: the counters alone", alone, true);
+            const list = Processes.list;
+            const samples = Processes.samples;
+            until.until(Processes.samplesChanged, () => Processes.samples > samples, sampled => {
+                check.equal("unwatched again: still sampled", sampled, true);
+                check.equal("unwatched again: the list left as it was", Processes.list === list, true);
+                check.done();
+            });
         });
     }
 }

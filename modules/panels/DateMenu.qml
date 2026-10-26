@@ -11,7 +11,7 @@ import "root:/modules/notifications"
     The centre panel, opened from the clock: media controls, the notification
     centre, and a month view — the three things a clock click is expected to
     reach on a GNOME-style desktop — and under the month how busy the CPU and
-    memory are, read only while it is open (UsageCards).
+    memory are, over the last minute (UsageCards).
 */
 ShellOverlay {
     id: root
@@ -77,7 +77,6 @@ ShellOverlay {
             UsageCards {
                 id: usage
                 width: parent.width
-                tracking: root.shown
             }
         }
     }

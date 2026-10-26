@@ -10,12 +10,11 @@ import Quickshell.Io
     between two consecutive samples of Processes, the facts beside them, and
     the last `span` seconds of each rate for the charts.
 
-    It reads nothing itself and asks for no sample: it hears the ones taken
-    while something watches (`Processes.watch`). A rate is -1 until two
-    samples of the current watch are in, and once nothing watches, every
-    rate goes back to -1 and the history is emptied, so a chart never shows a
-    reading from an earlier visit. The facts stay: they are what the machine
-    is (its disk, its GPU), or the last reading taken of them.
+    It reads nothing itself and asks for no sample: it hears every one
+    Processes takes, which read the machine's counters for as long as the
+    shell runs (hard rule 3), so the history holds the last minute whenever a
+    chart opens. A rate is -1 until the shell's first two samples are in.
+    shell.qml brings it up at the start, for that minute to be there.
 
     Rates are in percent (CPU to a tenth) or bytes a second; sizes in bytes.
 */
@@ -24,6 +23,11 @@ Singleton {
 
     /*! How much sample time the history keeps, in seconds. */
     readonly property int span: 60
+    /*! The least time a rate is said over, in seconds: a sample taken sooner
+        after the last one rated — a watch's first, asked for a moment after
+        the clock's — is passed over, its rates mostly noise (2.7% then 25%
+        of the CPU, 10 ms apart). */
+    readonly property real least: Processes.firstInterval / 1000
     readonly property var series: ["cpu", "memory", "gpu", "disk", "diskRead", "diskWrite", "netDown", "netUp"]
 
     /*! Busy ticks of all CPUs, in percent. */
@@ -64,6 +68,8 @@ Singleton {
     property real now: 0
 
     property string gpuSlot: ""
+    /*! The sample the rates were last said from. */
+    property var from: null
 
     /*! The rates between two samples, as `Processes.parse` gives them;
         `previous` null for none, which leaves only memory. */
@@ -154,11 +160,11 @@ Singleton {
         return units[unit].arg(unit < 2 ? Math.round(perSecond) : perSecond.toFixed(1));
     }
 
-    function take(previous: var, current: var): void {
-        // One that lands after the watch ended belongs to no visit.
-        if (!Processes.watched)
+    function take(current: var): void {
+        if (root.from !== null && current.uptime - root.from.uptime < root.least)
             return;
-        const rates = root.rates(previous, current);
+        const rates = root.rates(root.from, current);
+        root.from = current;
 
         root.cpuFreq = current.cpuFreq;
         if (current.memory) {
@@ -196,16 +202,7 @@ Singleton {
         target: Processes
 
         function onSampled(previous: var, current: var): void {
-            root.take(previous, current);
-        }
-
-        function onWatchedChanged(): void {
-            if (Processes.watched)
-                return;
-            for (const key of root.series)
-                root[key] = -1;
-            root.history = root.empty();
-            root.now = 0;
+            root.take(current);
         }
     }
 

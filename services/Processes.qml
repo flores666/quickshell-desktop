@@ -9,20 +9,21 @@ import Quickshell
     earlyoom reckons it, and the machine's own counters, which Usage turns
     into rates.
 
-    /proc says nothing when a process starts, ends or works, so this is read
-    on a clock, the one reading besides a clock's own that is (hard rule 3):
-    only while something on screen shows a reading — the task manager, the
-    date menu's cards — each by its own key (`watch`), and each sample
-    `sampleInterval` after the last one ended, so two never overlap. One gawk
-    run reads every process's stat, status, OOM score and I/O, and the
-    machine's CPU, memory, disks, network and GPU (ProcessSampler): about
-    43 ms for 340 processes, where the processes alone, read as they were
-    before, took 49 measured beside it.
+    /proc and /sys say nothing when a process works, memory fills or a disk
+    or the network moves, so this is read on a clock, the one reading besides
+    a clock's own that is (hard rule 3), each sample `sampleInterval` after
+    the last one ended, so two never overlap. The machine's counters — CPU,
+    memory, disks, network, GPU — are read for as long as the shell runs, so
+    that Usage holds the last minute whenever a chart opens; one gawk run
+    without the processes (ProcessSampler) costs a few milliseconds. Each
+    process is read as well only while something lists them (`watch`, a key
+    each: the task manager's Processes, Disk and Memory tabs): about 43 ms
+    for 340 processes. A sample without them leaves `list` as it was.
 
-    CPU and I/O are what a process used between two samples over the time
-    between them, so a process seen once has none yet; the second sample of a
-    watch comes sooner, to have them. A process's I/O is readable for the
-    user's own processes alone; another's is -1.
+    CPU and I/O are what a process used between two samples that read the
+    processes, over the time between them, so a process seen once has none
+    yet; the second sample of a watch comes sooner, to have them. A process's
+    I/O is readable for the user's own processes alone; another's is -1.
 
     Kernel threads (kthreadd's children) are left out: they hold no memory of
     their own, and nothing in the list is for them.
@@ -30,12 +31,13 @@ import Quickshell
 Singleton {
     id: root
 
-    /*! Whether to sample: while any watcher's key is on. */
+    /*! Whether each process is read too: while any watcher's key is on. */
     readonly property bool watched: Object.keys(root.watchers).length > 0
     /*! The keys watching, replaced on every change so `watched` hears it. */
     property var watchers: ({})
     readonly property int sampleInterval: 2000
-    /*! The second sample of a watch, the first with CPU and I/O. */
+    /*! The second sample of a watch, the first with each process's CPU and
+        I/O. */
     readonly property int firstInterval: 500
     /*! USER_HZ, what /proc counts CPU time in: 100 on every architecture the
         desktop runs on. */
@@ -55,10 +57,12 @@ Singleton {
 
     /*! The latest sample as `parse` gives it. */
     property var last: null
-    property int watchSamples: 0
+    /*! The latest that read the processes, in this watch; and how many have. */
+    property var lastListed: null
+    property int listed: 0
 
-    /*! After every sample, with it and the one before it in this watch (null
-        for a watch's first), both as `parse` gives them. */
+    /*! After every sample, with it and the one before it (null for the
+        shell's first), both as `parse` gives them. */
     signal sampled(var previous, var current)
 
     /*! Starts (`on`) or ends one watcher's watch: the task manager's, the date
@@ -74,14 +78,17 @@ Singleton {
         root.watchers = watchers;
     }
 
+    // The counters from the first use on: Usage keeps their last minute.
+    Component.onCompleted: sampler.run()
+
     onWatchedChanged: {
-        if (root.watched) {
-            root.last = null;
-            root.watchSamples = 0;
-            sampler.run();
-        } else {
-            next.stop();
-        }
+        if (!root.watched)
+            return;
+        // A watch's processes at once, and again soon after for their CPU.
+        root.lastListed = null;
+        root.listed = 0;
+        next.stop();
+        sampler.run();
     }
 
     /*! A sample as the sampler prints it, a field a tab: `{ uptime, cpus,
@@ -166,6 +173,19 @@ Singleton {
     function take(text: string): void {
         const previous = root.last;
         const sample = root.parse(text);
+        if (sample.list.length > 0)
+            root.list = root.listing(root.lastListed, sample);
+        root.last = sample;
+        root.uid = sample.uid;
+        if (sample.memory)
+            root.memory = sample.memory;
+        root.samples++;
+        root.sampled(previous, sample);
+    }
+
+    /*! The list a sample that read the processes gives, CPU and I/O against
+        the one before it that did (`byPid` with it). */
+    function listing(previous: var, sample: var): var {
         const cpu = previous ? root.cpu(previous, sample, sample.cpus) : {};
         const io = previous ? root.io(previous, sample) : {};
         const byPid = {};
@@ -180,15 +200,11 @@ Singleton {
             byPid[p.pid] = entry;
             list.push(entry);
         }
-        root.last = sample;
-        root.uid = sample.uid;
-        if (sample.memory)
-            root.memory = sample.memory;
+        root.lastListed = sample;
+        root.listed++;
+        // Before the list, which the rows are kept by and read this from.
         root.byPid = byPid;
-        root.list = list;
-        root.watchSamples++;
-        root.samples++;
-        root.sampled(previous, sample);
+        return list;
     }
 
     /*! A size in KiB, as the task manager shows one. */
@@ -225,13 +241,14 @@ Singleton {
 
     ProcessSampler {
         id: sampler
+        processes: root.watched
         onRead: text => root.take(text)
-        onRunningChanged: if (!sampler.running && root.watched) next.restart()
+        onRunningChanged: if (!sampler.running) next.restart()
     }
 
     Timer {
         id: next
-        interval: root.watchSamples < 2 ? root.firstInterval : root.sampleInterval
+        interval: root.watched && root.listed < 2 ? root.firstInterval : root.sampleInterval
         onTriggered: sampler.run()
     }
 }

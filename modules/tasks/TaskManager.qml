@@ -18,9 +18,10 @@ import "root:/modules/common"
     right, each pane drawing its own title in the bar along the top above the
     rule.
 
-    The readings come from /proc on a clock (Processes, Usage), so they are
-    read exactly while one is on screen: the popup open on any tab but
-    Scheduled. Opens on Processes, wherever it was left, or on the tab its
+    The machine's readings are kept always (Usage), so every chart opens
+    with the last minute in it; each process is read only while a tab that
+    lists processes is on screen: Processes, Disk's most active and Memory's
+    next victim. Opens on Processes, wherever it was left, or on the tab its
     subject names (`{ tab }`, the date menu's cards) where it has that tab.
 */
 ShellOverlay {
@@ -48,10 +49,10 @@ ShellOverlay {
     /*! Where the rule under the panes' bars runs. */
     readonly property int barHeight: Appearance.m.fieldHeight + Appearance.s.lg * 2
 
-    /*! Whether a reading is on screen: every tab but Scheduled. */
-    readonly property bool reading: root.shown && root.tab !== "scheduled"
+    /*! Whether a tab that lists processes is on screen. */
+    readonly property bool listing: root.shown && ["processes", "disk", "memory"].includes(root.tab)
 
-    onReadingChanged: Processes.watch("taskManager", root.reading)
+    onListingChanged: Processes.watch("taskManager", root.listing)
     Component.onDestruction: Processes.watch("taskManager", false)
 
     /*! Whether the pane is built: from a moment after the card comes up, so

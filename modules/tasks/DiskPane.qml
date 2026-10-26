@@ -153,7 +153,7 @@ Item {
             Label {
                 anchors.centerIn: parent
                 // Said once a rate is in: the first sample has none for anyone.
-                visible: Processes.watchSamples > 1 && root.active.length === 0
+                visible: Processes.listed > 1 && root.active.length === 0
                 text: qsTr("Nothing of yours is reading or writing now.")
                 role: Label.Role.Small
                 muted: true

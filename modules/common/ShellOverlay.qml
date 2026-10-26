@@ -116,8 +116,6 @@ Item {
                 root.settled = false;
             root.rendered = true;
             Qt.callLater(() => (root.initialFocusItem ?? card).forceActiveFocus());
-        } else {
-            Overlay.setPointerOver("popup", false);
         }
     }
 

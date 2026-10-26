@@ -12,8 +12,9 @@ import Quickshell.Io
     such a file is skipped, never the run. A machine without a GPU, a disk or
     cpufreq prints no such line.
 
-    What it reads: each process's stat, status, OOM score and io; uptime, the
-    CPU lines of stat, meminfo and /etc/passwd's names; the CPUs' current
+    What it reads: with `processes`, each process's stat, status, OOM score
+    and io, and /etc/passwd's names; always uptime, the CPU lines of stat,
+    meminfo, the CPUs' current
     frequency; each whole disk's size and model in /sys/block, and its
     counters in diskstats — not a loop, zram, ram or optical drive, nor a
     layer over other disks (dm, md), whose I/O would count twice; each
@@ -24,16 +25,21 @@ import Quickshell.Io
 Probe {
     id: root
 
+    /*! Whether a run reads each process too, and the users' names: taken
+        as it starts. Without, it reads the machine's counters alone. */
+    property bool processes: true
+
     /*! What one run printed. */
     signal read(string text)
 
-    command: ["sh", "-c", "cd /proc && df -kP / | gawk \"$0\" - uptime stat meminfo /etc/passwd "
+    command: ["sh", "-c", "cd /proc && df -kP / | gawk \"$0\" - uptime stat meminfo "
         + "/sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq "
         + "/sys/block/*/size /sys/block/*/device/model diskstats /sys/class/net/*/device/uevent net/dev "
         + "/sys/class/drm/card[0-9]*/device/gpu_busy_percent /sys/class/drm/card[0-9]*/device/mem_info_vram_used "
         + "/sys/class/drm/card[0-9]*/device/mem_info_vram_total /sys/class/drm/card[0-9]*/device/uevent "
-        + "/sys/class/drm/card[0-9]*/device/hwmon/hwmon*/temp1_input "
-        + "[0-9]*/stat [0-9]*/status [0-9]*/oom_score [0-9]*/oom_score_adj [0-9]*/io", root.program]
+        + "/sys/class/drm/card[0-9]*/device/hwmon/hwmon*/temp1_input"
+        + (root.processes ? " /etc/passwd [0-9]*/stat [0-9]*/status [0-9]*/oom_score [0-9]*/oom_score_adj [0-9]*/io" : ""),
+        root.program]
     stdout: StdioCollector { onStreamFinished: root.read(this.text) }
 
     // The path is taken apart once a file, a process's files, which are
