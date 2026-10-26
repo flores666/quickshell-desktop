@@ -26,21 +26,13 @@ Item {
     property var flow: null
     readonly property var card: auth.card
 
-    Check {
-        id: check
-    }
+    Check { id: check }
 
-    Command {
-        id: sh
-    }
+    Command { id: sh }
 
-    Until {
-        id: wait
-    }
+    Until { id: wait }
 
-    TestEvent {
-        id: keys
-    }
+    TestEvent { id: keys }
 
     ShellIpc {
         id: ipc
@@ -268,13 +260,24 @@ Item {
         Overlay.dismissOnEscape();
         check.equal("gone: Escape's bind closes the popup again", Overlay.active, Overlay.none);
         ipc.run("taskManager");
-        Overlay.dismissOnOutsideClick();
-        check.equal("gone: an outside click closes it again", Overlay.active, Overlay.none);
+        // Off the card first: a press on it is not outside (OverlayCard.pointed).
+        keys.mouseMove(manager, 4, 4, -1, Qt.NoButton, Qt.NoModifier);
+        wait.until(Overlay.pointerRegionsChanged, () => !Overlay.pointerOverShell, () => {
+            Overlay.dismissOnOutsideClick();
+            check.equal("gone: an outside click closes it again", Overlay.active, Overlay.none);
+            settled.start();
+        });
+    }
 
-        root.layers(names => {
+    Timer {
+        // Hyprland lists a layer while it fades it out, unless the project's
+        // rule (no_anim) is loaded: one wait for an animation, not a poll.
+        id: settled
+        interval: 500
+        onTriggered: root.layers(names => {
             check.report("gone from Hyprland", !names.includes("shell-auth"), names.join(", "));
             root.project();
-        });
+        })
     }
 
     function project(): void {

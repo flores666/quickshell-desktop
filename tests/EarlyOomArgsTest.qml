@@ -2,7 +2,7 @@ import QtQuick
 import "root:/services"
 
 /*!
-    earlyoom's options as the Memory tab reads and writes them
+    earlyoom's options as the RAM tab reads and writes them
     (EarlyOomArgs): the thresholds and the two lists out of EARLYOOM_ARGS and
     back, whatever else is there kept in its order, and a process name in a
     list matching that name alone, written so that systemd, which splits the

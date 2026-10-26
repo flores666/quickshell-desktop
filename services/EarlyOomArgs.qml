@@ -5,7 +5,7 @@ import QtQuick
 import Quickshell
 
 /*!
-    earlyoom's command line as the Memory tab reads and writes it: the four
+    earlyoom's command line as the RAM tab reads and writes it: the four
     thresholds and the two lists, `--avoid` and `--prefer`, out of
     EARLYOOM_ARGS and back, every other option kept where it was.
 
@@ -19,7 +19,7 @@ import Quickshell
 
     A list may hold more than names: whatever was written there by hand and
     is not a name in that form is kept as written (`avoidExtra`,
-    `preferExtra`), another alternative after the names, so the Memory tab
+    `preferExtra`), another alternative after the names, so the RAM tab
     never rewrites what it cannot read.
 */
 Singleton {

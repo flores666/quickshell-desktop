@@ -109,7 +109,9 @@ D-Bus, PipeWire or Hyprland directly, and never duplicates a derivation.
 | `Vpn` | `nmcli monitor` (the profiles `vpnConnections` names) | no rows; VPN button hidden without v2rayN either |
 | `V2rayn` | v2rayN's config and database; in TUN mode its core's Clash API | no row; without TUN mode, no switch |
 | `Dock` | `Compositor` + `Settings` | pinned entries only |
-| `Processes` | `/proc`, read while the task manager shows it | — |
+| `Processes` | `/proc` and `/sys`: the machine's counters always, each process while the task manager lists them | — |
+| `Usage`, `Activity` | `Processes`' samples | GPU card and tab hidden without a GPU that reports |
+| `Polkit` | the session's polkit agent | another agent asks |
 | `EarlyOom` | its unit file, `/etc/default/earlyoom`, its journal | `available` false; memory gauges only |
 | `Tasks` | systemd user timers and the user journal | no tasks |
 | `Session`, `Settings`, `Time`, `Osd`, `Overlay`, `InputMode` | — | — |
@@ -164,10 +166,14 @@ The only periodic wakeups are clocks showing time passing, which no event can
 say: the `Time` service's minute, shared by every monitor, and the media seek
 bar's second while the date menu shows something playing (MPRIS does not
 signal position; Quickshell works it out, so the tick asks the player nothing).
-And one reading: the task manager's process list and memory gauges, read from
-`/proc` every two seconds while one of them is on screen, since the kernel
-says nothing when a process works or memory fills; a CPU share is the change
-between two readings. Its scheduled tasks are systemd's to wait for, and their
+And one reading, since the kernel says nothing when a process works, memory
+fills or a disk or the network moves: the machine's counters (CPU, memory,
+disks, network, GPU), read from `/proc` and `/sys` every two seconds for as
+long as the shell runs — so every chart, in the task manager and under the
+date menu's calendar, opens with the last minute in it — at about 6 ms of
+CPU a reading; and each process as well, about 40 ms more, only while a task
+manager tab that lists them is on screen. A share is the change between two
+readings. Its scheduled tasks are systemd's to wait for, and their
 runs are heard from the journal.
 
 Two things are asked for once at startup because no event carries them until
@@ -240,9 +246,9 @@ row's menu, and any can be protected from earlyoom or marked to go first.
 **Network** each show what the thing is, a chart of its last minute, and the
 five processes that use it most: by CPU, GPU time and disk I/O over that
 minute, by memory held and connections open now. Under RAM, earlyoom: the
-memory and swap left against the levels it acts at, its options — applied
-together, through a password prompt, since they are root's — and what it has
-stopped.
+memory and swap left against the levels it acts at, its options, and what
+it has stopped. The options are root's, so they are applied together through
+one password prompt: the shell's own, which comes up over the task manager.
 **Schedule** runs commands on systemd user timers — once, hourly, daily,
 weekly, by any calendar expression, or at login — and shows how each last run
 went.

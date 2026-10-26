@@ -157,12 +157,14 @@ modules/             the surfaces themselves
                      theme; SeedPicker is one colour seed: one row of choices
                      and a picker; ResetSection is the one place "Reset all"
                      lives
-  tasks/             the task manager: TaskManager, a pane per tab
-                     (ProcessPane, PerformancePane, DiskPane, NetworkPane,
-                     GpuPane, MemoryPane, SchedulePane), their rows and
-                     cards (ProcessRow, BusyRow, Card, ChartCard, RateCard,
-                     FactCard, Legend, UsageBar, ProcessIcon),
-                     EarlyOomSettings and TaskEditor
+  tasks/             the task manager: TaskManager, a pane per tab —
+                     ProcessPane, SchedulePane, and the entity tabs
+                     (CpuPane, GpuPane, RamPane, DisksPane, NetworkPane),
+                     each an EntityPane: EntityFacts, a ChartCard with its
+                     Legend, and a RankedList of BusyRows; RAM's
+                     EarlyOomSection (MemoryGauge, EarlyOomSettings); their
+                     rows and cards (ProcessRow, Card, UsageBar, ProcessIcon)
+                     and TaskEditor
   polkit/            the authentication prompt: AuthWindow, a surface of its
                      own above the popups, and AuthCard
   common/            shared surface chrome (OverlaySurface, ShellOverlay,
@@ -202,7 +204,7 @@ terminal/            kitty.conf (the whole kitty config, in the Soft Surface
 nvim/                the neovim config; its theme is lackluster recoloured
                      with palette.conf, and plain lackluster without it
 earlyoom/            earlyoom's options, /etc/default/earlyoom as install.sh
-                     first puts it (the task manager's Memory tab rewrites it)
+                     first puts it (the task manager's RAM tab rewrites it)
 systemd/             quickshell-login.target, the user unit the task
                      manager's tasks "At login" hang from
 applications/        the task manager's desktop entry, for the launcher
@@ -516,24 +518,32 @@ one under it stays. shell.qml hands it `Polkit.flow`; a test hands it a
 stand-in, so that no test registers an agent for the session.
 
 **Task manager** — the centred popup `Ctrl+Shift+Escape` opens
-(`shell:taskManager`, and a desktop entry the launcher lists): what runs; how
-busy the machine is (Performance, Disk, Network, GPU — the GPU's tab only
-while `Usage.hasGpu`, and one shown as the GPU goes gives way to Processes);
-memory and earlyoom; and scheduled tasks — a tab each, laid out as the
-settings panel. It opens on Processes, or on the tab its subject names
-(`Overlay.openWith(…, { tab })`: the date menu's CPU and memory cards,
-`UsageCards`, open Performance); its pane is built a moment after the card
-comes up, so that the subject is in first. Processes lists Name (the
-application's icon where a desktop entry matches the process name), CPU,
-Memory, Disk (I/O a second, readable for the user's own processes alone) and
-PID, by CPU to begin with; there is no network column, which Linux keeps
-from anyone but root. Each process is read only while Processes, Disk or
-Memory is shown (`Processes.watch("taskManager")`); the machine's readings
-are kept always (`Usage`), so every chart, the date menu's cards' too, opens
-with the last `Usage.span` in it.
+(`shell:taskManager`, and a desktop entry the launcher lists), laid out as the
+settings panel, a tab each: Processes; the **entity tabs** CPU, GPU (only
+while `Usage.hasGpu`; one shown as the GPU goes gives way to Processes), RAM,
+Disks and Network; and Schedule. It opens on Processes, or on the tab its
+subject names (`Overlay.openWith(…, { tab })`: the date menu's cards,
+`UsageCards`, open CPU and RAM; a tab it does not have opens Processes); its
+pane is built a moment after the card comes up, so that the subject is in
+first. Processes lists Name (the application's icon where a desktop entry
+matches the process name), CPU, Memory, Disk (I/O a second, readable for the
+user's own processes alone) and PID, by CPU to begin with; there is no
+network column, which Linux keeps from anyone but root. Every entity tab is
+one pattern (`EntityPane`), the user's: a card naming the thing with its
+facts (`EntityFacts`, a bar where it has a capacity), a chart of its last
+minute with axes and a legend, and the processes that used it most
+(`RankedList` over `Activity.top`: five at most, their room kept, one gone
+quiet within the minute drawn muted, a muted line when none) — by mean CPU
+and GPU share and disk I/O over the minute, by memory held and open
+connections now; GPU, disk and connections are the user's own processes
+alone. RAM has earlyoom under its list and scrolls. Each process is read
+while any tab but Schedule is shown (`Processes.watch("taskManager", on,
+extras)`), each own process's GPU time only on GPU and its sockets only on
+Network. The machine's readings are kept always (`Usage`), so every chart,
+the date menu's cards' too, opens with the last `Usage.span` in it.
 **earlyoom** is the daemon that stops the process using the most memory once
 memory and swap are both low (`EarlyOom`): its options are root's
-(`/etc/default/earlyoom`), so the Memory tab gathers edits and applies them
+(`/etc/default/earlyoom`), so the RAM tab gathers edits and applies them
 together through one `pkexec` (one password prompt), and a process's menu
 puts its name in `--avoid` (*Protected*) or `--prefer` (*Kill first*) at once.
 Its kills come from its journal and each one while the shell runs is a

@@ -85,7 +85,7 @@ enable_service bluetooth.service
 enable_service power-profiles-daemon.service
 
 # earlyoom's options are the project's (earlyoom/earlyoom) until the task
-# manager's Memory tab changes them: the machine's file is replaced only
+# manager's RAM tab changes them: the machine's file is replaced only
 # while it is not the desktop's — it lacks the marker line the project's
 # starts with — so a re-run keeps those changes.
 earlyoom_conf=/etc/default/earlyoom

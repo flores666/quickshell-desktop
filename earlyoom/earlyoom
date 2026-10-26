@@ -1,6 +1,6 @@
 # quickshell-desktop
 # earlyoom's options (man earlyoom), kept by the desktop's task manager:
-# its Memory tab rewrites this file, and install.sh leaves it alone.
+# its RAM tab rewrites this file, and install.sh leaves it alone.
 #
 # As install.sh first puts it: SIGTERM once available memory and free swap
 # are both at 10% or below, SIGKILL at 5%; no hourly report in the journal

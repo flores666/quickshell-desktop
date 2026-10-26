@@ -114,7 +114,7 @@ Singleton {
     function fileText(config: var): string {
         return [root.marker,
                 "# earlyoom's options (man earlyoom), kept by the desktop's task manager:",
-                "# its Memory tab rewrites this file, and install.sh leaves it alone.",
+                "# its RAM tab rewrites this file, and install.sh leaves it alone.",
                 `EARLYOOM_ARGS="${EarlyOomArgs.format(config)}"`, ""].join("\n");
     }
 

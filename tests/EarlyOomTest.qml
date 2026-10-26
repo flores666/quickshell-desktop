@@ -6,7 +6,7 @@ import "root:/services"
     earlyoom from the shell's side (EarlyOom): memory as earlyoom reckons it,
     the process it would stop next, its kills read from its journal — the
     ones that happen while the shell watches posted as notifications, the
-    ones from before not — the file the Memory tab writes, and whether it is
+    ones from before not — the file the RAM tab writes, and whether it is
     there at all. Only against tools/test.sh's notify-send, which notes what
     it is asked in a file of the run's own: anywhere else the test posts
     nothing and fails.
