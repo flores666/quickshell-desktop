@@ -60,6 +60,11 @@ Singleton {
     property real fsTotal: 0
     /*! The largest disk's model. */
     property string diskModel: ""
+    /*! The CPU as /proc/cpuinfo names it, its physical cores and its
+        logical CPUs, read once; "" and 0 where it does not say. */
+    property string cpuModel: ""
+    property int cpuCores: 0
+    property int cpuThreads: 0
 
     /*! Each series' points `{ t, v }` (t the sample's uptime, in seconds)
         over the last `span`, replaced whole on every sample. */
@@ -127,6 +132,40 @@ Singleton {
         for (const key of root.series)
             history[key] = [];
         return history;
+    }
+
+    /*! What /proc/cpuinfo says of the CPU: `{ model, cores, threads }` —
+        the first model name; the distinct (physical id, core id) pairs, or
+        where there are no core ids each socket's "cpu cores" summed; a
+        thread a processor. */
+    function cpuInfo(text: string): var {
+        let model = "";
+        let threads = 0;
+        let socket = "0";
+        const cores = {};
+        const perSocket = {};
+        for (const line of text.split("\n")) {
+            const at = line.indexOf(":");
+            if (at < 0)
+                continue;
+            const key = line.slice(0, at).trim();
+            const value = line.slice(at + 1).trim();
+            if (key === "processor") {
+                threads++;
+                socket = "0";
+            } else if (key === "model name" && model === "") {
+                model = value;
+            } else if (key === "physical id") {
+                socket = value;
+            } else if (key === "core id") {
+                cores[socket + ":" + value] = true;
+            } else if (key === "cpu cores") {
+                perSocket[socket] = Number(value) || 0;
+            }
+        }
+        const counted = Object.keys(cores).length;
+        return { model, cores: counted > 0 ? counted : Object.values(perSocket).reduce((sum, n) => sum + n, 0),
+                 threads };
     }
 
     /*! The device's name in what `lspci -mm` prints: its third quoted field,
@@ -203,6 +242,18 @@ Singleton {
 
         function onSampled(previous: var, current: var): void {
             root.take(current);
+        }
+    }
+
+    // Read once: what it says never changes while the machine runs.
+    FileView {
+        path: "/proc/cpuinfo"
+        printErrors: false
+        onLoaded: {
+            const info = root.cpuInfo(this.text());
+            root.cpuModel = info.model;
+            root.cpuCores = info.cores;
+            root.cpuThreads = info.threads;
         }
     }
 

@@ -17,13 +17,16 @@ import Quickshell
     that Usage holds the last minute whenever a chart opens; one gawk run
     without the processes (ProcessSampler) costs a few milliseconds. Each
     process is read as well only while something lists them (`watch`, a key
-    each: the task manager's Processes, Disk and Memory tabs): about 43 ms
-    for 340 processes. A sample without them leaves `list` as it was.
+    each: the task manager's tabs that rank processes): about 43 ms for 340
+    processes. A sample without them leaves `list` as it was. What a watcher
+    asks for beyond them (`extras`) is read only while one asks: each own
+    process's GPU time ("gpu") and its open inet sockets ("net").
 
-    CPU and I/O are what a process used between two samples that read the
-    processes, over the time between them, so a process seen once has none
-    yet; the second sample of a watch comes sooner, to have them. A process's
-    I/O is readable for the user's own processes alone; another's is -1.
+    CPU, GPU and I/O are what a process used between two samples that read
+    the processes, over the time between them, so a process seen once has
+    none yet; the second sample of a watch, or of an extra newly asked for,
+    comes sooner, to have them. A process's I/O, GPU time and sockets are
+    readable for the user's own processes alone; another's are -1.
 
     Kernel threads (kthreadd's children) are left out: they hold no memory of
     their own, and nothing in the list is for them.
@@ -33,8 +36,13 @@ Singleton {
 
     /*! Whether each process is read too: while any watcher's key is on. */
     readonly property bool watched: Object.keys(root.watchers).length > 0
-    /*! The keys watching, replaced on every change so `watched` hears it. */
+    /*! Each watching key's extras, replaced on every change so `watched`
+        and `extras` hear it. */
     property var watchers: ({})
+    /*! What the watchers ask for beyond the processes, each once, sorted:
+        "gpu", "net". */
+    readonly property var extras: [].concat(...Object.values(root.watchers))
+        .filter((extra, i, all) => all.indexOf(extra) === i).sort()
     readonly property int sampleInterval: 2000
     /*! The second sample of a watch, the first with each process's CPU and
         I/O. */
@@ -46,8 +54,10 @@ Singleton {
     /*! Samples taken since the shell started. */
     property int samples: 0
     /*! The processes, each `{ pid, uid, ppid, ticks, rss, oomScore, oomAdj,
-        readBytes, writeBytes, name, cpu, io, own, user }`: memory in KiB, cpu
-        in percent, io in bytes a second, -1 unknown. */
+        readBytes, writeBytes, gpuTime, connections, name, cpu, io, gpu, own,
+        user }`: memory in KiB, cpu and gpu in percent (of the whole machine,
+        of the GPU), io in bytes a second, gpuTime in ns, connections a count;
+        -1 unknown or not asked for. */
     property var list: []
     property var byPid: ({})
     /*! In KiB: `{ total, available, anon, swapTotal, swapFree }`. */
@@ -57,88 +67,51 @@ Singleton {
 
     /*! The latest sample as `parse` gives it. */
     property var last: null
-    /*! The latest that read the processes, in this watch; and how many have. */
+    /*! The latest that read the processes, in this watch; and how many have,
+        and since what is read last grew. */
     property var lastListed: null
     property int listed: 0
+    property int fresh: 0
 
     /*! After every sample, with it and the one before it (null for the
         shell's first), both as `parse` gives them. */
     signal sampled(var previous, var current)
 
-    /*! Starts (`on`) or ends one watcher's watch: the task manager's, the date
-        menu's. A key is on or off, not counted. */
-    function watch(key: string, on: bool): void {
-        if ((key in root.watchers) === on)
+    /*! Starts (`on`) or ends one watcher's watch, asking for `extras` beside
+        the processes ("gpu", "net"; none if left out): the task manager's
+        tabs. A key is on or off, not counted; on again, it asks anew. */
+    function watch(key: string, on: bool, extras: var): void {
+        const asked = on ? (extras ?? []).filter((extra, i, all) => all.indexOf(extra) === i).sort() : null;
+        if (JSON.stringify(root.watchers[key] ?? null) === JSON.stringify(asked))
             return;
+        const was = root.watched;
+        const before = root.extras;
         const watchers = Object.assign({}, root.watchers);
         if (on)
-            watchers[key] = true;
+            watchers[key] = asked;
         else
             delete watchers[key];
         root.watchers = watchers;
+        if (!root.watched || was && root.extras.every(extra => before.includes(extra)))
+            return;
+        // A watch's processes at once, and again soon after for their CPU;
+        // likewise an extra newly asked for, the sample under way, if any,
+        // without it.
+        if (!was) {
+            root.lastListed = null;
+            root.listed = 0;
+        }
+        root.fresh = was && sampler.running ? -1 : 0;
+        next.stop();
+        sampler.run();
     }
 
     // The counters from the first use on: Usage keeps their last minute.
     Component.onCompleted: sampler.run()
 
-    onWatchedChanged: {
-        if (!root.watched)
-            return;
-        // A watch's processes at once, and again soon after for their CPU.
-        root.lastListed = null;
-        root.listed = 0;
-        next.stop();
-        sampler.run();
-    }
-
-    /*! A sample as the sampler prints it, a field a tab: `{ uptime, cpus,
-        uid, memory, users, list, cpuTicks: { busy, total }, cpuFreq, disks:
-        [{ name, model, size, read, written, ioTicks }], fs: { total, used },
-        nets: [{ name, rx, tx }], gpu: { slot, busy, vramUsed, vramTotal, temp }
-        }` — sizes in bytes, the frequency in MHz, io ticks in ms, the
-        temperature in °C or -1. What the machine lacks is absent: no disks,
-        `fs` or `gpu` null, `cpuFreq` 0. */
+    /*! A sample as the sampler prints it: see ProcessSampler.parse. */
     function parse(text: string): var {
-        const sample = { uptime: 0, cpus: 1, uid: -1, memory: null, users: {}, list: [],
-                         cpuTicks: null, cpuFreq: 0, disks: [], fs: null, nets: [], gpu: null };
-        for (const line of text.split("\n")) {
-            const f = line.split("\t");
-            const n = f.map(Number);
-            switch (f[0]) {
-            case "uptime": sample.uptime = n[1]; break;
-            case "cpus": sample.cpus = Math.max(1, n[1]); break;
-            case "uid": sample.uid = n[1]; break;
-            case "user": sample.users[n[1]] = f[2]; break;
-            case "mem":
-                sample.memory = { total: n[1], available: n[2], anon: n[3], swapTotal: n[4], swapFree: n[5] };
-                break;
-            case "cpu": {
-                // user nice system idle iowait irq softirq steal
-                const total = n.slice(1, 9).reduce((sum, ticks) => sum + ticks, 0);
-                sample.cpuTicks = { busy: total - n[4] - n[5], total };
-                break;
-            }
-            case "freq": sample.cpuFreq = n[1]; break;
-            case "fs": sample.fs = { total: n[1] * 1024, used: n[2] * 1024 }; break;
-            case "disk":
-                sample.disks.push({ name: f[1], model: f.slice(6).join("\t"), size: n[2] * 512,
-                                    read: n[3] * 512, written: n[4] * 512, ioTicks: n[5] });
-                break;
-            case "net": sample.nets.push({ name: f[1], rx: n[2], tx: n[3] }); break;
-            case "gpu":
-                sample.gpu = { slot: f[1], busy: n[2], vramUsed: n[3], vramTotal: n[4],
-                               temp: n[5] < 0 ? -1 : Math.round(n[5] / 100) / 10 };
-                break;
-            case "p": {
-                const name = f.slice(10).join("\t");
-                if (name !== "")
-                    sample.list.push({ pid: n[1], uid: n[2], ppid: n[3], ticks: n[4], rss: n[5], oomScore: n[6],
-                                       oomAdj: n[7], readBytes: n[8], writeBytes: n[9], name });
-                break;
-            }
-            }
-        }
-        return sample;
+        return sampler.parse(text);
     }
 
     /*! Each pid's CPU between two samples, in percent of the whole machine
@@ -152,6 +125,23 @@ Singleton {
         for (const p of current.list)
             out[p.pid] = p.pid in before && span > 0
                 ? Math.round(Math.max(0, p.ticks - before[p.pid]) * 1000 / span) / 10 : -1;
+        return out;
+    }
+
+    /*! Each pid's share of the GPU between two samples — its clients' engine
+        time over the time between them — in percent to a tenth, at most 100
+        (two engines busy at once are the whole GPU); -1 for one without a
+        client in either. */
+    function gpu(previous: var, current: var): var {
+        const before = {};
+        for (const p of previous.list)
+            if (p.gpuTime >= 0)
+                before[p.pid] = p.gpuTime;
+        const span = (current.uptime - previous.uptime) * 1e9;
+        const out = {};
+        for (const p of current.list)
+            out[p.pid] = p.pid in before && p.gpuTime >= 0 && span > 0
+                ? Math.round(Math.min(1000, Math.max(0, p.gpuTime - before[p.pid]) * 1000 / span)) / 10 : -1;
         return out;
     }
 
@@ -183,10 +173,11 @@ Singleton {
         root.sampled(previous, sample);
     }
 
-    /*! The list a sample that read the processes gives, CPU and I/O against
-        the one before it that did (`byPid` with it). */
+    /*! The list a sample that read the processes gives, CPU, GPU and I/O
+        against the one before it that did (`byPid` with it). */
     function listing(previous: var, sample: var): var {
         const cpu = previous ? root.cpu(previous, sample, sample.cpus) : {};
+        const gpu = previous ? root.gpu(previous, sample) : {};
         const io = previous ? root.io(previous, sample) : {};
         const byPid = {};
         const list = [];
@@ -194,7 +185,7 @@ Singleton {
             if (p.pid === 2 || p.ppid === 2)
                 continue;
             const entry = Object.assign({}, p, {
-                cpu: cpu[p.pid] ?? -1, io: io[p.pid] ?? -1, own: p.uid === sample.uid,
+                cpu: cpu[p.pid] ?? -1, io: io[p.pid] ?? -1, gpu: gpu[p.pid] ?? -1, own: p.uid === sample.uid,
                 user: sample.users[p.uid] ?? String(p.uid)
             });
             byPid[p.pid] = entry;
@@ -202,6 +193,7 @@ Singleton {
         }
         root.lastListed = sample;
         root.listed++;
+        root.fresh++;
         // Before the list, which the rows are kept by and read this from.
         root.byPid = byPid;
         return list;
@@ -242,13 +234,15 @@ Singleton {
     ProcessSampler {
         id: sampler
         processes: root.watched
+        gpu: root.extras.includes("gpu")
+        net: root.extras.includes("net")
         onRead: text => root.take(text)
         onRunningChanged: if (!sampler.running) next.restart()
     }
 
     Timer {
         id: next
-        interval: root.watched && root.listed < 2 ? root.firstInterval : root.sampleInterval
+        interval: root.watched && root.fresh < 2 ? root.firstInterval : root.sampleInterval
         onTriggered: sampler.run()
     }
 }

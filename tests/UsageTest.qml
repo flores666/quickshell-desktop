@@ -77,6 +77,19 @@ Item {
                 "Barcelo");
         });
 
+        check.attempt("cpuinfo", () => {
+            const cpu = n => ["processor\t: " + n, "model name\t: AMD Ryzen 5 5625U with Radeon Graphics",
+                              "physical id\t: 0", "core id\t\t: " + (n >> 1), "cpu cores\t: 2", ""].join("\n");
+            root.same("cpuinfo: model, cores by core id, threads", Usage.cpuInfo([0, 1, 2, 3].map(cpu).join("\n")),
+                { model: "AMD Ryzen 5 5625U with Radeon Graphics", cores: 2, threads: 4 });
+            const socket = n => ["processor\t: " + n, "model name\t: Xeon", "physical id\t: " + (n >> 2),
+                                 "cpu cores\t: 4", ""].join("\n");
+            root.same("cpuinfo: without core ids, cores a socket times sockets",
+                Usage.cpuInfo([0, 1, 2, 3, 4, 5, 6, 7].map(socket).join("\n")), { model: "Xeon", cores: 8, threads: 8 });
+            root.same("cpuinfo: what it does not say is empty",
+                Usage.cpuInfo("processor\t: 0\nBogoMIPS\t: 48.00\n\nprocessor\t: 1\n"), { model: "", cores: 0, threads: 2 });
+        });
+
         let live = false;
         check.attempt("live", () => {
             check.equal("before two samples: no reading", Usage.cpu, -1);
@@ -93,6 +106,9 @@ Item {
         check.report("live: CPU after two samples, with nothing watching", read && Usage.cpu <= 100
             && !Processes.watched, Usage.cpu + (Processes.watched ? ", watched" : ""));
         check.report("live: memory", Usage.memory > 0 && Usage.memory < 100, String(Usage.memory));
+        check.report("live: the CPU's model, cores and threads, read once",
+            Usage.cpuModel !== "" && Usage.cpuThreads > 0 && Usage.cpuCores > 0 && Usage.cpuCores <= Usage.cpuThreads,
+            JSON.stringify([Usage.cpuModel, Usage.cpuCores, Usage.cpuThreads]));
         check.report("live: memory's facts", Usage.memoryUsed > 0 && Usage.memoryUsed < Usage.memoryTotal,
             Usage.memoryUsed + " of " + Usage.memoryTotal);
         check.report("live: the root filesystem", Usage.fsUsed > 0 && Usage.fsUsed < Usage.fsTotal,

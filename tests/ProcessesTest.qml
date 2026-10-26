@@ -43,7 +43,9 @@ Item {
         "user\t0\troot", "user\t1000\tme",
         "p\t1\t0\t0\t512\t12000\t0\t0\t-1\t-1\tsystemd",
         "p\t4242\t1000\t1\t7000\t250000\t667\t200\t4096\t8192\tWeb (Content) x",
-        "p\t4243\t1000\t1\t5\t0\t0\t0\t0\t0"
+        "p\t4243\t1000\t1\t5\t0\t0\t0\t0\t0",
+        // a process's GPU time in ns; its open inet sockets
+        "g\t4242\t5000000000", "n\t4242\t3", "n\t4243\t0"
     ].join("\n") + "\n"
 
     /*! What each `sampled` said: whether it had a sample before it. */
@@ -69,6 +71,21 @@ Item {
         command: ["sleep", "61"]
     }
 
+    /*! The test's own sockets: one listening, which is no connection, one
+        connected to it and one UDP. */
+    Process {
+        id: sockets
+
+        property bool up: false
+
+        command: ["python3", "-c", "import socket, time\nl = socket.socket(); l.bind(('127.0.0.1', 0)); l.listen()\n"
+            + "c = socket.create_connection(l.getsockname())\n"
+            // Bound: an unbound one is in no table, nor of any use.
+            + "u = socket.socket(type=socket.SOCK_DGRAM); u.bind(('127.0.0.1', 0))\n"
+            + "print('up', flush=True)\ntime.sleep(60)"]
+        stdout: SplitParser { onRead: sockets.up = true }
+    }
+
     Component.onCompleted: {
         check.attempt("parse", () => {
             const s = Processes.parse(root.sample);
@@ -79,9 +96,21 @@ Item {
             check.equal("parse: every process with a name", s.list.length, 2);
             root.same("parse: a process", s.list[1], {
                 pid: 4242, uid: 1000, ppid: 1, ticks: 7000, rss: 250000, oomScore: 667, oomAdj: 200,
-                readBytes: 4096, writeBytes: 8192, name: "Web (Content) x"
+                readBytes: 4096, writeBytes: 8192, gpuTime: 5000000000, connections: 3, name: "Web (Content) x"
             });
             root.same("parse: io unreadable", [s.list[0].readBytes, s.list[0].writeBytes], [-1, -1]);
+            root.same("parse: no GPU client, no sockets read", [s.list[0].gpuTime, s.list[0].connections], [-1, -1]);
+        });
+
+        check.attempt("gpu", () => {
+            const before = { uptime: 100, list: [{ pid: 1, gpuTime: 1e9 }, { pid: 2, gpuTime: -1 }, { pid: 4, gpuTime: 0 }] };
+            const after = { uptime: 102, list: [{ pid: 1, gpuTime: 1.5e9 }, { pid: 2, gpuTime: 5e8 },
+                                               { pid: 3, gpuTime: 1e9 }, { pid: 4, gpuTime: 9e9 }] };
+            const gpu = Processes.gpu(before, after);
+            check.near("gpu: a share of the GPU's time", gpu[1], 25);
+            check.equal("gpu: none for one with no client before", gpu[2], -1);
+            check.equal("gpu: none for a newcomer", gpu[3], -1);
+            check.equal("gpu: engines busy at once are at most the whole GPU", gpu[4], 100);
         });
 
         check.attempt("parse: the machine", () => {
@@ -166,6 +195,9 @@ Item {
         check.report("live: memory read", Processes.memory.total > 0, JSON.stringify(Processes.memory));
         check.equal("live: its own I/O read", io, true);
         check.equal("live: init's I/O unreadable", Processes.byPid[1]?.io, -1);
+        root.same("extras: none asked", Processes.extras, []);
+        check.equal("extras: neither read unasked",
+            Processes.list.every(p => p.gpu === -1 && p.connections === -1), true);
         const last = Processes.last;
         check.report("live: CPU ticks", (last?.cpuTicks?.total ?? 0) > 0, JSON.stringify(last?.cpuTicks));
         check.report("live: the root filesystem", (last?.fs?.total ?? 0) > 0, JSON.stringify(last?.fs));
@@ -202,7 +234,9 @@ Item {
             Processes.watch("other", true);
             Processes.watch("test", false);
             check.equal("watchers: watched while the other is on", Processes.watched, true);
+            Processes.watch("other", true, ["net", "net"]);
             Processes.watch("other", true);
+            root.same("watchers: on again, a key asks anew", Processes.extras, []);
             Processes.watch("other", false);
             check.equal("watchers: a key is on or off, not counted", Processes.watched, false);
         });
@@ -216,8 +250,46 @@ Item {
             until.until(Processes.samplesChanged, () => Processes.samples > samples, sampled => {
                 check.equal("unwatched again: still sampled", sampled, true);
                 check.equal("unwatched again: the list left as it was", Processes.list === list, true);
-                check.done();
+                root.extras();
             });
         });
+    }
+
+    /*! What a watcher asks for beyond the processes: each process's open
+        connections, then its GPU time where a GPU reports. */
+    function extras(): void {
+        sockets.running = true;
+        until.until(sockets.upChanged, () => sockets.up, up => {
+            check.equal("net: the test's sockets up", up, true);
+            check.attempt("net", () => Processes.watch("net", true, ["net"]));
+            root.same("net: asked for", Processes.extras, ["net"]);
+            until.until(Processes.listChanged, () => (Processes.byPid[sockets.processId]?.connections ?? -1) >= 0, () => {
+                check.equal("net: a connection and a UDP socket, not the listening one",
+                    Processes.byPid[sockets.processId]?.connections, 2);
+                check.equal("net: another user's unreadable", Processes.byPid[1]?.connections, -1);
+                check.equal("net: no GPU read unasked", Processes.list.every(p => p.gpu === -1), true);
+                sockets.running = false;
+                if ((Processes.last?.gpu ?? null) === null) {
+                    check.report("gpu: no GPU reports busy here, so none read", true, "");
+                    return root.unwatched();
+                }
+                Processes.watch("gpu", true, ["gpu"]);
+                root.same("gpu: asked for beside net", Processes.extras, ["gpu", "net"]);
+                until.until(Processes.listChanged, () => Processes.list.some(p => p.gpu >= 0), read => {
+                    check.equal("gpu: a share read, between two samples", read, true);
+                    check.report("gpu: own processes alone, a percentage", Processes.list.every(
+                        p => p.gpu === -1 || p.own && p.gpu <= 100), "");
+                    root.unwatched();
+                });
+            });
+        });
+    }
+
+    function unwatched(): void {
+        Processes.watch("net", false, ["net"]);
+        Processes.watch("gpu", false);
+        root.same("extras: none once their watchers are off", Processes.extras, []);
+        check.equal("extras: unwatched", Processes.watched, false);
+        check.done();
     }
 }
