@@ -29,11 +29,11 @@ Item {
         return value < 0 ? "–" : Math.round(value) + "%";
     }
 
-    /*! The task manager's Performance tab, flown to from the date menu. */
+    /*! The task manager's Performance tab, flown to from the date menu. Its
+        card is centred, so where it is anchored only keeps the record true. */
     function openPerformance(): void {
-        const s = Overlay.screen;
-        const x = root.visible ? root.mapToGlobal(root.width / 2, 0).x : (s ? s.width / 2 : 0);
-        Overlay.openWith(Overlay.taskManager, s, x, { tab: "performance" });
+        Overlay.openWith(Overlay.taskManager, Overlay.screen, root.mapToItem(null, root.width / 2, 0).x,
+            { tab: "performance" });
     }
 
     onTrackingChanged: Processes.watch("dateMenu", root.tracking)
@@ -45,8 +45,8 @@ Item {
 
         Repeater {
             model: [
-                { title: "CPU", memory: false },
-                { title: "Memory", memory: true }
+                { title: qsTr("CPU"), memory: false },
+                { title: qsTr("Memory"), memory: true }
             ]
 
             Clickable {

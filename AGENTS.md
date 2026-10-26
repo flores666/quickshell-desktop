@@ -101,10 +101,12 @@ compositor do the right thing". Use the real session:
    one periodic wakeup is a clock showing time itself passing, which no event
    can say: a `SystemClock` (`Time`'s minute; the media card's second while a
    track plays in view), running only while what it shows is on screen and
-   asking nothing outside the shell. The one reading taken on a clock is the
-   task manager's (`Processes`): `/proc` says nothing when a process works or
-   memory fills, so it is read every `sampleInterval`, the next timed from the
-   end of the last, only while the task manager shows Processes or Memory. A
+   asking nothing outside the shell. The one reading taken on a clock is
+   `Processes`': `/proc` and `/sys` say nothing when a process works, memory
+   fills or a disk or the network moves, so it is read every
+   `sampleInterval`, the next timed from the end of the last, only while the
+   task manager (any tab but Scheduled) or the date menu shows a reading,
+   each watching by its own key (`Processes.watch`). A
    single wait for what sends no event
    when it is done (a window's animation settling) is a delay, not a poll.
 4. **Every widget's interaction states come from `Clickable`.** Do not
@@ -140,6 +142,7 @@ services/            one singleton per source of system state
 components/          reusable widgets, all built on Clickable
 modules/             the surfaces themselves
   bar/ dock/ panels/ launcher/ settings/ notifications/ osd/ lock/ tasks/
+  polkit/
   panels/qs/         quick settings' pages: FrontPage, the sub-pages it opens,
                      and their tiles and rows
   settings/          one *Section per tab, its rows (SettingRow /
@@ -151,6 +154,8 @@ modules/             the surfaces themselves
   tasks/             the task manager: TaskManager, a pane per tab
                      (ProcessPane, MemoryPane, SchedulePane), their rows,
                      EarlyOomSettings and TaskEditor
+  polkit/            the authentication prompt: AuthWindow, a surface of its
+                     own above the popups, and AuthCard
   common/            shared surface chrome (OverlaySurface, ShellOverlay,
                      OverlayCard), IPC,
                      overview theming
@@ -220,7 +225,7 @@ something new, the change also records it here.** Concretely:
 | a system service's options, a file under `/etc` | its own directory (`earlyoom/`), the file starting with the `# quickshell-desktop` marker | installs it with sudo where the machine's lacks the marker, keeping the old one; what the shell has written since keeps it |
 | a desktop entry, a user systemd unit | `applications/`, `systemd/` | links it into `~/.local/share/applications`, `~/.config/systemd/user` |
 | a script a config or bind runs | `bin/`; refer to it by bare name (kitty finds `~/.local/bin` itself; Hyprland binds use `~/.local/bin/<name>`) | links every file in `bin/` into `~/.local/bin` |
-| a system or user service | the package; enabling it is a line in `install.sh` — or, for one that needs the graphical session, an `exec-once` in `hypr/conf.d/20-autostart.conf` (the polkit agent) | enables it if it is off |
+| a system or user service | the package; enabling it is a line in `install.sh` — or, for one that needs the graphical session, an `exec-once` in `hypr/conf.d/20-autostart.conf` (hyprpaper) | enables it if it is off |
 | a setting that lives in dconf | its directory in `tools/save-profile.sh`'s `gtk` list, then run that | writes each key the machine still has at its default |
 | a colour in the terminal, the prompt or neovim | `terminal/palette.conf`, by name; the accent taken from the wallpaper is this machine's state, laid over it from `~/.local/state/quickshell-desktop/palette.conf` (*Wallpaper accent*) | nothing: all three read it |
 | a setting for one particular monitor or input device | nothing in the project: screens are detected (`highres, auto, auto`) and a touchpad by the shell. One machine's arrangement or tuning goes in its own `~/.config/hypr/hyprland.conf`, after the `source` line, keyed by the device (`desc:`, a `device` block's `name`) | nothing |
@@ -483,6 +488,24 @@ as they start.
 
 **Placement** — where a popup attaches: `BelowBar`, `AboveDock`, `Centre`.
 
+**Authentication prompt** — the polkit agent's password prompt
+(`modules/polkit/AuthWindow`, `AuthCard`). The shell is the session's agent
+(`Polkit`) so that the prompt comes up above the popups: an ordinary window,
+as hyprpolkitagent's was, can never come above the overlay layer, and what
+asks is often a popup — the task manager applying earlyoom's options. **Not a
+popup**: a surface of its own, `shell-auth`, on the overlay layer and ordered
+above the popups' (`hyprland.conf`'s `shell-auth` rule), spanning the screen
+with input masked to its card and the keyboard on demand. It is mapped
+exactly while there is a request or its card fades out, on the screen that
+had focus, and its card is drawn as a popup's. It shows the action's message,
+who is asked for, PAM's prompt over the password field, and what a failed
+attempt said — or, where PAM says nothing (usually so for a wrong password),
+that it failed — then Cancel and Authenticate. Enter submits and
+empties the field; Escape cancels. While it is up `Overlay.authorizing`
+holds and neither Escape's bind nor an outside click closes a popup, so the
+one under it stays. shell.qml hands it `Polkit.flow`; a test hands it a
+stand-in, so that no test registers an agent for the session.
+
 **Task manager** — the centred popup `Ctrl+Shift+Escape` opens
 (`shell:taskManager`, and a desktop entry the launcher lists): what runs, memory
 and earlyoom, and scheduled tasks, a tab each, laid out as the settings panel.
@@ -561,14 +584,15 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`, read and written by `SettingsFile` (at once, a moment after a burst of changes, never before it is read; see the QML gotchas); a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `accentFollowsWallpaper`, `wallpaperAccent` and `gtkAccentBefore` (this machine's, saved empty in `profile/`), `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `pushing` (falling as what was set is in: Hyprland says nothing itself), `derived` (options that follow the design system — the overview's, the title bars', the windows' shadow and, while the accent follows the wallpaper, the active border — set by `CompositorTheme`; one that goes away is put back by a reload, as a cleared override is) |
-| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorXOf` (each popup's anchor, by name, set only as that popup opens: one anchor for all slid the card being taken over from towards the next popup's button), `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `flight` (`{ from, to, rect, strength, contents, away }`, and `at` and `subject` for a popup taking over from itself; see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
+| `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorXOf` (each popup's anchor, by name, set only as that popup opens: one anchor for all slid the card being taken over from towards the next popup's button), `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `authorizing` (set by `AuthWindow` while it is drawn; neither dismissal acts meanwhile), `flight` (`{ from, to, rect, strength, contents, away }`, and `at` and `subject` for a popup taking over from itself; see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `DesktopScheme` | the shell's light or dark handed to every other application: GNOME's `color-scheme`, which xdg-desktop-portal-gtk serves as the portal's `org.freedesktop.appearance color-scheme` — what browsers read for their look and `prefers-color-scheme`, and libadwaita follows | `scheme` (`prefer-dark` or `prefer-light`), `setting` (falling as it is set) |
 | `DesktopAccent` | the accent handed outside the shell while it follows the wallpaper: GTK's `accent-color` and the terminal's palette file, each put back when it stops; nothing before `Settings.ready` | `gtk` (a libadwaita name), `settingGtk` (falling as it is set and the one before kept), `terminal` (`{ accent, accent_bright }`), `palette` (`terminal/palette.conf`), `stateFile` |
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
 | `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
-| `Processes` | every process (kernel threads aside) and memory, sampled from `/proc` by one gawk run while `watched` (see hard rule 3); CPU as a share of the whole machine between two samples | `watched` (bound by the task manager), `sampleInterval`, `samples`, `list` (`{ pid, uid, ppid, ticks, rss, oomScore, oomAdj, name, cpu, own, user }`), `byPid`, `memory` (KiB), `uid`, `parse`, `cpu`, `sample`, `terminate`/`forceKill` (own processes only), `formatSize` |
+| `Processes` | every process (kernel threads aside), memory and the machine's counters — CPU ticks and frequency, whole disks, the root filesystem, physical interfaces, the first GPU reporting `gpu_busy_percent` — sampled from `/proc` and `/sys` by one gawk run (`ProcessSampler`, whose empty `ENDFILE {}` keeps a read failing part way from ending the run) while anything watches (see hard rule 3); CPU and disk I/O between two samples | `watch(key, on)`, `watched` (any key on), `sampleInterval`, `samples`, `sampled(previous, current)`, `list` (`{ pid, uid, ppid, ticks, rss, oomScore, oomAdj, readBytes, writeBytes, name, cpu, io, own, user }`; `io` -1 for another user's), `byPid`, `memory` (KiB), `uid`, `parse` (also `cpuTicks`, `cpuFreq`, `disks`, `fs`, `nets`, `gpu`), `cpu`, `io`, `sample`, `terminate`/`forceKill` (own processes only), `formatSize` |
+| `Usage` | the machine's usage from consecutive samples of `Processes`: rates (-1 until two samples of the watch are in), the facts beside them, and a minute of history for the charts; rates and history are cleared when nothing watches, so a chart never shows an earlier visit | `cpu`, `memory`, `gpu`, `disk` (the busiest disk's busy time), `diskRead`/`diskWrite`, `netDown`/`netUp` (bytes/s), `cpuFreq`, `memoryUsed`/`memoryTotal`, `hasGpu`, `gpuName` (one `lspci` run), `vramUsed`/`vramTotal`, `gpuTemp`, `fsUsed`/`fsTotal`, `diskModel`, `history` (`{ t, v }` per series), `now`, `span`, `rates`, `trim`, `formatBytes`, `formatRate` |
 | `EarlyOom` | earlyoom: installed (its unit file), running, its options (`/etc/default/earlyoom`, watched), its kills (its journal, followed: wheel, adm and systemd-journal may read it) and their notifications, memory and the next victim as it reckons them | `available`, `running`, `logReadable`, `config`, `kills`, `usage`, `next`, `victim`, `preference`, `withPreference`, `protect`/`preferKill`/`clear`, `apply` (pkexec), `pending`, `failure`, `fileText`, `readEntry` |
 | `EarlyOomArgs` | EARLYOOM_ARGS read and written: the levels, the two lists as names (each escaped with bracket expressions and no space or backslash, which systemd would take apart), what else a list holds kept as written (`avoidExtra`), every other option in `rest` | `parse`, `format`, `regex`, `listable`, `matches`, `matcher` |
 | `Tasks` | scheduled tasks: their units in `~/.config/systemd/user`, changed one script at a time and read again after each; runs heard from the user manager's journal lines; the user's other timers, read-only | `prefix`, `tasks` (`{ id, name, command, schedule, enabled, next, last, result, status }`), `others`, `read`, `save`, `runNow`, `setEnabled`, `remove`, `validate` (systemd-analyze), `formatWhen` |
@@ -589,6 +613,7 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `Screenshot` | screen capture through grim/slurp; a region is dragged out over the screen frozen by hyprpicker | `capture`, `captureRegion` |
 | `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current` (always a path: a saved bare name is that picture in the folder, empty until it is there), `set` |
 | `Fonts` | the font families Qt found, and applying the chosen one to applications — the GTK interface font and a fontconfig file the shell owns (`conf.d/50-quickshell-font.conf`); *Default* restores the GTK font it first replaced | `families`, `available`, `chosen`, `search` |
+| `Polkit` | the session's polkit agent (Quickshell.Services.Polkit), registered at start — unless another agent holds the session, when nothing of it shows and that one asks. The shell runs in a user unit, outside the login session: polkit takes the user's display session for its pid | `available` (registered), `flow` (an `AuthFlow`, or null: kept through a wrong password, which asks again; freed once it succeeds or is cancelled) |
 | `Session` | lock, suspend, logout, reboot, shutdown | `lock` (raises `lockRequested`), `suspend`, `logout`, … |
 | `Time` | one clock for the whole shell | `now`, `time`, `dateShort`, `dateLong` |
 | `InputMode` | whether the user is currently navigating by keyboard | `keyboard`, `pointerUsed`, `keyboardUsed` |
@@ -607,6 +632,8 @@ implemented.
 | `BackdropProbe` | measures one screen's picture for `Backdrop` whenever it or the screen's size changes: decoded off the main thread, already shrunk, into a canvas nobody sees (a canvas needs a window; the bar holds it) |
 | `RoundedClip` | its children cut to a rounded rectangle by one mask while `active` (two layers and a `MultiEffect`), and drawn as they are while not: `ColorPicker`'s square gradients, a popup card's contents while it flies or resizes |
 | `Shadow` | a `RectangularShadow` per layer of `Appearance.shadowFor(level)`; `level` 1–3, 3 being the window shadow |
+| `Chart` | a time series on QtQuick.Shapes: a line over a fill fading to the baseline, the newest sample at the right edge; `series` (`[{ points: [{ t, v }], color }]`), `now`, `span`, `max` (≤ 0 follows the data), `format`, `place`; with `axes` its scale, span, faint rules and a hover crosshair and readout, none without (a sparkline). Its colours are the `series*` tokens, one per reading (`seriesCpu`, `seriesMemory`, `seriesGpu`, `seriesDisk`) and a pair for two directions (`seriesIn`, `seriesOut`), checked for colour-vision separation in both themes; text beside a chart stays in the text tokens |
+| `StatCard` | one reading on a `raised` card: title, figure, a `Chart` taking the height left, a line of detail; takes no input — one that opens something is laid in a `Clickable` |
 | `Door` | how a card hanging from an edge rolls out of it and back (see *Door*): `edge`, `out`, `full`, `radius` in; `rolled`, `rolling`, `shut`, `extent` (its height), `drop` (where its box starts), `contentY` out. A popup's card and the dock's window preview hang from one |
 | `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
 | `AppIcon` | an application icon from the XDG theme, with fallbacks, asked again whenever the themes change (`IconThemes.revision`); `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's); `ink` draws it among the shell's glyphs (the tray's): desaturated, and a one-tone glyph levelled (Qt5Compat's `LevelAdjust`) so its tone comes out in the ink; artwork of both tones, a light sign on a dark plate, reads on either and keeps them |
@@ -917,7 +944,14 @@ expensive to find.
 - **A layer rule's `order` puts a higher number *beneath*.** Within one layer
   Hyprland draws surfaces sorted by descending `order`, creation order among
   equals (`arrangeLayersForMonitor` in the 0.56.2 source): the screenshot
-  freeze is −1 and slurp −2, so slurp is on top and a toast (0) is under both.
+  freeze is −1 and slurp −2, so slurp is on top and a toast (0) is under both;
+  the authentication prompt (−1) is over the popups (0), whose surface maps
+  afresh as a popup opens and would otherwise, the newer, be on top.
+- **An on-demand layer surface takes the keyboard as it maps**
+  (`CLayerSurface::onMap`: any interactivity but none, the pointer
+  unconstrained), so of two the last mapped has it: a popup opened while the
+  authentication prompt is up takes the keyboard from it, and
+  `AuthPromptTest` draws the task manager before the request arrives.
 - **A layer surface's fade-out is in a capture taken right after it unmaps.**
   grim run the moment slurp exited took slurp's fading border, a black frame
   around every region shot. `no_anim` drops the snapshot that fades.
