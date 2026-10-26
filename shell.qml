@@ -51,7 +51,10 @@ ShellRoot {
               Polkit.available,
               // Likewise: this keeps the machine's last minute of usage,
               // there whenever a chart opens.
-              Usage.span];
+              Usage.span,
+              // Likewise: this hears every sample that reads the processes,
+              // the task manager's first included, for what used each most.
+              Activity.revision];
     }
 
     Variants {

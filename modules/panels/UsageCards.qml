@@ -8,17 +8,18 @@ import "root:/services"
 /*!
     The date menu's CPU and memory, side by side: a figure and the last
     minute of each, which Usage keeps whether or not anything shows it. A
-    click opens the task manager on its Performance tab, as a flight from the
-    date menu.
+    click opens the task manager on the tab of what was clicked, CPU or RAM,
+    as a flight from the date menu.
 */
 Item {
     id: root
 
-    /*! The two cards: the processor, and memory as RAM, as the Performance
-        tab names it — "Memory" read as the disk as well. */
+    /*! The two cards, each with the task manager's tab it opens: the
+        processor, and memory as RAM, as that tab names it — "Memory" read as
+        the disk as well. */
     readonly property var cards: [
-        { title: qsTr("CPU"), memory: false },
-        { title: qsTr("RAM"), memory: true }
+        { title: qsTr("CPU"), memory: false, tab: "cpu" },
+        { title: qsTr("RAM"), memory: true, tab: "ram" }
     ]
     readonly property string cpuFigure: root.figureOf(Usage.cpu)
     readonly property string memoryFigure: root.figureOf(Usage.memory)
@@ -31,11 +32,10 @@ Item {
         return value < 0 ? "–" : Math.round(value) + "%";
     }
 
-    /*! The task manager's Performance tab, flown to from the date menu. Its
+    /*! The task manager on one of its tabs, flown to from the date menu. Its
         card is centred, so where it is anchored only keeps the record true. */
-    function openPerformance(): void {
-        Overlay.openWith(Overlay.taskManager, Overlay.screen, root.mapToItem(null, root.width / 2, 0).x,
-            { tab: "performance" });
+    function open(tab: string): void {
+        Overlay.openWith(Overlay.taskManager, Overlay.screen, root.mapToItem(null, root.width / 2, 0).x, { tab });
     }
 
     Row {
@@ -53,7 +53,7 @@ Item {
                 width: (root.width - Appearance.s.md) / 2
                 height: parent.height
                 radius: Appearance.r.lg
-                onClicked: root.openPerformance()
+                onClicked: root.open(card.modelData.tab)
 
                 StatCard {
                     anchors.fill: parent

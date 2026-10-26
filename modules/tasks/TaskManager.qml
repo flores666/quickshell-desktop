@@ -7,12 +7,14 @@ import "root:/services"
 import "root:/modules/common"
 
 /*!
-    The task manager: what runs (Processes); how busy the machine is, a
-    minute of it charted (Performance), its disk, its network and its GPU;
-    memory and earlyoom, which stops what uses the most of it before the
-    machine runs out (Memory); and the commands systemd runs on a schedule
-    (Scheduled). The GPU's tab is there only while a GPU reports how busy it
-    is (Usage.hasGpu), and one shown as the GPU goes gives way to Processes.
+    The task manager: what runs (Processes); each thing the machine has —
+    its CPU, its GPU, its RAM with earlyoom under it (which stops what uses
+    the most of it before the machine runs out), its disks and its network —
+    each on one pattern (EntityPane): what it is, its last minute charted,
+    and the processes that used it most; and the commands systemd runs on a
+    schedule (Schedule). The GPU's tab is there only while a GPU reports how
+    busy it is (Usage.hasGpu), and one shown as the GPU goes gives way to
+    Processes.
 
     Laid out as the settings panel is, tabs down the left and one pane on the
     right, each pane drawing its own title in the bar along the top above the
@@ -20,9 +22,11 @@ import "root:/modules/common"
 
     The machine's readings are kept always (Usage), so every chart opens
     with the last minute in it; each process is read only while a tab that
-    lists processes is on screen: Processes, Disk's most active and Memory's
-    next victim. Opens on Processes, wherever it was left, or on the tab its
-    subject names (`{ tab }`, the date menu's cards) where it has that tab.
+    lists or ranks them is on screen — every one but Schedule — and what a
+    tab asks for beside them only while it is: each process's GPU time on
+    GPU, its open connections on Network. Opens on Processes, wherever it
+    was left, or on the tab its subject names (`{ tab }`, the date menu's
+    cards) where it has that tab.
 */
 ShellOverlay {
     id: root
@@ -32,14 +36,16 @@ ShellOverlay {
     cardWidth: Math.min(Appearance.m.paneCardWidth, (root.screen ? root.screen.width : 1920) - Appearance.s.huge * 2)
     cardHeight: Math.min(Appearance.m.paneCardHeight, (root.screen ? root.screen.height : 1080) - Appearance.s.huge * 3)
 
+    /*! Each tab, with what it asks Processes for beside each process
+        (`extras`) and whether it reads them at all (`watches`). */
     readonly property var tabs: [
-        { key: "processes", title: qsTr("Processes"), icon: "cat-system", component: processesPane },
-        { key: "performance", title: qsTr("Performance"), icon: "performance", component: performancePane },
-        { key: "disk", title: qsTr("Disk"), icon: "disk", component: diskPane },
-        { key: "network", title: qsTr("Network"), icon: "network-transfer", component: networkPane },
-        { key: "gpu", title: qsTr("GPU"), icon: "gpu", component: gpuPane },
-        { key: "memory", title: qsTr("Memory"), icon: "computer", component: memoryPane },
-        { key: "scheduled", title: qsTr("Scheduled"), icon: "calendar", component: scheduledPane }
+        { key: "processes", title: qsTr("Processes"), icon: "grid", component: processesPane },
+        { key: "cpu", title: qsTr("CPU"), icon: "cpu", component: cpuPane },
+        { key: "gpu", title: qsTr("GPU"), icon: "gpu", component: gpuPane, extras: ["gpu"] },
+        { key: "ram", title: qsTr("RAM"), icon: "ram", component: ramPane },
+        { key: "disks", title: qsTr("Disks"), icon: "disk", component: disksPane },
+        { key: "network", title: qsTr("Network"), icon: "network-transfer", component: networkPane, extras: ["net"] },
+        { key: "schedule", title: qsTr("Schedule"), icon: "calendar", component: schedulePane, watches: false }
     ].filter(t => t.key !== "gpu" || Usage.hasGpu)
     property string tab: "processes"
     readonly property var current: root.tabs.find(t => t.key === root.tab)
@@ -49,10 +55,14 @@ ShellOverlay {
     /*! Where the rule under the panes' bars runs. */
     readonly property int barHeight: Appearance.m.fieldHeight + Appearance.s.lg * 2
 
-    /*! Whether a tab that lists processes is on screen. */
-    readonly property bool listing: root.shown && ["processes", "disk", "memory"].includes(root.tab)
+    /*! What the tab on screen asks of Processes: whether each process is
+        read, and what beside. */
+    readonly property var watching: ({
+        on: root.shown && (root.current?.watches ?? true),
+        extras: root.current?.extras ?? []
+    })
 
-    onListingChanged: Processes.watch("taskManager", root.listing)
+    onWatchingChanged: Processes.watch("taskManager", root.watching.on, root.watching.extras)
     Component.onDestruction: Processes.watch("taskManager", false)
 
     /*! Whether the pane is built: from a moment after the card comes up, so
@@ -178,10 +188,10 @@ ShellOverlay {
     }
 
     Component { id: processesPane; ProcessPane { manager: root } }
-    Component { id: performancePane; PerformancePane { manager: root } }
-    Component { id: diskPane; DiskPane { manager: root } }
-    Component { id: networkPane; NetworkPane { manager: root } }
+    Component { id: cpuPane; CpuPane { manager: root } }
     Component { id: gpuPane; GpuPane { manager: root } }
-    Component { id: memoryPane; MemoryPane { manager: root } }
-    Component { id: scheduledPane; SchedulePane { manager: root } }
+    Component { id: ramPane; RamPane { manager: root } }
+    Component { id: disksPane; DisksPane { manager: root } }
+    Component { id: networkPane; NetworkPane { manager: root } }
+    Component { id: schedulePane; SchedulePane { manager: root } }
 }

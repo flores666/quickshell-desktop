@@ -2,78 +2,38 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import "root:/config"
-import "root:/components"
 import "root:/services"
 
 /*!
-    The GPU: its name and how busy it is now, a chart of the last minute of
-    that, how much of its memory is used, and its temperature. Shown only
-    while there is a GPU (TaskManager's tabs); what it does not report — its
-    memory, its temperature — is not shown, and the rest takes the room.
+    The GPU, as an entity tab: its name and how busy it is now, how much of
+    its memory is used, with a bar, and its temperature — each only where
+    the GPU reports it; the last minute of how busy; and the processes that
+    used most of it over that minute, the user's own alone (another's GPU
+    time is not readable). Shown only while there is a GPU (TaskManager's
+    tabs).
 */
-Item {
+EntityPane {
     id: root
 
-    property var manager: null
+    readonly property real vram: Usage.vramTotal > 0 ? Usage.vramUsed / Usage.vramTotal : -1
 
-    readonly property bool hasVram: Usage.vramTotal > 0
-    readonly property bool hasTemp: Usage.gpuTemp >= 0
+    title: qsTr("GPU")
+    icon: "gpu"
+    lines: [
+        { text: Usage.gpuName !== "" ? Usage.gpuName : qsTr("GPU"), value: root.manager.percent(Usage.gpu) },
+        { text: root.vram < 0 ? "" : qsTr("VRAM"),
+          value: root.vram < 0 ? "" : qsTr("%1 of %2 · %3%").arg(Usage.formatBytes(Usage.vramUsed))
+              .arg(Usage.formatBytes(Usage.vramTotal)).arg(Math.round(root.vram * 100)) },
+        root.vram < 0 ? {} : { bar: root.vram, ink: Appearance.c.seriesGpu },
+        { text: Usage.gpuTemp < 0 ? "" : qsTr("Temperature"),
+          value: Usage.gpuTemp < 0 ? "" : qsTr("%1 °C").arg(Math.round(Usage.gpuTemp)) }
+    ]
 
-    Label {
-        x: Appearance.s.xl
-        y: (root.manager.barHeight - height) / 2
-        text: qsTr("GPU")
-        role: Label.Role.Subtitle
-    }
+    legend: [{ label: qsTr("Busy"), color: Appearance.c.seriesGpu, value: root.manager.percent(Usage.gpu) }]
+    series: [{ points: Usage.history.gpu, color: Appearance.c.seriesGpu }]
 
-    Item {
-        id: page
-
-        anchors.fill: parent
-        anchors.margins: Appearance.s.xl
-        anchors.topMargin: root.manager.barHeight + Appearance.s.xl
-
-        ChartCard {
-            width: page.width
-            height: (root.hasVram || root.hasTemp ? facts.y - Appearance.s.lg : page.height)
-            title: Usage.gpuName !== "" ? Usage.gpuName : qsTr("GPU")
-            figure: root.manager.percent(Usage.gpu)
-            series: [{ points: Usage.history.gpu, color: Appearance.c.seriesGpu }]
-            now: Usage.now
-            span: Usage.span
-            max: 100
-            format: v => root.manager.percent(v)
-        }
-
-        Item {
-            id: facts
-
-            y: page.height - height
-            width: page.width
-            height: Math.max(vram.implicitHeight, temp.implicitHeight)
-
-            FactCard {
-                id: vram
-                visible: root.hasVram
-                width: root.hasTemp ? facts.width - temp.width - Appearance.s.lg : facts.width
-                height: facts.height
-                title: qsTr("VRAM")
-                value: qsTr("%1 of %2 · %3%").arg(Usage.formatBytes(Usage.vramUsed))
-                    .arg(Usage.formatBytes(Usage.vramTotal))
-                    .arg(Math.round(Usage.vramUsed * 100 / Math.max(1, Usage.vramTotal)))
-                fraction: Usage.vramUsed / Math.max(1, Usage.vramTotal)
-                ink: Appearance.c.seriesGpu
-            }
-
-            FactCard {
-                id: temp
-                visible: root.hasTemp
-                x: facts.width - width
-                width: root.hasVram ? (facts.width - Appearance.s.lg) / 3 : facts.width
-                height: facts.height
-                title: qsTr("Temperature")
-                value: qsTr("%1 °C").arg(Math.round(Usage.gpuTemp))
-            }
-        }
-    }
+    rankKey: "gpu"
+    rankTitle: qsTr("Most GPU · last minute")
+    figure: v => qsTr("%1%").arg(v.toFixed(1))
+    empty: qsTr("Nothing of yours has used the GPU in the last minute.")
 }

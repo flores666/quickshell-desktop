@@ -111,6 +111,16 @@ QtObject {
 
     /*! The sparkline of a usage card on the date menu: the least it is drawn at. */
     readonly property int usageChart: 32
+    /*! The task manager's entity tabs (CPU, GPU, RAM, Disks, Network): the
+        chart's height on one that scrolls, with more under its list (RAM's
+        earlyoom) — about what the others' charts take in a full-size card,
+        so the tabs line up and the next heading shows under the list — and
+        the least any takes in a smaller card. */
+    readonly property int entityChart: 196
+    readonly property int entityChartLeast: 96
+    /*! A process in a "most" list that went quiet within the minute: how
+        strongly its icon is drawn, its text muted beside it. */
+    readonly property real quiet: 0.5
 
     /*! A colour swatch, and the pin badge a pinned one wears. */
     readonly property int swatch: 28

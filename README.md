@@ -66,8 +66,8 @@ modules/                  the surfaces themselves
   panels/                 quick settings, date menu, tray menu, VPN menu
     qs/                     quick-settings sub-pages
   launcher/               application launcher
-  tasks/                  task manager: processes, memory and earlyoom,
-                          scheduled tasks
+  tasks/                  task manager: processes; CPU, GPU, RAM (with
+                          earlyoom), disks and network; scheduled tasks
   notifications/          toasts and the notification centre
   osd/                    volume / brightness indicator
   lock/                   session lock
@@ -234,13 +234,18 @@ and one that is not installed on this machine is not shown.
 ## The task manager
 
 `Ctrl+Shift+Esc`, or *Task Manager* in the launcher. **Processes** lists every
-process with its CPU, memory and OOM score; your own can be ended from a row's
-menu, and any can be protected from earlyoom or marked to go first.
-**Memory** shows the memory and swap left against the levels earlyoom acts
-at, earlyoom's options — applied together, through a password prompt, since
-they are root's — and what it has stopped. **Scheduled** runs commands on
-systemd user timers — once, hourly, daily, weekly, by any calendar
-expression, or at login — and shows how each last run went.
+process with its CPU, memory, disk I/O and PID; your own can be ended from a
+row's menu, and any can be protected from earlyoom or marked to go first.
+**CPU**, **GPU** (where one reports how busy it is), **RAM**, **Disks** and
+**Network** each show what the thing is, a chart of its last minute, and the
+five processes that use it most: by CPU, GPU time and disk I/O over that
+minute, by memory held and connections open now. Under RAM, earlyoom: the
+memory and swap left against the levels it acts at, its options — applied
+together, through a password prompt, since they are root's — and what it has
+stopped.
+**Schedule** runs commands on systemd user timers — once, hourly, daily,
+weekly, by any calendar expression, or at login — and shows how each last run
+went.
 
 [earlyoom](https://github.com/rfjakob/earlyoom) stops the process using the
 most memory before the machine runs out. `install.sh` installs it with the

@@ -26,7 +26,7 @@ Item {
     Label {
         x: Appearance.s.xl
         y: (root.manager.barHeight - height) / 2
-        text: qsTr("Scheduled")
+        text: qsTr("Schedule")
         role: Label.Role.Subtitle
     }
 

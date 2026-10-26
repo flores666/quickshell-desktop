@@ -43,7 +43,7 @@ Item {
         series: [{ color: "#00ff00", points: [{ t: 100, v: 0.2 }] }]
     }
 
-    // A percentage's sparkline, as the date menu and the Performance tab
+    // A percentage's sparkline, as the date menu's cards
     // draw one: scaled to its data, a quarter above the highest point.
     StatCard {
         id: idle

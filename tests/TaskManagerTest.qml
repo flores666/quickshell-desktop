@@ -6,8 +6,10 @@ import "root:/modules/tasks"
 /*!
     The task manager popup: toggled by its action, opening on Processes or on
     the tab its subject names, its tabs in order with the GPU's only while
-    there is a GPU, every pane loading, the process list sampled exactly while
-    it shows a reading (every tab but Scheduled), the process table's columns
+    there is a GPU, every pane loading, each process read exactly while a tab
+    that ranks or lists them is shown (every tab but Schedule) and the extras
+    only on their tab (GPU time on GPU, sockets on Network), each entity tab's
+    list ranked by its own reading (Activity), the process table's columns
     and first sort, a row's menu offering only what applies to that process,
     and the ways in — the bind and the launcher's entry.
 */
@@ -36,7 +38,12 @@ Item {
         }
     }
 
-    readonly property var withGpu: ["processes", "performance", "disk", "network", "gpu", "memory", "scheduled"]
+    readonly property var withGpu: ["processes", "cpu", "gpu", "ram", "disks", "network", "schedule"]
+    readonly property var glyphs: ["grid", "cpu", "gpu", "ram", "disk", "network-transfer", "calendar"]
+    /*! What each entity tab ranks processes by, as Activity keys it. */
+    readonly property var ranks: ({ cpu: "cpu", gpu: "gpu", ram: "rss", disks: "io", network: "connections" })
+    /*! What each tab asks for beside the processes. */
+    readonly property var extras: ({ gpu: ["gpu"], network: ["net"] })
 
     function labels(entries: var): var {
         return entries.map(e => e.label);
@@ -84,9 +91,9 @@ Item {
         check.attempt("tabs", () => {
             Usage.hasGpu = true;
             check.equal("tabs with a GPU", root.keys(), root.withGpu.join(" "));
+            check.equal("each tab its glyph", manager.tabs.map(t => t.icon).join(" "), root.glyphs.join(" "));
             Usage.hasGpu = false;
             check.equal("tabs without a GPU", root.keys(), root.withGpu.filter(k => k !== "gpu").join(" "));
-            check.equal("every tab has a glyph", manager.tabs.every(t => t.icon !== ""), true);
         });
 
         check.attempt("open", () => {
@@ -104,11 +111,24 @@ Item {
             for (const key of root.withGpu) {
                 manager.tab = key;
                 check.equal(key + ": its pane loaded", root.loaded(), true);
-                // Only a tab that lists processes reads each one's files; the
+                // Every tab but Schedule ranks or lists processes; the
                 // machine's counters are read always.
-                const listing = ["processes", "disk", "memory"].includes(key);
+                const listing = key !== "schedule";
                 check.equal(key + ": " + (listing ? "watched" : "unwatched"), Processes.watched, listing);
+                check.equal(key + ": its extras", JSON.stringify(Processes.extras),
+                    JSON.stringify(listing ? root.extras[key] ?? [] : []));
+                const pane = manager.pane.item;
+                if (key in root.ranks) {
+                    check.equal(key + ": ranked by " + root.ranks[key], pane.rankKey, root.ranks[key]);
+                    check.equal(key + ": its list is Activity's", JSON.stringify(pane.ranked),
+                        JSON.stringify(Activity.top(root.ranks[key], 5)));
+                    check.equal(key + ": its title in the bar", pane.title, manager.current.title);
+                }
             }
+            manager.tab = "ram";
+            check.equal("RAM: earlyoom's section under it, scrolling", manager.pane.item.scrolls, true);
+            manager.tab = "cpu";
+            check.equal("CPU: nothing under it, no scrolling", manager.pane.item.scrolls, false);
         });
 
         check.attempt("the GPU going", () => {
@@ -116,6 +136,7 @@ Item {
             Usage.hasGpu = false;
             check.equal("its tab falls back to Processes", manager.tab, "processes");
             check.equal("Processes loaded", root.loaded(), true);
+            check.equal("Processes: no extras", JSON.stringify(Processes.extras), "[]");
         });
 
         check.attempt("the process table", () => {
@@ -162,9 +183,9 @@ Item {
     function subjects(): void {
         check.attempt("opened for a tab", () => {
             root.built = 0;
-            Overlay.openWith(Overlay.taskManager, null, 0, { tab: "performance" });
-            check.equal("on the tab asked for", manager.tab, "performance");
-            check.equal("for a tab that lists none: unwatched", Processes.watched, false);
+            Overlay.openWith(Overlay.taskManager, null, 0, { tab: "cpu" });
+            check.equal("on the tab asked for", manager.tab, "cpu");
+            check.equal("for a tab that ranks processes: watched", Processes.watched, true);
         });
         root.whenBuilt(() => {
             check.equal("for a tab: that pane built first, and no other", root.built, 1);
@@ -182,10 +203,21 @@ Item {
                         check.equal("no GPU: on Processes", manager.tab, "processes");
                         Overlay.close();
                     });
-                    root.waysIn();
+                    root.whenGone(root.retired);
                 });
             });
         });
+    }
+
+    /*! A tab there is no more (the date menu's old Performance) opens
+        Processes. */
+    function retired(): void {
+        check.attempt("a tab there is no more", () => {
+            Overlay.openWith(Overlay.taskManager, null, 0, { tab: "performance" });
+            check.equal("Performance: on Processes", manager.tab, "processes");
+            Overlay.close();
+        });
+        root.waysIn();
     }
 
     function waysIn(): void {

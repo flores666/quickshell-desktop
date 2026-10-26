@@ -73,7 +73,7 @@ Item {
         Overlay.open(Overlay.dateMenu, root.screen, root.middle);
         root.pointAt(from, 0, over => {
             check.equal("pointed at: over the shell", over, true);
-            Overlay.openWith(Overlay.taskManager, root.screen, root.middle, { tab: "performance" });
+            Overlay.openWith(Overlay.taskManager, root.screen, root.middle, { tab: "cpu" });
             root.pointAt(to, 2, () => root.flown());
         });
     }
