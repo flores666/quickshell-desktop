@@ -27,6 +27,9 @@ Singleton {
     readonly property bool charging: root.state === UPowerDeviceState.Charging
         || root.state === UPowerDeviceState.PendingCharge
     readonly property bool full: root.state === UPowerDeviceState.FullyCharged
+    /*! On power and not charging: what UPower calls a charge pending, and
+        what the charge limit does once the battery reaches it. */
+    readonly property bool held: root.state === UPowerDeviceState.PendingCharge
     readonly property bool onBattery: UPower.onBattery
     readonly property bool low: root.hasBattery && !root.charging && root.percentage <= 20
     readonly property bool critical: root.hasBattery && !root.charging && root.percentage <= 10
@@ -35,7 +38,10 @@ Singleton {
         if (!root.hasBattery)
             return "ac-adapter";
         const level = Math.max(0, Math.min(100, Math.round(root.percentage / 10) * 10));
-        return "battery-" + level + ((root.charging || root.full) ? "-charging" : "");
+        // Held, it is plugged in with no bolt, as GNOME draws a battery the
+        // charge limit stops.
+        const suffix = root.held ? "-plugged-in" : (root.charging || root.full) ? "-charging" : "";
+        return "battery-" + level + suffix;
     }
 
     readonly property string timeLabel: {
@@ -103,6 +109,12 @@ Singleton {
     /*! Where charging stops; 0 where the firmware picks it. */
     property int chargeLimit: 0
     readonly property bool hasChargeLimit: root.hasBattery && root.limitable.length > 0
+    /*! The limit, said while it has a say: on power, where it stands in for
+        "until full", which a limited battery never is. The firmware's level
+        is not reported, and is 80% on most machines that pick their own. */
+    readonly property string limitLabel: !root.hasChargeLimit || !root.chargeLimited || root.onBattery ? ""
+        : root.chargeLimit > 0 ? qsTr("Limited to %1%").arg(root.chargeLimit)
+        : qsTr("Limited to about 80%")
 
     function setChargeLimited(on: bool): void {
         if (!root.hasChargeLimit || limiter.running)

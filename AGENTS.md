@@ -526,7 +526,7 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `Vpn` | the VPN menu: the NetworkManager connections `Settings.vpnConnections` names (states from `nmcli monitor`, switched with `nmcli`, latency a ping to the tunnel's far end), whether anything in the menu is up, and the one five-minute tick that measures every row | `available`, `anyActive`, `connections`, `states`, `isActive`, `status`, `toggle` |
 | `V2rayn` | v2rayN, from the files it writes: the active server, its latency (a request through v2rayN's proxy), and in TUN mode a switch — the TUN core's Clash API mode, Rule or Direct, so no root is needed and the TUN stays up. Measured again when `ip monitor` sees the TUN come up | `available`, `active`, `status`, `canSwitch`, `direct`, `toggle`, `measure` |
 | `Bt` | BlueZ adapter and devices | `available`, `enabled`, `listed`, `icon`, `label`, `setEnabled`, `toggleConnection` |
-| `Power` | UPower battery and power-profiles-daemon, and the battery's charge limit (UPower's, kept across reboots; watched with `gdbus monitor`, since `busctl monitor` needs root on the system bus) | `hasBattery`, `percentage`, `icon`, `timeLabel`, `hasProfiles`, `profile`, `setProfile`, `hasChargeLimit`, `chargeLimited`, `chargeLimit` (0 where the firmware picks it), `setChargeLimited` |
+| `Power` | UPower battery and power-profiles-daemon, and the battery's charge limit (UPower's, kept across reboots; watched with `gdbus monitor`, since `busctl monitor` needs root on the system bus) | `hasBattery`, `percentage`, `held` (on power and not charging: the limit reached), `icon` (plugged in, no bolt, while held), `timeLabel`, `hasProfiles`, `profile`, `setProfile`, `hasChargeLimit`, `chargeLimited`, `chargeLimit` (0 where the firmware picks it), `limitLabel` (said on power in place of "until full": quick settings' footer), `setChargeLimited` |
 | `Brightness` | the backlight: read and watched in sysfs, written through logind | `available` (once read), `value`, `set`, `step` |
 | `Players` | MPRIS, with one sticky "current" player | `hasPlayer`, `playing`, `title`, `artist`, `playPause`, `seekTo`, `formatTime` |
 | `Notifs` | the notification server, toast queue and history | `history`, `count`, `popups`, `remove`, `clearAll`, `plainBody`, `relativeLabel`, `timeoutFor` |
@@ -1076,12 +1076,19 @@ expensive to find.
 `components/Icons.qml` is **generated** — do not hand-edit. `tools/genicons.py`
 lifts path data out of the Adwaita symbolic theme, and out of `tools/icons/`
 for the glyphs Adwaita lacks (the Wi-Fi restart's magic wand), drawn the same
-way: 16×16, filled paths. Two details matter:
+way: 16×16, filled paths. Three details matter:
 
 - Subpaths sharing an opacity are merged into one path, and **a merged path's
   leading relative `m` must be upper-cased to `M`** or it becomes relative to
   the previous subpath's end point. Symptom: glyph fragments scattered across
   the screen.
+- Newer Adwaita files draw a glyph far off its box and move it back with a
+  `translate` on the path or a group (the battery's `-plugged-in` ones, at
+  −682, −180). The generator applies it to every absolute coordinate and the
+  opening moveto, and stops on any other transform; ignored, the glyph is
+  drawn 680 px away and nothing shows. The rest of `Icons.qml` predates
+  Adwaita's re-encoded paths: a full re-run rewrites every glyph, so look at
+  them on screen before committing one.
 - Icons render as at most two opacity layers; `Icon.qml` has exactly two
   `ShapePath` slots. If a new icon needs more, the generator warns.
 

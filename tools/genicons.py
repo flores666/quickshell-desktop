@@ -134,8 +134,10 @@ ICONS = {
 for lvl in (0, 10, 20, 30, 40, 50, 60, 70, 80, 90):
     ICONS[f"battery-{lvl}"] = f"battery-level-{lvl}"
     ICONS[f"battery-{lvl}-charging"] = f"battery-level-{lvl}-charging"
+    ICONS[f"battery-{lvl}-plugged-in"] = f"battery-level-{lvl}-plugged-in"
 ICONS["battery-100"] = "battery-level-100"
 ICONS["battery-100-charging"] = "battery-level-100-charged"
+ICONS["battery-100-plugged-in"] = "battery-level-100-plugged-in"
 
 
 # Glyphs Adwaita does not draw, kept beside this script in the same form.
@@ -159,7 +161,13 @@ ARGC = {"M": 2, "L": 2, "H": 1, "V": 1, "C": 6, "S": 4, "Q": 4, "T": 2, "A": 7,
         "Z": 0}
 
 
-def normalize(d):
+def shifted(text, by):
+    """A coordinate moved by a translation, written as briefly as it reads."""
+    v = round(float(text) + by, 6)
+    return ("%f" % v).rstrip("0").rstrip(".") if v else "0"
+
+
+def normalize(d, tx=0.0, ty=0.0):
     """Re-emit path data with one space between every command and argument.
 
     Qt's PathSvg misreads SVG's compacted arc syntax.  In `a1 1 0 00-1 1` the
@@ -168,9 +176,11 @@ def normalize(d):
     the arc collapses into a straight line and the glyph comes out with square
     corners.  Adwaita's optimised files write arcs that way, so the arguments
     are pulled apart here instead of being trusted to the parser.  Everything
-    else is copied through verbatim.
+    else is copied through verbatim, but for a translation (tx, ty), which
+    moves every absolute coordinate and the path's opening moveto.
     """
     out, i, n, cmd = [], 0, len(d), None
+    opening = True
     while i < n:
         if d[i] in " ,\t\r\n":
             i += 1
@@ -183,6 +193,10 @@ def normalize(d):
         if cmd is None or ARGC[cmd.upper()] == 0:
             raise ValueError(f"unexpected {d[i]!r} at {i} in {d!r}")
         up = cmd.upper()
+        # Which arguments are an x and which a y: an arc's end point only.
+        absolute = cmd.isupper() or (opening and cmd == "m")
+        opening = False
+        axes = {"H": "x", "V": "y", "A": "-----xy"}.get(up, "xy" * 3)
         for k in range(ARGC[up]):
             while i < n and d[i] in " ,\t\r\n":
                 i += 1
@@ -194,7 +208,8 @@ def normalize(d):
             m = NUM.match(d, i)
             if not m:
                 raise ValueError(f"expected a number at {i} in {d!r}")
-            out.append(m.group())
+            by = (tx if axes[k] == "x" else ty if axes[k] == "y" else 0) if absolute else 0
+            out.append(shifted(m.group(), by) if by else m.group())
             i = m.end()
         # Arguments repeating without a new letter mean the command again, and
         # a moveto repeats as a lineto.
@@ -203,13 +218,36 @@ def normalize(d):
     return " ".join(out)
 
 
+TRANSLATE = re.compile(r"\s*translate\(\s*([^\s,)]+)(?:[\s,]+([^\s,)]+))?\s*\)\s*")
+
+
+def placed(el, tx=0.0, ty=0.0):
+    """Every path under `el`, with the translation it is drawn at.
+
+    Newer Adwaita files draw a glyph far off its box and move it back with a
+    translate, on the path or a group around it; left out, the glyph lands
+    hundreds of pixels away and nothing shows. A transform of any other kind
+    stops the run rather than draw a glyph wrong.
+    """
+    t = el.get("transform")
+    if t:
+        m = TRANSLATE.fullmatch(t)
+        if not m:
+            raise ValueError(f"unsupported transform {t!r}")
+        tx, ty = tx + float(m.group(1)), ty + float(m.group(2) or 0)
+    if el.tag == f"{SVG}path":
+        yield el, tx, ty
+    for child in el:
+        yield from placed(child, tx, ty)
+
+
 def extract(path):
     """-> (viewBox size, [(d, opacity)])"""
     root = ET.parse(path).getroot()
     vb = root.get("viewBox", "0 0 16 16").split()
     size = float(vb[2]) if len(vb) == 4 else 16.0
     out = []
-    for el in root.iter(f"{SVG}path"):
+    for el, tx, ty in placed(root):
         d = el.get("d")
         if not d:
             continue
@@ -218,7 +256,7 @@ def extract(path):
         m = re.search(r"fill-opacity:\s*([0-9.]+)", style)
         if m:
             op = m.group(1)
-        out.append((normalize(d), float(op) if op else 1.0))
+        out.append((normalize(d, tx, ty), float(op) if op else 1.0))
     return size, out
 
 

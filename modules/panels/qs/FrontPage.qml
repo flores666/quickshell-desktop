@@ -156,8 +156,10 @@ Column {
 
             Label {
                 anchors.verticalCenter: parent.verticalCenter
-                text: Power.timeLabel !== ""
-                    ? qsTr("%1% · %2").arg(Math.round(Power.percentage)).arg(Power.timeLabel)
+                readonly property string detail: Power.limitLabel || Power.timeLabel
+
+                text: this.detail !== ""
+                    ? qsTr("%1% · %2").arg(Math.round(Power.percentage)).arg(this.detail)
                     : qsTr("%1%").arg(Math.round(Power.percentage))
                 role: Label.Role.Small
                 muted: true
