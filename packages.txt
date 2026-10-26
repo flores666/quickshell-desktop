@@ -34,6 +34,8 @@ bluez
 # (services/Processes)
 earlyoom
 gawk
+# lspci: the GPU's name, shown by the task manager (services/Usage)
+pciutils
 
 # what the shell runs: screenshots (hyprpicker freezes the screen under a
 # region shot), the clipboard, notifications, settings

@@ -1,0 +1,124 @@
+import QtQuick
+import "root:/services"
+
+/*!
+    The machine's usage (Usage): rates worked out between two samples, the
+    readings of the last minute kept for the charts, nothing kept or shown
+    once nothing watches, and the sizes and rates written as the task
+    manager writes them.
+*/
+Item {
+    id: root
+
+    Check {
+        id: check
+    }
+
+    Until {
+        id: until
+    }
+
+    function same(name: string, actual: var, expected: var): void {
+        check.equal(name, JSON.stringify(actual), JSON.stringify(expected));
+    }
+
+    function disk(name: string, read: real, written: real, ioTicks: real): var {
+        return { name, model: "", size: 1e12, read, written, ioTicks };
+    }
+
+    readonly property var memory: ({ total: 16000000, available: 4000000, anon: 0, swapTotal: 0, swapFree: 0 })
+
+    readonly property var previous: ({
+        uptime: 100, cpuTicks: { busy: 1000, total: 10000 }, memory: root.memory,
+        disks: [root.disk("nvme0n1", 0, 0, 1000), root.disk("sda", 0, 0, 500)],
+        nets: [{ name: "wlan0", rx: 1000, tx: 500 }, { name: "eth0", rx: 0, tx: 0 }],
+        gpu: { slot: "0000:04:00.0", busy: 30, vramUsed: 0, vramTotal: 0, temp: -1 }
+    })
+
+    readonly property var current: ({
+        uptime: 102, cpuTicks: { busy: 1060, total: 10240 }, memory: root.memory,
+        disks: [root.disk("nvme0n1", 2097152, 409600, 1500), root.disk("sda", 0, 8192, 1300),
+                root.disk("sdb", 4096, 4096, 2000)],
+        nets: [{ name: "wlan0", rx: 21000, tx: 2500 }, { name: "eth0", rx: 4000, tx: 0 }],
+        gpu: { slot: "0000:04:00.0", busy: 42, vramUsed: 0, vramTotal: 0, temp: -1 }
+    })
+
+    Component.onCompleted: {
+        check.attempt("rates", () => {
+            root.same("rates: between two samples", Usage.rates(root.previous, root.current), {
+                cpu: 25, gpu: 42, disk: 40, diskRead: 1048576, diskWrite: 208896, netDown: 12000, netUp: 1000, memory: 75
+            });
+            root.same("rates: none from one sample but memory", Usage.rates(null, root.current), {
+                cpu: -1, gpu: -1, disk: -1, diskRead: -1, diskWrite: -1, netDown: -1, netUp: -1, memory: 75
+            });
+            const third = Object.assign({}, root.current, { uptime: 105, cpuTicks: { busy: 1061, total: 10243 } });
+            check.equal("rates: CPU to a tenth", Usage.rates(root.current, third).cpu, 33.3);
+            const bare = { uptime: 105, cpuTicks: root.current.cpuTicks, memory: null, disks: [], nets: [], gpu: null };
+            root.same("rates: what a machine lacks is -1", Usage.rates(root.current, bare), {
+                cpu: -1, gpu: -1, disk: -1, diskRead: -1, diskWrite: -1, netDown: -1, netUp: -1, memory: -1
+            });
+            const reset = Object.assign({}, root.current, { uptime: 104, nets: [{ name: "wlan0", rx: 0, tx: 0 }] });
+            check.equal("rates: a counter that went back counts nothing", Usage.rates(root.current, reset).netDown, 0);
+        });
+
+        check.attempt("trim", () => {
+            const points = [{ t: 10, v: 1 }, { t: 39, v: 2 }, { t: 40, v: 3 }, { t: 100, v: 4 }];
+            root.same("trim: only the span before the newest", Usage.trim(points, 100, 60),
+                [{ t: 40, v: 3 }, { t: 100, v: 4 }]);
+        });
+
+        check.attempt("format", () => {
+            root.same("formatBytes", [0, 512, 2048, 5 * 1048576, 1.5 * 1073741824, 2 * 1099511627776].map(Usage.formatBytes),
+                ["0 B", "512 B", "2 KiB", "5 MiB", "1.5 GiB", "2.0 TiB"]);
+            root.same("formatRate", [0, 512, 512 * 1024, 12.3 * 1048576, -1].map(Usage.formatRate),
+                ["0 B/s", "512 B/s", "512 KiB/s", "12.3 MiB/s", "–"]);
+            check.equal("the GPU's name: lspci's device field", Usage.deviceName(
+                '04:00.0 "VGA compatible controller" "Advanced Micro Devices, Inc. [AMD/ATI]" "Barcelo" -rc2 -p00 "Lenovo" "Device 3802"\n'),
+                "Barcelo");
+        });
+
+        let live = false;
+        check.attempt("live", () => {
+            check.equal("before a watch: no reading", Usage.cpu, -1);
+            check.equal("before a watch: no history", Usage.history.cpu.length, 0);
+            Processes.watch("usage", true);
+            until.bound = 3000;
+            until.until(Usage.cpuChanged, () => Usage.cpu >= 0, read => root.read(read));
+            live = true;
+        });
+        if (!live)
+            check.done();
+    }
+
+    function read(read: bool): void {
+        check.report("live: CPU after two samples", read && Usage.cpu <= 100, String(Usage.cpu));
+        check.report("live: memory", Usage.memory > 0 && Usage.memory < 100, String(Usage.memory));
+        check.report("live: memory's facts", Usage.memoryUsed > 0 && Usage.memoryUsed < Usage.memoryTotal,
+            Usage.memoryUsed + " of " + Usage.memoryTotal);
+        check.report("live: the root filesystem", Usage.fsUsed > 0 && Usage.fsUsed < Usage.fsTotal,
+            Usage.fsUsed + " of " + Usage.fsTotal);
+        const cpu = Usage.history.cpu;
+        check.equal("live: a CPU point, at the newest sample", cpu[cpu.length - 1]?.t, Usage.now);
+        check.equal("live: memory from the first sample on", Usage.history.memory.length, 2);
+        check.equal("live: a GPU exactly when one reports busy", Usage.hasGpu, (Processes.last?.gpu ?? null) !== null);
+        if (!Usage.hasGpu) {
+            check.report("live: no GPU here, so no name asked", Usage.gpuName === "", Usage.gpuName);
+            root.unwatch();
+            return;
+        }
+        until.until(Usage.gpuNameChanged, () => Usage.gpuName !== "", named => {
+            check.report("live: the GPU's name", named, "lspci said nothing");
+            root.unwatch();
+        });
+    }
+
+    function unwatch(): void {
+        Processes.watch("usage", false);
+        root.same("unwatched: no reading",
+            [Usage.cpu, Usage.memory, Usage.gpu, Usage.disk, Usage.diskRead, Usage.diskWrite, Usage.netDown, Usage.netUp],
+            [-1, -1, -1, -1, -1, -1, -1, -1]);
+        check.equal("unwatched: no history", Object.values(Usage.history).every(points => points.length === 0), true);
+        check.equal("unwatched: the facts stay", Usage.memoryTotal > 0, true);
+        check.done();
+    }
+}

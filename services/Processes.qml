@@ -3,22 +3,26 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
 
 /*!
-    Every process on the machine, as the task manager lists it, and memory as
-    earlyoom reckons it.
+    Every process on the machine, as the task manager lists it, memory as
+    earlyoom reckons it, and the machine's own counters, which Usage turns
+    into rates.
 
     /proc says nothing when a process starts, ends or works, so this is read
     on a clock, the one reading besides a clock's own that is (hard rule 3):
-    only while `watched` — the task manager open on Processes or Memory — and
-    each sample `sampleInterval` after the last one ended, so two never
-    overlap. One gawk run reads every process's stat, status and OOM score
-    with uptime and meminfo, about 26 ms for 340 processes.
+    only while something on screen shows a reading — the task manager, the
+    date menu's cards — each by its own key (`watch`), and each sample
+    `sampleInterval` after the last one ended, so two never overlap. One gawk
+    run reads every process's stat, status, OOM score and I/O, and the
+    machine's CPU, memory, disks, network and GPU (ProcessSampler): about
+    43 ms for 340 processes, where the processes alone, read as they were
+    before, took 49 measured beside it.
 
-    CPU is the ticks a process used between two samples over the time between
-    them, as a share of the whole machine, so a process seen once has none
-    yet; the second sample of a watch comes sooner, to have it.
+    CPU and I/O are what a process used between two samples over the time
+    between them, so a process seen once has none yet; the second sample of a
+    watch comes sooner, to have them. A process's I/O is readable for the
+    user's own processes alone; another's is -1.
 
     Kernel threads (kthreadd's children) are left out: they hold no memory of
     their own, and nothing in the list is for them.
@@ -26,10 +30,12 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    /*! Whether to sample: bound by the task manager while it shows a reading. */
-    property bool watched: false
+    /*! Whether to sample: while any watcher's key is on. */
+    readonly property bool watched: Object.keys(root.watchers).length > 0
+    /*! The keys watching, replaced on every change so `watched` hears it. */
+    property var watchers: ({})
     readonly property int sampleInterval: 2000
-    /*! The second sample of a watch, the first with CPU. */
+    /*! The second sample of a watch, the first with CPU and I/O. */
     readonly property int firstInterval: 500
     /*! USER_HZ, what /proc counts CPU time in: 100 on every architecture the
         desktop runs on. */
@@ -38,7 +44,8 @@ Singleton {
     /*! Samples taken since the shell started. */
     property int samples: 0
     /*! The processes, each `{ pid, uid, ppid, ticks, rss, oomScore, oomAdj,
-        name, cpu, own, user }`: memory in KiB, cpu in percent, -1 unknown. */
+        readBytes, writeBytes, name, cpu, io, own, user }`: memory in KiB, cpu
+        in percent, io in bytes a second, -1 unknown. */
     property var list: []
     property var byPid: ({})
     /*! In KiB: `{ total, available, anon, swapTotal, swapFree }`. */
@@ -46,8 +53,26 @@ Singleton {
     /*! The shell's own uid: whose processes it may end. */
     property int uid: -1
 
+    /*! The latest sample as `parse` gives it. */
     property var last: null
     property int watchSamples: 0
+
+    /*! After every sample, with it and the one before it in this watch (null
+        for a watch's first), both as `parse` gives them. */
+    signal sampled(var previous, var current)
+
+    /*! Starts (`on`) or ends one watcher's watch: the task manager's, the date
+        menu's. A key is on or off, not counted. */
+    function watch(key: string, on: bool): void {
+        if ((key in root.watchers) === on)
+            return;
+        const watchers = Object.assign({}, root.watchers);
+        if (on)
+            watchers[key] = true;
+        else
+            delete watchers[key];
+        root.watchers = watchers;
+    }
 
     onWatchedChanged: {
         if (root.watched) {
@@ -59,27 +84,49 @@ Singleton {
         }
     }
 
-    /*! A sample as the sampler prints it, a field a tab:
-        `{ uptime, cpus, uid, memory, users, list }`. */
+    /*! A sample as the sampler prints it, a field a tab: `{ uptime, cpus,
+        uid, memory, users, list, cpuTicks: { busy, total }, cpuFreq, disks:
+        [{ name, model, size, read, written, ioTicks }], fs: { total, used },
+        nets: [{ name, rx, tx }], gpu: { slot, busy, vramUsed, vramTotal, temp }
+        }` — sizes in bytes, the frequency in MHz, io ticks in ms, the
+        temperature in °C or -1. What the machine lacks is absent: no disks,
+        `fs` or `gpu` null, `cpuFreq` 0. */
     function parse(text: string): var {
-        const sample = { uptime: 0, cpus: 1, uid: -1, memory: null, users: {}, list: [] };
+        const sample = { uptime: 0, cpus: 1, uid: -1, memory: null, users: {}, list: [],
+                         cpuTicks: null, cpuFreq: 0, disks: [], fs: null, nets: [], gpu: null };
         for (const line of text.split("\n")) {
             const f = line.split("\t");
+            const n = f.map(Number);
             switch (f[0]) {
-            case "uptime": sample.uptime = Number(f[1]); break;
-            case "cpus": sample.cpus = Math.max(1, Number(f[1])); break;
-            case "uid": sample.uid = Number(f[1]); break;
-            case "user": sample.users[Number(f[1])] = f[2]; break;
+            case "uptime": sample.uptime = n[1]; break;
+            case "cpus": sample.cpus = Math.max(1, n[1]); break;
+            case "uid": sample.uid = n[1]; break;
+            case "user": sample.users[n[1]] = f[2]; break;
             case "mem":
-                sample.memory = { total: Number(f[1]), available: Number(f[2]), anon: Number(f[3]),
-                                  swapTotal: Number(f[4]), swapFree: Number(f[5]) };
+                sample.memory = { total: n[1], available: n[2], anon: n[3], swapTotal: n[4], swapFree: n[5] };
+                break;
+            case "cpu": {
+                // user nice system idle iowait irq softirq steal
+                const total = n.slice(1, 9).reduce((sum, ticks) => sum + ticks, 0);
+                sample.cpuTicks = { busy: total - n[4] - n[5], total };
+                break;
+            }
+            case "freq": sample.cpuFreq = n[1]; break;
+            case "fs": sample.fs = { total: n[1] * 1024, used: n[2] * 1024 }; break;
+            case "disk":
+                sample.disks.push({ name: f[1], model: f.slice(6).join("\t"), size: n[2] * 512,
+                                    read: n[3] * 512, written: n[4] * 512, ioTicks: n[5] });
+                break;
+            case "net": sample.nets.push({ name: f[1], rx: n[2], tx: n[3] }); break;
+            case "gpu":
+                sample.gpu = { slot: f[1], busy: n[2], vramUsed: n[3], vramTotal: n[4],
+                               temp: n[5] < 0 ? -1 : Math.round(n[5] / 100) / 10 };
                 break;
             case "p": {
-                const name = f.slice(8).join("\t");
+                const name = f.slice(10).join("\t");
                 if (name !== "")
-                    sample.list.push({ pid: Number(f[1]), uid: Number(f[2]), ppid: Number(f[3]),
-                                       ticks: Number(f[4]), rss: Number(f[5]), oomScore: Number(f[6]),
-                                       oomAdj: Number(f[7]), name });
+                    sample.list.push({ pid: n[1], uid: n[2], ppid: n[3], ticks: n[4], rss: n[5], oomScore: n[6],
+                                       oomAdj: n[7], readBytes: n[8], writeBytes: n[9], name });
                 break;
             }
             }
@@ -101,16 +148,34 @@ Singleton {
         return out;
     }
 
+    /*! Each pid's disk I/O between two samples, read and written, in bytes a
+        second; -1 for one unreadable in either, or new. */
+    function io(previous: var, current: var): var {
+        const before = {};
+        for (const p of previous.list)
+            if (p.readBytes >= 0 && p.writeBytes >= 0)
+                before[p.pid] = p.readBytes + p.writeBytes;
+        const span = current.uptime - previous.uptime;
+        const out = {};
+        for (const p of current.list)
+            out[p.pid] = p.pid in before && p.readBytes >= 0 && p.writeBytes >= 0 && span > 0
+                ? Math.max(0, p.readBytes + p.writeBytes - before[p.pid]) / span : -1;
+        return out;
+    }
+
     function take(text: string): void {
+        const previous = root.last;
         const sample = root.parse(text);
-        const cpu = root.last ? root.cpu(root.last, sample, sample.cpus) : {};
+        const cpu = previous ? root.cpu(previous, sample, sample.cpus) : {};
+        const io = previous ? root.io(previous, sample) : {};
         const byPid = {};
         const list = [];
         for (const p of sample.list) {
             if (p.pid === 2 || p.ppid === 2)
                 continue;
             const entry = Object.assign({}, p, {
-                cpu: cpu[p.pid] ?? -1, own: p.uid === sample.uid, user: sample.users[p.uid] ?? String(p.uid)
+                cpu: cpu[p.pid] ?? -1, io: io[p.pid] ?? -1, own: p.uid === sample.uid,
+                user: sample.users[p.uid] ?? String(p.uid)
             });
             byPid[p.pid] = entry;
             list.push(entry);
@@ -123,6 +188,7 @@ Singleton {
         root.list = list;
         root.watchSamples++;
         root.samples++;
+        root.sampled(previous, sample);
     }
 
     /*! A size in KiB, as the task manager shows one. */
@@ -157,47 +223,9 @@ Singleton {
         return true;
     }
 
-    readonly property string program: `
-        BEGINFILE { if (ERRNO != "") nextfile }
-        FILENAME == "uptime" { print "uptime\\t" $1; next }
-        FILENAME == "stat" { if ($1 ~ /^cpu[0-9]/) cpus++; next }
-        FILENAME == "meminfo" { mem[$1] = $2; next }
-        FILENAME == "/etc/passwd" { split($0, f, ":"); print "user\\t" f[3] "\\t" f[1]; next }
-        {
-            split(FILENAME, path, "/")
-            pid = path[1]
-            if (path[2] == "stat") {
-                from = index($0, "(")
-                to = match($0, /\\)[^)]*$/)
-                name[pid] = substr($0, from + 1, to - from - 1)
-                split(substr($0, to + 2), f, " ")
-                ppid[pid] = f[2]
-                ticks[pid] = f[12] + f[13]
-            } else if (path[2] == "status") {
-                if ($1 == "Uid:") uid[pid] = $2
-                else if ($1 == "VmRSS:") rss[pid] = $2
-            } else if (path[2] == "oom_score") {
-                score[pid] = $1
-            } else {
-                adj[pid] = $1
-            }
-        }
-        END {
-            print "cpus\\t" cpus
-            print "uid\\t" PROCINFO["uid"]
-            print "mem\\t" mem["MemTotal:"] "\\t" mem["MemAvailable:"] "\\t" mem["AnonPages:"] \\
-                "\\t" mem["SwapTotal:"] "\\t" mem["SwapFree:"]
-            for (pid in name)
-                if (pid in uid)
-                    print "p\\t" pid "\\t" uid[pid] "\\t" ppid[pid] "\\t" ticks[pid] "\\t" rss[pid] + 0 \\
-                        "\\t" score[pid] + 0 "\\t" adj[pid] + 0 "\\t" name[pid]
-        }`
-
-    Probe {
+    ProcessSampler {
         id: sampler
-        command: ["sh", "-c", "cd /proc && exec gawk \"$0\" uptime stat meminfo /etc/passwd "
-            + "[0-9]*/stat [0-9]*/status [0-9]*/oom_score [0-9]*/oom_score_adj", root.program]
-        stdout: StdioCollector { onStreamFinished: root.take(this.text) }
+        onRead: text => root.take(text)
         onRunningChanged: if (!sampler.running && root.watched) next.restart()
     }
 

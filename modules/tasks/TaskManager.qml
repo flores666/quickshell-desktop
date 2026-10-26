@@ -37,11 +37,11 @@ ShellOverlay {
     /*! Where the rule under the panes' bars runs. */
     readonly property int barHeight: Appearance.m.fieldHeight + Appearance.s.lg * 2
 
-    Binding {
-        target: Processes
-        property: "watched"
-        value: root.shown && root.tab !== "scheduled"
-    }
+    /*! Whether a reading is on screen: every tab but Scheduled. */
+    readonly property bool reading: root.shown && root.tab !== "scheduled"
+
+    onReadingChanged: Processes.watch("taskManager", root.reading)
+    Component.onDestruction: Processes.watch("taskManager", false)
 
     onRenderedChanged: if (!root.rendered)
         root.tab = "processes"
