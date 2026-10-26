@@ -76,60 +76,100 @@ namespace {
     }
 }
 
+namespace {
+    using Shown = std::vector<std::optional<std::array<double, 3>>>;
+
+    /*!
+        One surface's opaque pixels along the row, laid over what is there:
+        `shown` holds a sample a logical pixel from `x0`, at height `y`, both
+        in the window's main surface's coordinates; `offset` is where this
+        surface is within it.
+    */
+    void lay(const SP<CWLSurfaceResource>& surface, const Vector2D& offset, double x0, double y, Shown& shown) {
+        const auto& STATE = surface->m_current;
+        const auto  TEX   = STATE.texture;
+        // An external (YUV) image cannot be attached to read from, and a
+        // turned buffer is rare enough to leave out.
+        if (!surface->m_mapped || !TEX || !TEX->ok() || TEX->m_texID == 0 || TEX->m_type == Render::TEXTURE_EXTERNAL || STATE.transform != WL_OUTPUT_TRANSFORM_NORMAL ||
+            STATE.size.x <= 0 || STATE.size.y <= 0)
+            return;
+        const double LY = y - offset.y;
+        if (LY < 0 || LY >= STATE.size.y)
+            return;
+
+        // The samples that fall on it, each at its pixel's centre.
+        const double SHIFT = x0 + 0.5 - offset.x;
+        const int    FIRST = std::max(0, sc<int>(std::ceil(-SHIFT)));
+        const int    LAST  = std::min(sc<int>(shown.size()), sc<int>(std::ceil(STATE.size.x - SHIFT)));
+        if (LAST <= FIRST)
+            return;
+
+        // Surface-local to buffer pixels, through the viewport's crop if any.
+        const double SCALE  = std::max(1, STATE.scale);
+        const CBox   SOURCE = STATE.viewport.hasSource ? STATE.viewport.source : CBox{{}, STATE.bufferSize / SCALE};
+        const auto   PIXEL  = [&](double lx) { return (SOURCE.pos() + Vector2D{lx, LY} * (SOURCE.size() / STATE.size)) * SCALE; };
+
+        const int    BY  = std::floor(PIXEL(0).y);
+        const int    BX0 = std::max(0, sc<int>(std::floor(PIXEL(FIRST + SHIFT).x)));
+        const int    BX1 = std::min(sc<int>(TEX->m_size.x), sc<int>(std::floor(PIXEL(LAST - 1 + SHIFT).x)) + 1);
+        if (BY < 0 || BY >= TEX->m_size.y || BX1 <= BX0)
+            return;
+        const auto ROW = readRow(TEX, BX0, BY, BX1 - BX0);
+        if (!ROW)
+            return;
+
+        const auto FORMAT  = TEX->isDMA() ? nullptr : Hyprgraphics::Egl::getPixelFormatFromDRM(TEX->m_drmFormat);
+        const auto SWIZZLE = FORMAT ? FORMAT->swizzle : std::nullopt;
+        const bool OPAQUE  = TEX->m_type == Render::TEXTURE_RGBX || TEX->m_opaque;
+        for (int i = FIRST; i < LAST; ++i) {
+            const int BX = sc<int>(std::floor(PIXEL(i + SHIFT).x)) - BX0;
+            if (BX < 0 || BX >= BX1 - BX0)
+                continue;
+            // Anything translucent leaves what is under it.
+            const auto C = swizzled(&(*ROW)[sc<size_t>(BX) * 4], SWIZZLE, OPAQUE);
+            if (C[3] >= 0.98)
+                shown[i] = std::array<double, 3>{C[0], C[1], C[2]};
+        }
+    }
+}
+
 std::optional<CHyprColor> AppColor::top(PHLWINDOW window) {
-    const auto SURFACE = window->resource();
-    if (!SURFACE)
-        return std::nullopt;
-    const auto& STATE = SURFACE->m_current;
-    const auto  TEX   = STATE.texture;
-    // An external (YUV) image cannot be attached to read from, and a turned
-    // buffer is rare enough to leave to the system's colour.
-    if (!TEX || !TEX->ok() || TEX->m_texID == 0 || TEX->m_type == Render::TEXTURE_EXTERNAL || STATE.transform != WL_OUTPUT_TRANSFORM_NORMAL || STATE.size.x <= 0 ||
-        STATE.size.y <= 0)
+    const auto ROOT = window->resource();
+    if (!ROOT || ROOT->m_current.size.x <= 0 || ROOT->m_current.size.y <= 0)
         return std::nullopt;
 
     // The window's own box within its surface: a frame the client draws
     // itself has its shadow outside it.
-    CBox box = {{}, STATE.size};
+    CBox box = {{}, ROOT->m_current.size};
     if (window->m_xdgSurface && !window->m_xdgSurface->m_current.geometry.empty())
         box = window->m_xdgSurface->m_current.geometry;
 
-    // Surface-local to buffer pixels, through the viewport's crop if any.
-    const double SCALE  = std::max(1, STATE.scale);
-    const CBox   SOURCE = STATE.viewport.hasSource ? STATE.viewport.source : CBox{{}, STATE.bufferSize / SCALE};
-    const auto   PIXEL  = [&](const Vector2D& local) { return (SOURCE.pos() + local * (SOURCE.size() / STATE.size)) * SCALE; };
-
-    const auto   FROM = PIXEL({box.x + box.w * 0.1, box.y + ROW});
-    const auto   TO   = PIXEL({box.x + box.w * 0.9, box.y + ROW});
-    const int    Y = std::floor(FROM.y), X = std::max(0.0, std::floor(FROM.x));
-    const int    WIDTH = std::min(std::floor(TO.x), TEX->m_size.x) - X;
-    if (Y < 0 || Y >= TEX->m_size.y || WIDTH < 8)
+    // What the window shows along the row: each of its surfaces in the order
+    // Hyprland draws them, the main one and its subsurfaces, the opaque
+    // pixels of each over those below. A browser draws the whole window in a
+    // subsurface, over a main surface that holds nothing.
+    Shown shown(sc<size_t>(std::max(0.0, std::floor(box.w * 0.8))));
+    if (shown.size() < 8)
         return std::nullopt;
-
-    const auto ROWDATA = readRow(TEX, X, Y, WIDTH);
-    if (!ROWDATA)
-        return std::nullopt;
-
-    const auto FORMAT  = TEX->isDMA() ? nullptr : Hyprgraphics::Egl::getPixelFormatFromDRM(TEX->m_drmFormat);
-    const auto SWIZZLE = FORMAT ? FORMAT->swizzle : std::nullopt;
-    const bool OPAQUE  = TEX->m_type == Render::TEXTURE_RGBX || TEX->m_opaque;
+    const double X0 = box.x + box.w * 0.1, Y = box.y + ROW;
+    ROOT->breadthfirst([&](SP<CWLSurfaceResource> surface, const Vector2D& offset, void*) { lay(surface, offset, X0, Y, shown); }, nullptr);
 
     // Near colours counted together, a few levels apart per channel, and the
-    // winning group's average taken; anything translucent counts for none.
+    // winning group's average taken; a sample nothing opaque covers counts
+    // for none.
     std::unordered_map<uint32_t, std::pair<int, std::array<double, 3>>> groups;
-    for (int i = 0; i < WIDTH; ++i) {
-        const auto C = swizzled(&(*ROWDATA)[i * 4], SWIZZLE, OPAQUE);
-        if (C[3] < 0.98)
+    for (const auto& C : shown) {
+        if (!C)
             continue;
-        const auto KEY = (sc<uint32_t>(C[0] * 255) >> 3) << 10 | (sc<uint32_t>(C[1] * 255) >> 3) << 5 | (sc<uint32_t>(C[2] * 255) >> 3);
+        const auto KEY = (sc<uint32_t>((*C)[0] * 255) >> 3) << 10 | (sc<uint32_t>((*C)[1] * 255) >> 3) << 5 | (sc<uint32_t>((*C)[2] * 255) >> 3);
         auto& [count, sum] = groups[KEY];
         ++count;
         for (int c = 0; c < 3; ++c)
-            sum[c] += C[c];
+            sum[c] += (*C)[c];
     }
 
     const auto BEST = std::ranges::max_element(groups, {}, [](const auto& g) { return g.second.first; });
-    if (BEST == groups.end() || BEST->second.first < WIDTH * AGREEMENT)
+    if (BEST == groups.end() || BEST->second.first < shown.size() * AGREEMENT)
         return std::nullopt;
     const auto& [COUNT, SUM] = BEST->second;
     return CHyprColor{sc<float>(SUM[0] / COUNT), sc<float>(SUM[1] / COUNT), sc<float>(SUM[2] / COUNT), 1.F};

@@ -10,10 +10,11 @@
     title bar takes so the two read as one: a terminal's background, a
     toolbar, a header bar.
 
-    Read from the window's own buffer, a row just inside its top edge, across
-    the middle four fifths of its width. Only a colour most of that row agrees
-    on counts: one drawn over by a picture, a gradient or anything translucent
-    cannot be told, and the bar keeps the system's colour.
+    Read from what the window shows, a row just inside its top edge, across
+    the middle four fifths of its width: every surface of it, subsurfaces
+    included, each over those below. Only a colour most of that row agrees on
+    counts; a picture, a gradient, anything translucent or a dialog near the
+    top cannot be told, and the answer is none (the bar keeps what it had).
 
     It reads the GPU, so it is called while a frame is drawn, when the context
     is current and the buffer the frame will show is ready, and no more often

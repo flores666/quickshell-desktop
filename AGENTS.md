@@ -896,8 +896,10 @@ expensive to find.
   the decorations' boxes, so any room a decoration holds that it does not
   fill shows the shadow's solid core: a title bar that held its 28 px while
   fading in showed a grey band.
-- **Firefox (Zen) draws its page in a subsurface that lags a resize by
-  60–100 ms.** GTK acknowledges the new size on the toplevel within a frame
+- **Firefox (Zen) draws its whole window in a subsurface**, over a main
+  surface whose buffer holds nothing opaque, so whatever reads a window's
+  pixels reads its surfaces, not the main one alone (`AppColor`). **That
+  subsurface lags a resize by 60–100 ms.** GTK acknowledges the new size on the toplevel within a frame
   or two, and the subsurface's first buffer at the new size is the old
   picture, the rest of it transparent; the page follows. Hyprland, while the
   window's box animates, scales and crops subsurfaces by the acknowledged
@@ -1352,16 +1354,23 @@ minimized window back to the focused workspace before focusing it; focusing it
 where it is would show the whole special workspace.
 
 **Colours.** A bar takes its application's colour (`AppColor`): a row 2 px
-inside the window's top edge, across the middle four fifths, read from the
-buffer while a frame is drawn (the context is current and the buffer the
-frame shows is ready) — a texture attached to a framebuffer and
-`glReadPixels`, with the swizzle Hyprland gives a shared-memory format applied
-by hand, since a read skips it. Only a colour three quarters of the row agree
-on counts; a picture, a gradient, something translucent or a buffer that
-cannot be read (external, turned) leaves the system's, `bar_color`
-(`c.surface`). Each read waits on the GPU, so a window is read again only
-after it commits, and at most every 250 ms, the last commit of a burst
-included — except while it opens (`m_animatingIn`, until its opening
+inside the window's top edge, across the middle four fifths, as the window
+shows it — every surface of it in the order Hyprland draws them
+(`breadthfirst`), the opaque pixels of each over those below, since a
+browser draws the whole window in a subsurface over a main surface that holds
+nothing (Zen's bar was the system's) — read from the buffers while a frame is
+drawn (the context is current and the buffer the frame shows is ready): a
+texture attached to a framebuffer and `glReadPixels`, with the swizzle
+Hyprland gives a shared-memory format applied by hand, since a read skips it.
+Only a colour three quarters of the row agree on counts; a picture, a
+gradient, something translucent, a dialog near the top or a buffer that
+cannot be read (external, turned) tells nothing, and the bar keeps the colour
+it last could tell — the system's, `bar_color` (`c.surface`), until it has
+told one. It used to fall back to the system's on every such reading, and a
+Wine dialog moved near the top turned a blue bar dark until it went. Each
+read waits on the GPU, so a window is read again only after one of its
+surfaces commits (all of them listened to, gathered again at each read), and
+at most every 250 ms, the last commit of a burst included — except while it opens (`m_animatingIn`, until its opening
 animation ends): then every commit is read and the colour taken at once, so a
 new window's bar comes in with it in its own colour, never the system's first. What is drawn on a bar is the scheme of its lightness — on a light
 bar `light_*`, the day theme's, on a dark one `dark_*`, the night's: the

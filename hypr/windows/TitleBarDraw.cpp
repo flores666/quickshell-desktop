@@ -6,6 +6,7 @@
 #include <hyprland/src/desktop/Workspace.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/output/Monitor.hpp>
+#include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/render/pass/RectPassElement.hpp>
 #include <hyprland/src/render/pass/TexPassElement.hpp>
@@ -62,7 +63,25 @@ void CTitleBar::sample(bool opening) {
     }
     m_sampleDue = false;
     m_sampled   = NOW;
-    m_appColor  = AppColor::top(m_window.lock());
+    // A reading the row does not agree on (a dialog at the top, a picture
+    // scrolled under it) changes nothing: the bar keeps the colour it could
+    // last tell, rather than the system's for as long as it lasts.
+    if (const auto READ = AppColor::top(m_window.lock()))
+        m_appColor = READ;
+    listen();
+}
+
+// Every surface of the window, a subsurface the application draws in included
+// (a browser draws the whole window in one): any of them committing may have
+// changed the colour. Gathered again at each reading; a subsurface added
+// since comes with a commit of its parent, which brings one about.
+void CTitleBar::listen() {
+    m_commits.clear();
+    const auto W = m_window.lock();
+    if (!W || !W->resource())
+        return;
+    W->resource()->breadthfirst([this](SP<CWLSurfaceResource> surface, const Vector2D&, void*) { m_commits.emplace_back(surface->m_events.commit.listen([this] { resample(); })); },
+                                nullptr);
 }
 
 // Hyprland draws no decoration on a fullscreen window, the overlay layer

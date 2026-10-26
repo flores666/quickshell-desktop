@@ -111,11 +111,11 @@ class CTitleBar : public IHyprWindowDecoration {
     PHLANIMVAR<float>      m_roll, m_reveal, m_hover, m_focus;
     PHLANIMVAR<CHyprColor> m_color;
 
-    // The application's colour, read from its buffer (AppColor).
+    // The application's colour, read from what it shows (AppColor).
     std::optional<CHyprColor>             m_appColor;
     bool                                  m_sampleDue = true;
     std::chrono::steady_clock::time_point m_sampled;
-    CHyprSignalListener                   m_commit;
+    std::vector<CHyprSignalListener>      m_commits;
 
     SP<Render::ITexture> m_title;
     std::string          m_titleKey;
@@ -129,6 +129,7 @@ class CTitleBar : public IHyprWindowDecoration {
     CBox                 buttonBox(int button) const;
     void                 act(int button);
     void                 sample(bool opening);
+    void                 listen();
     void                 drawGlyph(int button, const CBox& box, const CBox& clip, const CHyprColor& color, float alpha);
 };
 

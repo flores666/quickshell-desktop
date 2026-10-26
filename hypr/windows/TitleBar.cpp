@@ -35,8 +35,7 @@ CTitleBar::CTitleBar(PHLWINDOW window) : IHyprWindowDecoration(window), m_window
     m_focus->setUpdateCallback(DAMAGE);
     m_color->setUpdateCallback(DAMAGE);
 
-    if (const auto SURFACE = window->resource())
-        m_commit = SURFACE->m_events.commit.listen([this] { resample(); });
+    listen();
 }
 
 CTitleBar* CTitleBar::of(PHLWINDOW window) {
