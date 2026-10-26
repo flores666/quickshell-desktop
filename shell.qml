@@ -39,7 +39,9 @@ ShellRoot {
               // remembered wallpaper back up after the daemon restarted.
               Wallpaper.available,
               // Likewise: this is what re-applies the Hyprland overrides.
-              CompositorOptions.hasTouchpad];
+              CompositorOptions.hasTouchpad,
+              // Likewise: this tells every other application light or dark.
+              DesktopScheme.scheme];
     }
 
     Variants {

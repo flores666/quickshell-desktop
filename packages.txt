@@ -6,6 +6,9 @@
 hyprland
 hyprpaper
 xdg-desktop-portal-hyprland
+# the portal's Settings: the shell's light or dark, as browsers read it
+# (services/DesktopScheme)
+xdg-desktop-portal-gtk
 quickshell
 qt6-imageformats
 # LevelAdjust: the tray's icons drawn in the bar's ink (components/AppIcon)
