@@ -109,6 +109,9 @@ QtObject {
     readonly property int gaugeHeight: 8
     readonly property int gaugeMark: 2
 
+    /*! The sparkline of a usage card on the date menu: the least it is drawn at. */
+    readonly property int usageChart: 32
+
     /*! A colour swatch, and the pin badge a pinned one wears. */
     readonly property int swatch: 28
     readonly property int swatchBadge: 14

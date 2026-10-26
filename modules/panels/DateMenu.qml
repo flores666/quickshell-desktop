@@ -17,7 +17,9 @@ ShellOverlay {
 
     overlayId: Overlay.dateMenu
     cardWidth: 660
-    cardHeight: 420
+    // 420, or what the calendar column needs: the date, the month and the usage cards.
+    cardHeight: Math.max(420, dateLabel.implicitHeight + calendar.implicitHeight + usage.implicitHeight
+        + rightColumn.spacing * 2 + Appearance.s.lg * 2)
 
     Row {
         anchors.fill: parent
@@ -51,11 +53,15 @@ ShellOverlay {
         }
 
         Column {
+            id: rightColumn
+
             width: parent.width - leftColumn.width - Appearance.s.lg * 2 - 1
             height: parent.height
             spacing: Appearance.s.lg
 
             Label {
+                id: dateLabel
+
                 width: parent.width
                 text: Time.dateLong
                 role: Label.Role.Subtitle
@@ -63,7 +69,14 @@ ShellOverlay {
             }
 
             Calendar {
+                id: calendar
                 width: parent.width
+            }
+
+            UsageCards {
+                id: usage
+                width: parent.width
+                tracking: root.shown
             }
         }
     }
