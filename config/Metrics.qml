@@ -124,8 +124,9 @@ QtObject {
     readonly property int chartLine: 2
     readonly property int chartDot: 3
     /*! The room its axis labels take: the value labels' width at the left,
-        the span labels' height below. */
-    readonly property int chartAxisWidth: 36
+        the span labels' height below. Wide enough for a rate at the
+        caption size, "1023.9 MiB/s" (67 px): the disk's and network's. */
+    readonly property int chartAxisWidth: 72
     readonly property int chartAxisHeight: 16
     /*! The fill under a line, as its strongest opacity (at the line). */
     readonly property real chartFill: 0.3

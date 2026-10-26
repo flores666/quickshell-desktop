@@ -7,9 +7,10 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    Every process, as a table: a filter above it, and its columns' headings
-    sort it — memory, largest first, to begin with, since that is what
-    earlyoom goes by too. The row earlyoom would stop next is marked, as are
+    Every process, as a table: a search field above it, and its columns'
+    headings sort it — CPU, highest first, to begin with. Disk is a process's
+    reads and writes a second, readable for the user's own processes alone
+    ("–" for another's). The row earlyoom would stop next is marked, as are
     the names it spares and takes first.
 
     The rows are kept by pid (ScriptModel), so a new sample moves rows rather
@@ -20,15 +21,15 @@ Item {
 
     property var manager: null
 
-    property string sortKey: "rss"
+    property string sortKey: "cpu"
     property bool descending: true
 
     /*! The columns after the name: key, heading, width. */
     readonly property var columns: [
-        { key: "user", title: qsTr("User"), width: Appearance.m.wideColumn },
         { key: "cpu", title: qsTr("CPU"), width: Appearance.m.figureColumn },
         { key: "rss", title: qsTr("Memory"), width: Appearance.m.wideColumn },
-        { key: "oomScore", title: qsTr("OOM"), width: Appearance.m.figureColumn }
+        { key: "io", title: qsTr("Disk"), width: Appearance.m.wideColumn },
+        { key: "pid", title: qsTr("PID"), width: Appearance.m.figureColumn }
     ]
 
     readonly property var pids: {
@@ -49,16 +50,23 @@ Item {
         } else {
             root.sortKey = key;
             // Words read best from A, figures from the largest.
-            root.descending = key !== "name" && key !== "user";
+            root.descending = key !== "name";
         }
+    }
+
+    Label {
+        x: Appearance.s.xl
+        y: (root.manager.barHeight - height) / 2
+        text: qsTr("Processes")
+        role: Label.Role.Subtitle
     }
 
     SearchField {
         id: filter
         x: Appearance.s.xl
-        y: Appearance.s.lg
+        y: root.manager.barHeight + Appearance.s.lg
         width: root.width - Appearance.s.xl * 2
-        placeholder: qsTr("Filter by name, user or PID…")
+        placeholder: qsTr("Search processes…")
         onEscaped: Overlay.close()
     }
 
@@ -66,7 +74,8 @@ Item {
         id: headings
 
         x: Appearance.s.md
-        y: root.manager.barHeight + Appearance.s.sm
+        anchors.top: filter.bottom
+        anchors.topMargin: Appearance.s.sm
         width: list.rowWidth
 
         ColumnHeading {
@@ -86,7 +95,6 @@ Item {
 
                 width: this.modelData.width
                 title: this.modelData.title
-                alignRight: this.modelData.key !== "user"
                 active: root.sortKey === this.modelData.key
                 descending: root.descending
                 onClicked: root.sortBy(this.modelData.key)

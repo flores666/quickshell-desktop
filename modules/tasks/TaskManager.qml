@@ -7,16 +7,21 @@ import "root:/services"
 import "root:/modules/common"
 
 /*!
-    The task manager: what runs (Processes), memory and earlyoom, which stops
-    what uses the most of it before the machine runs out (Memory), and the
-    commands systemd runs on a schedule (Scheduled).
+    The task manager: what runs (Processes); how busy the machine is, a
+    minute of it charted (Performance), its disk, its network and its GPU;
+    memory and earlyoom, which stops what uses the most of it before the
+    machine runs out (Memory); and the commands systemd runs on a schedule
+    (Scheduled). The GPU's tab is there only while a GPU reports how busy it
+    is (Usage.hasGpu), and one shown as the GPU goes gives way to Processes.
 
     Laid out as the settings panel is, tabs down the left and one pane on the
-    right, each pane drawing its own bar along the top above the rule.
+    right, each pane drawing its own title in the bar along the top above the
+    rule.
 
-    The process list is read from /proc on a clock (Processes), so it is read
-    exactly while it is on screen: the popup open on Processes or Memory.
-    Opens on Processes, wherever it was left.
+    The readings come from /proc on a clock (Processes, Usage), so they are
+    read exactly while one is on screen: the popup open on any tab but
+    Scheduled. Opens on Processes, wherever it was left, or on the tab its
+    subject names (`{ tab }`, the date menu's cards) where it has that tab.
 */
 ShellOverlay {
     id: root
@@ -28,11 +33,17 @@ ShellOverlay {
 
     readonly property var tabs: [
         { key: "processes", title: qsTr("Processes"), icon: "cat-system", component: processesPane },
+        { key: "performance", title: qsTr("Performance"), icon: "performance", component: performancePane },
+        { key: "disk", title: qsTr("Disk"), icon: "disk", component: diskPane },
+        { key: "network", title: qsTr("Network"), icon: "network-transfer", component: networkPane },
+        { key: "gpu", title: qsTr("GPU"), icon: "gpu", component: gpuPane },
         { key: "memory", title: qsTr("Memory"), icon: "computer", component: memoryPane },
         { key: "scheduled", title: qsTr("Scheduled"), icon: "calendar", component: scheduledPane }
-    ]
+    ].filter(t => t.key !== "gpu" || Usage.hasGpu)
     property string tab: "processes"
     readonly property var current: root.tabs.find(t => t.key === root.tab)
+    /*! The pane shown, loaded afresh for every tab and every visit. */
+    readonly property alias pane: pane
 
     /*! Where the rule under the panes' bars runs. */
     readonly property int barHeight: Appearance.m.fieldHeight + Appearance.s.lg * 2
@@ -43,8 +54,36 @@ ShellOverlay {
     onReadingChanged: Processes.watch("taskManager", root.reading)
     Component.onDestruction: Processes.watch("taskManager", false)
 
-    onRenderedChanged: if (!root.rendered)
-        root.tab = "processes"
+    /*! Whether the pane is built: from a moment after the card comes up, so
+        that a subject naming a tab, handed over just after the open, is in
+        first. Built for Processes and thrown away at once, the list left
+        rows half made, and said so in the log. */
+    property bool building: false
+
+    onRenderedChanged: {
+        if (root.rendered) {
+            Qt.callLater(() => root.building = root.rendered);
+        } else {
+            root.building = false;
+            root.tab = "processes";
+        }
+    }
+    // The subject is held from the open until the card goes, so one naming a
+    // tab is heard once, as it comes.
+    onSubjectChanged: if (root.subject?.tab)
+        root.show(root.subject.tab)
+    onTabsChanged: root.show(root.tab)
+
+    /*! Shows a tab, or Processes for one it does not have (the GPU's, with
+        no GPU). */
+    function show(key: string): void {
+        root.tab = root.tabs.some(t => t.key === key) ? key : "processes";
+    }
+
+    /*! A percentage as the panes show one, "–" before there is a reading. */
+    function percent(value: real): string {
+        return value < 0 ? "–" : qsTr("%1%").arg(Math.round(value));
+    }
 
     /*! A process's menu: ending it, for one of the user's own, and where
         earlyoom is, moving its name into or out of earlyoom's lists — only
@@ -132,12 +171,16 @@ ShellOverlay {
             height: parent.height
             // Built afresh for every visit: an editor left open, a filter
             // half typed, is not there next time.
-            active: root.rendered
+            active: root.building
             sourceComponent: root.current?.component ?? null
         }
     }
 
     Component { id: processesPane; ProcessPane { manager: root } }
+    Component { id: performancePane; PerformancePane { manager: root } }
+    Component { id: diskPane; DiskPane { manager: root } }
+    Component { id: networkPane; NetworkPane { manager: root } }
+    Component { id: gpuPane; GpuPane { manager: root } }
     Component { id: memoryPane; MemoryPane { manager: root } }
     Component { id: scheduledPane; SchedulePane { manager: root } }
 }
