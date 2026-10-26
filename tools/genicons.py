@@ -130,7 +130,9 @@ ICONS = {
     "performance": "applications-engineering",
     "disk": "drive-harddisk",
     "network-transfer": "network-transmit-receive",
-    "gpu": "video-joined-displays",
+    "gpu": "gpu",
+    "cpu": "cpu",
+    "ram": "ram",
     "download": "go-down",
     "upload": "go-up",
     # drawn for the shell (tools/icons)

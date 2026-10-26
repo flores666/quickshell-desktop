@@ -93,7 +93,7 @@ Item {
                 check.equal(k + " differs by theme", String(Appearance.day[k]) !== String(Appearance.night[k]), true);
         });
         check.attempt("glyphs", () => {
-            for (const k of ["performance", "disk", "network-transfer", "gpu", "download", "upload"])
+            for (const k of ["performance", "disk", "network-transfer", "gpu", "download", "upload", "cpu", "ram", "grid"])
                 check.equal("glyph " + k, Icons.has(k), true);
         });
         check.done();
