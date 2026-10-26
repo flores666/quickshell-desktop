@@ -152,7 +152,10 @@ modules/             the surfaces themselves
                      and a picker; ResetSection is the one place "Reset all"
                      lives
   tasks/             the task manager: TaskManager, a pane per tab
-                     (ProcessPane, MemoryPane, SchedulePane), their rows,
+                     (ProcessPane, PerformancePane, DiskPane, NetworkPane,
+                     GpuPane, MemoryPane, SchedulePane), their rows and
+                     cards (ProcessRow, BusyRow, Card, ChartCard, RateCard,
+                     FactCard, Legend, UsageBar, ProcessIcon),
                      EarlyOomSettings and TaskEditor
   polkit/            the authentication prompt: AuthWindow, a surface of its
                      own above the popups, and AuthCard
@@ -507,8 +510,21 @@ one under it stays. shell.qml hands it `Polkit.flow`; a test hands it a
 stand-in, so that no test registers an agent for the session.
 
 **Task manager** — the centred popup `Ctrl+Shift+Escape` opens
-(`shell:taskManager`, and a desktop entry the launcher lists): what runs, memory
-and earlyoom, and scheduled tasks, a tab each, laid out as the settings panel.
+(`shell:taskManager`, and a desktop entry the launcher lists): what runs; how
+busy the machine is (Performance, Disk, Network, GPU — the GPU's tab only
+while `Usage.hasGpu`, and one shown as the GPU goes gives way to Processes);
+memory and earlyoom; and scheduled tasks — a tab each, laid out as the
+settings panel. It opens on Processes, or on the tab its subject names
+(`Overlay.openWith(…, { tab })`: the date menu's CPU and memory cards,
+`UsageCards`, open Performance); its pane is built a moment after the card
+comes up, so that the subject is in first. Processes lists Name (the
+application's icon where a desktop entry matches the process name), CPU,
+Memory, Disk (I/O a second, readable for the user's own processes alone) and
+PID, by CPU to begin with; there is no network column, which Linux keeps
+from anyone but root. Every tab but Scheduled is a reading, watched
+(`Processes.watch("taskManager")`) only while shown, as the date menu's
+cards are while it is; every chart covers `Usage.span` and starts empty each
+visit.
 **earlyoom** is the daemon that stops the process using the most memory once
 memory and swap are both low (`EarlyOom`): its options are root's
 (`/etc/default/earlyoom`), so the Memory tab gathers edits and applies them

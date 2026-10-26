@@ -137,6 +137,9 @@ Item {
             required property var modelData
             anchors.fill: parent
             readonly property var points: root.line(one.modelData)
+            /*! The line's highest point: the fill is strongest there and
+                fades to the baseline, so a low reading still shows one. */
+            readonly property real crest: one.points.reduce((top, p) => Math.min(top, p.y), root.plotH)
 
             Shape {
                 anchors.fill: parent
@@ -146,7 +149,7 @@ Item {
                     strokeWidth: -1
                     fillGradient: LinearGradient {
                         x1: 0
-                        y1: 0
+                        y1: one.crest
                         x2: 0
                         y2: root.plotH
                         GradientStop { position: 0; color: Qt.alpha(one.modelData.color, Appearance.m.chartFill) }

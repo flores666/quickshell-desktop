@@ -21,8 +21,8 @@ Item {
     readonly property string cpuFigure: root.figureOf(Usage.cpu)
     readonly property string memoryFigure: root.figureOf(Usage.memory)
 
-    /*! Title, figure and a chart tall enough to read, on the card's padding. */
-    implicitHeight: Appearance.s.md * 2 + Appearance.font.small * 1.5 + Appearance.font.subtitle * 1.5
+    /*! Title, figure and a chart tall enough to read, on StatCard's padding. */
+    implicitHeight: Appearance.s.lg * 2 + Appearance.font.small * 1.5 + Appearance.font.subtitle * 1.5
         + Appearance.s.xs + Appearance.m.usageChart
 
     function figureOf(value: real): string {

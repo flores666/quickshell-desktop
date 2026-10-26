@@ -28,7 +28,7 @@ Rectangle {
     property bool axes: false
     property var format: v => Math.round(v) + "%"
 
-    readonly property int padding: Appearance.s.md
+    readonly property int padding: Appearance.s.lg
 
     radius: Appearance.r.lg
     color: Appearance.c.raised
