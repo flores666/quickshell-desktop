@@ -43,6 +43,24 @@ Item {
         series: [{ color: "#00ff00", points: [{ t: 100, v: 0.2 }] }]
     }
 
+    // A percentage's sparkline, as the date menu and the Performance tab
+    // draw one: scaled to its data, a quarter above the highest point.
+    StatCard {
+        id: idle
+        width: 200
+        height: 120
+        now: 100
+        series: [{ color: "#0000ff", points: [{ t: 90, v: 3 }, { t: 100, v: 6 }] }]
+    }
+
+    StatCard {
+        id: busy
+        width: 200
+        height: 120
+        now: 100
+        series: [{ color: "#0000ff", points: [{ t: 90, v: 40 }, { t: 100, v: 60 }] }]
+    }
+
     Component.onCompleted: {
         check.attempt("place", () => {
             check.near("newest at the right edge", chart.place({ t: 100, v: 50 }, 100).x, 200);
@@ -60,8 +78,10 @@ Item {
             chart.axes = false;
         });
         check.attempt("auto max", () => {
-            check.equal("auto: the largest in the span", auto.effectiveMax, 4);
-            check.equal("auto: at least 1", quiet.effectiveMax, 1);
+            check.equal("auto: a quarter above the largest in the span", auto.effectiveMax, 5);
+            check.equal("auto: at least `least`", quiet.effectiveMax, 1);
+            check.equal("a stat card: scaled to its data", busy.chart.effectiveMax, 75);
+            check.equal("a stat card: never under 10%", idle.chart.effectiveMax, 10);
             check.equal("fixed max", chart.effectiveMax, 100);
         });
         check.attempt("drawn", () => {

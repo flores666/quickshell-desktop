@@ -86,7 +86,6 @@ Item {
                 series: [{ points: Usage.history[card.modelData], color: root.colors[card.modelData] }]
                 now: Usage.now
                 span: Usage.span
-                max: 100
             }
         }
     }

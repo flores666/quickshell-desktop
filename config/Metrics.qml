@@ -128,8 +128,12 @@ QtObject {
         caption size, "1023.9 MiB/s" (67 px): the disk's and network's. */
     readonly property int chartAxisWidth: 72
     readonly property int chartAxisHeight: 16
-    /*! The fill under a line, as its strongest opacity (at the line). */
-    readonly property real chartFill: 0.3
+    /*! The fill under a line, as its strongest opacity (at the line): enough
+        for the area to read as the reading's, under the line, on glass. */
+    readonly property real chartFill: 0.45
+    /*! How far above its highest point a scale that follows the data tops
+        out, as a share of it. */
+    readonly property real chartHeadroom: 1.25
     /*! The hover crosshair's width. */
     readonly property int chartCrosshair: 1
 

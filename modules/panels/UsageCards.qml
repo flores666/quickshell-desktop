@@ -14,6 +14,12 @@ import "root:/services"
 Item {
     id: root
 
+    /*! The two cards: the processor, and memory as RAM, as the Performance
+        tab names it — "Memory" read as the disk as well. */
+    readonly property var cards: [
+        { title: qsTr("CPU"), memory: false },
+        { title: qsTr("RAM"), memory: true }
+    ]
     readonly property string cpuFigure: root.figureOf(Usage.cpu)
     readonly property string memoryFigure: root.figureOf(Usage.memory)
 
@@ -37,10 +43,7 @@ Item {
         spacing: Appearance.s.md
 
         Repeater {
-            model: [
-                { title: qsTr("CPU"), memory: false },
-                { title: qsTr("Memory"), memory: true }
-            ]
+            model: root.cards
 
             Clickable {
                 id: card

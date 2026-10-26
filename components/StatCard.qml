@@ -6,7 +6,10 @@ import "root:/config"
 /*!
     One reading on a `raised` card: what it is, its figure, a chart of the
     last minute of it, and a line of detail under that ("3.4 GHz",
-    "6.7 GiB of 16 GiB"). The chart takes whatever height the card has left.
+    "6.7 GiB of 16 GiB"). The chart takes whatever height the card has left,
+    on a scale of its own data, as a sparkline is drawn: the figure above it
+    says how much, the line how it went. A percentage's, so never under
+    10%.
 
     The card takes no input of its own; one that opens something is laid in a
     Clickable, whose state layer shows through the card's wash (the date
@@ -24,7 +27,8 @@ Rectangle {
     property var series: []
     property real now: 0
     property real span: 60
-    property real max: 100
+    property real max: 0
+    property real least: 10
     property bool axes: false
     property var format: v => Math.round(v) + "%"
 
@@ -55,7 +59,10 @@ Rectangle {
         font.features: { "tnum": 1 }
     }
 
+    readonly property alias chart: plot
+
     Chart {
+        id: plot
         x: root.padding
         anchors.top: reading.bottom
         anchors.topMargin: Appearance.s.xs
@@ -65,6 +72,7 @@ Rectangle {
         now: root.now
         span: root.span
         max: root.max
+        least: root.least
         axes: root.axes
         format: root.format
     }

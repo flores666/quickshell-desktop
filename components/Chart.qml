@@ -10,7 +10,10 @@ import "root:/config"
 
     `series` is `[{ points: [{ t, v }], color }]`, `now` the newest sample's t.
     `max` above 0 fixes the top of the scale (100 for a percentage); 0 or less
-    follows the data: the largest value in the span, at least 1. A series with
+    follows the data: a quarter above the largest value in the span
+    (`chartHeadroom`), so the line fills the chart without its peaks touching
+    the top, and never under `least` — a sparkline of an idle CPU drawn on a
+    scale of its own 0.4% would make noise of nothing. A series with
     no point in the span draws nothing, and one point draws a dot.
 
     With `axes` the chart labels its scale (0, half and the top, through
@@ -26,6 +29,8 @@ Item {
     property real now: 0
     property real span: 60
     property real max: 100
+    /*! The least top a scale that follows the data takes. */
+    property real least: 1
     property bool axes: false
     property var format: v => Math.round(v) + "%"
 
@@ -33,11 +38,11 @@ Item {
     readonly property real effectiveMax: {
         if (root.max > 0)
             return root.max;
-        let top = 1;
+        let top = 0;
         for (const s of root.series)
             for (const p of root.drawn(s))
                 top = Math.max(top, p.v);
-        return top;
+        return Math.max(root.least, top * Appearance.m.chartHeadroom);
     }
 
     readonly property real plotX: root.axes ? Appearance.m.chartAxisWidth : 0
