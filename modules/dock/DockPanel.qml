@@ -139,6 +139,10 @@ PanelWindow {
             }
             return;
         }
+        // A new icon always gets its own dwell, even if its enter is
+        // delivered before the previous icon's leave.
+        if (root.hoveredKey !== key)
+            root.naming = false;
         root.hoveredKey = key;
         preview.enter(key, x);
         root.naming = !preview.offersKey(key);
@@ -187,6 +191,7 @@ PanelWindow {
 
     Tooltip {
         id: tip
+        delayMs: Settings.dockMagnificationEnabled ? Appearance.t.dockHover : 0
         anchorY: surface.y
         show: root.naming && !preview.shown
         visible: root.shown && opacity > 0

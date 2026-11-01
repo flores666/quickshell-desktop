@@ -51,6 +51,9 @@ QtObject {
     /*! How long the pointer rests on something before more of it shows: a
         tooltip, the dock's preview of an application's windows. */
     readonly property int dwell: 450
+    /*! With magnification on, the dock's hand and name wait together;
+        magnification itself and input still follow the pointer immediately. */
+    readonly property int dockHover: 300
     /*! How long the dock's preview stays once the pointer has left it and the
         icons, so a path that strays off them for a moment does not close it. */
     readonly property int linger: 250

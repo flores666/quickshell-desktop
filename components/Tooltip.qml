@@ -15,6 +15,8 @@ Item {
     id: root
 
     property string text: ""
+    /*! Keep the old name while it fades out during the next subject's dwell. */
+    property string displayedText: ""
     property bool show: false
     /*! Horizontal centre and top edge of the thing being described — or its
         bottom edge, for a tooltip that hangs `below` it. */
@@ -50,7 +52,19 @@ Item {
     Timer {
         id: delay
         interval: root.delayMs
-        onTriggered: root.opacity = 1
+        onTriggered: {
+            root.displayedText = root.text;
+            root.opacity = 1;
+        }
+    }
+
+    // Live text (for example a value) still updates immediately once shown.
+    onTextChanged: if (root.shown && !delay.running) root.displayedText = root.text
+
+    // A mode change applies to the subject already under the pointer too.
+    onDelayMsChanged: if (root.shown) {
+        root.opacity = 0;
+        delay.restart();
     }
 
     onShownChanged: {
@@ -70,7 +84,7 @@ Item {
         Label {
             id: label
             anchors.centerIn: parent
-            text: root.text
+            text: root.displayedText
             role: Label.Role.Small
         }
     }

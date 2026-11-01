@@ -49,6 +49,9 @@ Clickable {
     implicitHeight: Appearance.m.dockSlot + Appearance.m.dockIcon * (root.magnification - 1)
     radius: Appearance.r.capsule(root.height)
     focusable: false
+    hoverDelay: Settings.dockMagnificationEnabled ? Appearance.t.dockHover : 0
+    showStateLayer: !Settings.dockMagnificationEnabled
+    cursorShape: root.hovered ? Qt.PointingHandCursor : Qt.ArrowCursor
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     selected: root.active
     scheme: root.panel.schemeOver(root)
@@ -100,7 +103,8 @@ Clickable {
         Overlay.openWith(Overlay.dockMenu, root.screen, root.centerX(), root.item);
     }
 
-    onHoveredChanged: root.hoverChanged(root.item.key, root.item.name, root.centerX(), root.hovered)
+    // Previews need entry/exit immediately, independently of the hover wash.
+    onPointerOverChanged: root.hoverChanged(root.item.key, root.item.name, root.centerX(), root.pointerOver)
 
     AppIcon {
         id: icon

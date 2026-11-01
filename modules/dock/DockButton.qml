@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import "root:/config"
 import "root:/components"
+import "root:/services"
 
 /*! A non-application action in the dock: the application grid. */
 Clickable {
@@ -24,6 +25,9 @@ Clickable {
     // The slot an application has, highlight and all (see DockItem).
     radius: Appearance.r.capsule(root.height)
     focusable: false
+    hoverDelay: Settings.dockMagnificationEnabled ? Appearance.t.dockHover : 0
+    showStateLayer: !Settings.dockMagnificationEnabled
+    cursorShape: root.hovered ? Qt.PointingHandCursor : Qt.ArrowCursor
 
     /*! Its middle across the dock's window, as a DockItem reports it. */
     function centerX(): real {
@@ -32,7 +36,7 @@ Clickable {
     }
 
     onClicked: root.activated()
-    onHoveredChanged: root.hoverChanged(root.tipText, root.tipText, root.centerX(), root.hovered)
+    onPointerOverChanged: root.hoverChanged(root.tipText, root.tipText, root.centerX(), root.pointerOver)
 
     // In an application icon's own box, so as wide as their artwork: the
     // glyph's dots fill two thirds of its box, about what an icon's artwork

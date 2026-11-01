@@ -22,6 +22,8 @@ Item {
     /*! Persistent "this one is active" state, e.g. a selected list row. */
     property bool selected: false
     property bool hoverEnabled: true
+    /*! Dwell before hover effects; pointer entry and presses stay immediate. */
+    property int hoverDelay: 0
     property bool pressEnabled: true
     /*! Set false for items inside a list that manages keyboard focus itself. */
     property bool focusable: true
@@ -38,7 +40,9 @@ Item {
     /*! Keep the press even inside a Flickable, which would otherwise steal it. */
     property alias preventStealing: mouse.preventStealing
 
-    readonly property bool hovered: root.enabled && root.hoverEnabled && mouse.containsMouse
+    readonly property bool pointerOver: root.enabled && root.hoverEnabled && mouse.containsMouse
+    readonly property bool hovered: root.pointerOver && (root.hoverDelay <= 0 || root.hoverReady)
+    property bool hoverReady: false
     readonly property bool down: root.enabled && root.pressEnabled && mouse.pressed && mouse.containsMouse
     readonly property bool focusVisible: root.enabled && root.focusable
         && root.activeFocus && InputMode.keyboard
@@ -46,6 +50,15 @@ Item {
     signal clicked(var event)
     signal rightClicked(var event)
     signal middleClicked(var event)
+
+    onPointerOverChanged: root.hoverReady = false
+    onHoverDelayChanged: root.hoverReady = false
+
+    Timer {
+        interval: root.hoverDelay
+        running: root.pointerOver && root.hoverDelay > 0 && !root.hoverReady
+        onTriggered: root.hoverReady = true
+    }
 
     activeFocusOnTab: root.focusable && root.enabled
     opacity: root.enabled ? 1 : 0.42
