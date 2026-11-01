@@ -43,10 +43,10 @@ Clickable {
     signal dragMoved(real dx)
     signal dragEnded
 
-    implicitWidth: Appearance.m.dockSlot + Appearance.m.dockIcon * (root.magnification - 1)
-    implicitHeight: implicitWidth
-    // Round, so at either end of the row the highlight is concentric with the
-    // dock's round edge.
+    implicitWidth: Appearance.m.dockSlot
+    // Grow the clickable area upwards with the artwork while keeping its
+    // horizontal centre and the dots underneath at their resting positions.
+    implicitHeight: Appearance.m.dockSlot + Appearance.m.dockIcon * (root.magnification - 1)
     radius: Appearance.r.capsule(root.height)
     focusable: false
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton

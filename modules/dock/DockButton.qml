@@ -19,8 +19,8 @@ Clickable {
     signal activated
     signal hoverChanged(string key, string label, real centerX, bool entered)
 
-    implicitWidth: Appearance.m.dockSlot + Appearance.m.dockIcon * (root.magnification - 1)
-    implicitHeight: implicitWidth
+    implicitWidth: Appearance.m.dockSlot
+    implicitHeight: Appearance.m.dockSlot + Appearance.m.dockIcon * (root.magnification - 1)
     // The slot an application has, highlight and all (see DockItem).
     radius: Appearance.r.capsule(root.height)
     focusable: false

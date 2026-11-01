@@ -7,8 +7,8 @@ import "root:/components"
 import "root:/services"
 import "root:/modules/dock"
 
-/*! The wave is sampled in the resting layout, while its animated growth
-    allocates space in the live row. Neither can feed back into the other. */
+/*! The wave is sampled in the resting layout. Magnifying the artwork must
+    not change the row's footprint or feed back into the wave. */
 Item {
     id: root
 
@@ -74,15 +74,17 @@ Item {
             check.near("layout growth never changes the resting width", row.original.width, root.restingWidth);
             check.equal("resting pointer has no layout feedback",
                 JSON.stringify(row.magnifications), JSON.stringify(root.centeredTargets));
-            check.equal("row grows to keep icons apart", row.width > root.restingWidth, true);
+            check.near("magnification keeps the row width fixed", row.width, root.restingWidth);
             for (let i = 0; i < root.kept.length; ++i) {
                 const slot = root.kept[i];
                 const icon = slot.children[0];
                 check.near("bottom stays fixed " + i, icon.y + icon.height, root.restingBottom);
                 if (i > 0)
-                    check.near("neighbor gap stays clear " + i,
-                        slot.x - root.kept[i - 1].x - root.kept[i - 1].children[0].width,
-                        Appearance.m.dockGap);
+                    check.equal("neighbor artwork stays clear " + i,
+                        slot.x + icon.x + icon.width / 2
+                        - root.kept[i - 1].x - root.kept[i - 1].children[0].x
+                        - root.kept[i - 1].children[0].width / 2
+                        > Appearance.m.dockIcon * (slot.magnification + root.kept[i - 1].magnification) / 2, true);
             }
             root.pointAt(4.001);
             check.equal("subpixel movement changes the wave continuously",

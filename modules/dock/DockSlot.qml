@@ -51,7 +51,9 @@ Item {
         onTriggered: root.gone(root.entry.key)
     }
 
-    width: (Appearance.m.dockSlot + root.growth + Appearance.m.dockGap) * root.presence
+    // Magnification grows upwards inside a fixed horizontal place. Only an
+    // application arriving or leaving changes the row's footprint.
+    width: (Appearance.m.dockSlot + Appearance.m.dockGap) * root.presence
     height: Appearance.m.dockSlot
     opacity: root.presence
     // Above its neighbours while it is being carried, so it is never clipped
@@ -67,7 +69,7 @@ Item {
         // One that is leaving has nothing left to open; a click would launch it.
         enabled: !root.entry.leaving
         // Centred in what it takes up, and as small.
-        x: (Appearance.m.dockSlot + root.growth) * (root.presence - 1) / 2
+        x: Appearance.m.dockSlot * (root.presence - 1) / 2
         y: -root.growth
         magnification: root.magnification
         scale: root.presence

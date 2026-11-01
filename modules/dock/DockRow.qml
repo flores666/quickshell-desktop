@@ -21,7 +21,7 @@ Row {
     required property Surface panel
     /*! Where the grid's button is, for the divider before it. */
     readonly property real launcherX: launcher.x
-    /*! Window coordinates, independent of the row's magnified width. */
+    /*! Pointer coordinates across the dock's window. */
     property real pointerX: 0
     property bool magnifying: false
     property int geometryRevision: 0
@@ -39,8 +39,8 @@ Row {
         return { centers, width: width + Appearance.m.dockSlot };
     }
     readonly property var magnifications: {
-        // The original row stays centred in the window even as the glass and
-        // live row widen. Never feed a magnified position back into the wave.
+        // Distances use the resting centres, so an icon's animated artwork
+        // never feeds back into its own magnification target.
         const windowWidth = root.QsWindow.window?.width ?? root.screen.width;
         const cursor = root.pointerX - (windowWidth - root.original.width) / 2;
         const spread = root.slotStride * Appearance.m.dockWaveSpread;
