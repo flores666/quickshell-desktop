@@ -10,7 +10,7 @@ BarButton {
     id: root
 
     visible: Keyboard.available
-    padding: Appearance.s.md
+    padding: Appearance.m.barLayoutPadding
 
     onClicked: Keyboard.cycle()
 

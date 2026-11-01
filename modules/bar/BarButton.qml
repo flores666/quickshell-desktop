@@ -9,7 +9,7 @@ import "root:/components"
 Clickable {
     id: root
 
-    property int padding: Appearance.s.md
+    property int padding: Appearance.m.barIconGap / 2
     property alias contentItem: content
     default property alias barContent: content.data
 

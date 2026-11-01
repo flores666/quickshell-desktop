@@ -22,6 +22,8 @@ Item {
     Row {
         id: row
         anchors.centerIn: parent
-        spacing: Appearance.s.xxs
+        // Buttons supply the gap with their own padding, including at the
+        // tray's boundary and around the status cluster.
+        spacing: 0
     }
 }

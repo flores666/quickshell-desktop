@@ -119,17 +119,6 @@ PanelWindow {
                 scheme: panel.schemeOver(tray)
             }
 
-            // The one place a rule earns itself: application icons and the
-            // shell's own indicators are different kinds of thing.
-            Divider {
-                id: rule
-                anchors.verticalCenter: parent.verticalCenter
-                vertical: true
-                height: Appearance.m.icon
-                visible: tray.visible
-                color: panel.schemeOver(rule).border
-            }
-
             VpnButton {
                 id: vpn
                 anchors.verticalCenter: parent.verticalCenter

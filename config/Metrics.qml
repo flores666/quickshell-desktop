@@ -14,6 +14,11 @@ QtObject {
         hover wash concentric with the bar's ends. Derived rather than set, so
         the two cannot drift apart. */
     readonly property int barItemHeight: root.barHeight - 8
+    /*! The standard gap between right-hand icons, both inside a control and across
+        controls: each button supplies half of it as horizontal padding. */
+    readonly property int barIconGap: 12
+    /*! The language indicator has a little more room on either side. */
+    readonly property int barLayoutPadding: root.barIconGap / 2 + 3
     /*! The gap above the bar. Tighter than the one beside it by default:
         vertical room is taken from every window on the screen, and horizontal
         room is not. */

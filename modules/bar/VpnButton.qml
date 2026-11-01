@@ -17,7 +17,6 @@ BarButton {
 
     visible: Vpn.available
     selected: Overlay.isOpen(Overlay.vpnMenu)
-    padding: Appearance.s.md
 
     onClicked: {
         Overlay.toggle(Overlay.vpnMenu, root.screen, root.windowCenterX());

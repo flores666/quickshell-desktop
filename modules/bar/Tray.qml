@@ -29,7 +29,7 @@ Row {
 
             required property SystemTrayItem modelData
 
-            implicitWidth: Appearance.m.barItemHeight
+            implicitWidth: Appearance.m.icon + Appearance.m.barIconGap
             implicitHeight: Appearance.m.barItemHeight
             radius: Appearance.r.capsule(Appearance.m.barItemHeight)
             focusable: false

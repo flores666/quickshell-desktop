@@ -19,7 +19,7 @@ BarButton {
     required property ShellScreen screen
 
     selected: Overlay.isOpen(Overlay.quickSettings)
-    padding: Appearance.s.md
+    contentItem.spacing: Appearance.m.barIconGap
 
     onClicked: {
         Overlay.toggle(Overlay.quickSettings, root.screen, root.windowCenterX());
