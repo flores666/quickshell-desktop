@@ -200,7 +200,8 @@ PanelWindow {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.shown
             ? Appearance.m.screenGap : -(root.dockHeight + Appearance.m.screenGap)
-        width: layout.implicitWidth + root.frame * 2
+        // The shelf keeps its resting box; only the icons spread on hover.
+        width: layout.original.width + root.frame * 2
         height: root.dockHeight
         radius: Appearance.r.capsule(root.dockHeight)
         glass: Appearance.dockOpacity
@@ -224,19 +225,21 @@ PanelWindow {
             NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
         }
 
-        // Keep the small part of a magnified icon above the glass clickable,
-        // including with transparent chrome. This region has fixed height;
-        // entering it cannot resize itself and make hover oscillate.
+        // Keep the row clickable above and beyond the fixed glass, including
+        // with transparent chrome. This follows drawn geometry only; cursor
+        // distances still come from the original row, never this region.
         Item {
             id: iconReach
-            width: parent.width
+            width: Math.max(parent.width, layout.width + root.frame * 2)
             height: parent.height + Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1)
+            anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
         }
 
         HoverHandler {
             id: dockHover
-            margin: Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1)
+            margin: Math.max(Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1),
+                (iconReach.width - surface.width) / 2)
         }
 
         // Midway across the gap before the launcher, level with the icons'

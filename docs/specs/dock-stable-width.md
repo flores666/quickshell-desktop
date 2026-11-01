@@ -56,4 +56,36 @@ parallel workers or worktrees. Leave the final branch unmerged and unpushed.
 
 ## Verification results
 
-Pending.
+- Completed both plan items. Only `DockPanel.qml` required production changes:
+  glass width now follows the original row plus frame padding; the centered
+  input reach follows the live row, and the hover margin includes its overflow.
+  Icon layout, animation settings, scaling, and pointer-distance inputs are
+  unchanged. The reveal strip inherits the stable glass width.
+- Before implementation, `DockWidthTest` completed with 24 expected failures
+  for hover-driven background resizing/movement in opaque and transparent
+  modes. Its committed test source remained unchanged afterward.
+- After implementation, all 61 new width/overflow checks and the existing
+  dock magnification/response checks passed. The test observes intermediate
+  width/position changes as well as settled geometry and clicks the launcher
+  beyond the background's edge at maximum icon size and wave width.
+- Full suite: 33 suites, 801 checks passed, zero failed. The hidden nested
+  compositor used repository window rules, the unchanged branch window-plugin
+  build, and two outputs. A test-profile copy supplied a generated wallpaper;
+  all implementation and test files matched the working tree byte for byte.
+  The compositor-reset persistence test ran last, as in the previous work.
+- Background screenshots at rest, center hover, both edges, and exit retained
+  the same glass box (x 141, width 998 in the default-size fixture), while the
+  live row grew from 982 to 1021.6 pixels. A pixel scanline near the glass's
+  bottom edge was byte-identical across all five captures.
+- Actual pointer input on the nested socket kept hover active beyond both
+  edges and opened the outer application's context menu and the overflowed
+  launcher. Checks passed with 28 px and 48 px icons, maximum wave width, and
+  transparent chrome. Drag reordering, auto-hide held open over overflow,
+  hiding/revealing, and resizing when an application was unpinned/re-pinned
+  also passed.
+- `./tools/lint.sh` reported only established Quickshell type warnings;
+  `git diff --check` passed. The isolated runtime and live shell's automatic
+  reload logged no dock errors. No live-shell restart or workspace/focus
+  switch was used. Temporary compositor instances and runtime rules were
+  removed; no requested behavior or verification remains incomplete.
+- Left `forge/dock-stable-width` unmerged and unpushed.
