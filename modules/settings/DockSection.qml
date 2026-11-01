@@ -7,7 +7,7 @@ import "root:/services"
 
 /*! The dock: whether it hides, how much of its glass it lays down — its own
     share or the top panel's — how big its icons are, and how long it waits
-    before it slides away. */
+    before it slides away, and its magnification wave. */
 Column {
     id: root
 
@@ -77,6 +77,59 @@ Column {
             step: 100
             value: Dock.hideDelay
             suffix: qsTr("ms")
+        }
+    }
+
+    SettingGroup {
+        width: root.width
+        title: qsTr("Magnification")
+
+        MenuRow {
+            width: parent.width
+            flush: true
+            title: qsTr("Magnify icons")
+            subtitle: qsTr("Enlarge icons near the pointer")
+            onClicked: Settings.setDockMagnificationEnabled(!Settings.dockMagnificationEnabled)
+
+            ToggleSwitch {
+                checked: Settings.dockMagnificationEnabled
+                onToggled: value => Settings.setDockMagnificationEnabled(value)
+            }
+        }
+
+        SettingRow {
+            width: parent.width
+            visible: Settings.dockMagnificationEnabled
+            key: "dockZoom"
+            label: qsTr("Zoom amount")
+            min: Tuning.spec.dockZoom.min
+            max: Tuning.spec.dockZoom.max
+            value: Tuning.pick("dockZoom")
+            suffix: qsTr("%")
+        }
+
+        SettingRow {
+            width: parent.width
+            visible: Settings.dockMagnificationEnabled
+            key: "dockMagnificationDuration"
+            label: qsTr("Response time")
+            min: Dock.magnificationDurationRange.min
+            max: Dock.magnificationDurationRange.max
+            step: 10
+            value: Dock.magnificationDuration
+            suffix: qsTr("ms")
+        }
+
+        SettingRow {
+            width: parent.width
+            visible: Settings.dockMagnificationEnabled
+            key: "dockWaveWidth"
+            label: qsTr("Wave width")
+            min: Tuning.spec.dockWaveWidth.min
+            max: Tuning.spec.dockWaveWidth.max
+            step: 5
+            value: Tuning.pick("dockWaveWidth")
+            suffix: qsTr("%")
         }
     }
 }

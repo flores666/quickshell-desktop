@@ -36,6 +36,7 @@ all testing and visual inspection in the background.
    - Files: `services/SettingsStore.qml`, `services/Settings.qml`,
      `services/Dock.qml`, `config/Tuning.qml`, `config/Metrics.qml`,
      `modules/dock/DockRow.qml`, `DockSlot.qml`, `DockButton.qml`,
+     `DockMagnification.qml` for their shared response animation,
      `modules/settings/DockSection.qml`, and `profile/settings.json` as needed.
      Layout limits belong to Tuning; response limits belong to Dock.
    - Add regression tests in `tests/DockMagnificationSettingsTest.qml` for
@@ -51,6 +52,8 @@ all testing and visual inspection in the background.
    - Run the new regression tests, the existing dock tests, the full test
      suite, `./tools/lint.sh`, and `git diff --check`. Keep committed tests
      unchanged during implementation.
+   - Give each suite its own state directory in `tools/test.sh`, so persistence
+     round-trips cannot change the preferences later suites start with.
    - Use the established nested test setup with repository window rules, a
      scratch build of the window plugin, and a test wallpaper fixture where
      required. Do not open test windows on the user's workspace, change their
@@ -68,4 +71,40 @@ unmerged and unpushed.
 
 ## Verification results
 
-Pending.
+- Completed both plan items. The Dock section exposes the toggle and all
+  three numeric controls with the approved ranges, units, and reset actions.
+  Defaults and the profile preserve the existing 20%/120 ms/100% effect.
+- Red before implementation: the new test completed with three expected
+  failures for the absent preference, owners, and Magnification group.
+  Committed test sources remained unchanged during implementation.
+- The regression checks caught Qt's snapshotting of an active Behavior's
+  duration. `DockMagnification.qml` now owns the shared explicit response
+  animation for application slots and the launcher, preserving the current
+  value when either the target or duration changes. It retains the bounded
+  ease-out curve and starts no timers or polling.
+- New regression checks: 64 passed, including live duration changes,
+  authoritative clamps, UI slider/toggle wiring, row resets, save/reload,
+  and Reset all preserving the boolean preference.
+- Full suite: 32 suites, 740 checks passed, zero failed. The hidden nested
+  compositor used repository look-and-feel/window rules, the unchanged
+  branch window-plugin build, and two outputs. A copy of the checkout used
+  a generated wallpaper in its test profile; implementation and test files
+  matched the working tree byte for byte. The persistence/reset case ran
+  last because resetting compositor overrides may reload the nested
+  compositor, which can lose its Wayland output on this machine.
+- The runner now isolates state per test. Previously, the persistence test's
+  on-disk round-trip could be inherited by a subsequent test after the runner
+  stopped its process; cache/data behavior and test assertions are unchanged.
+- Background screenshots verified default, customized, disabled, and
+  re-enabled settings. Actual pointer input selected 10% zoom, 80 ms response,
+  and 200% width, then toggled magnification off and on. Disabled hover left
+  every icon at 1; re-enabling retained the choices. At 10% zoom the immediate
+  neighbor measured 1.0964 with 200% width and 1.0557 with 50% width.
+  The launcher and transparent dock retained the 1.2 ceiling.
+- `./tools/lint.sh` reported only the established Quickshell type warnings;
+  `git diff --check` passed. The isolated preview logged no dock/settings
+  errors. The live shell reloaded successfully without a restart; its
+  unrelated Tray.qml null-reference warning also occurred before this work.
+- Test compositor instances and temporary runtime rules were removed. No
+  requested controls remain unimplemented and no tests remain red. The
+  branch is left unmerged and unpushed.

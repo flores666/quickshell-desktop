@@ -47,9 +47,9 @@ QtObject {
     /*! Between neighbouring slots, so their icons stand 12px apart. */
     readonly property int dockGap: 8
     readonly property int dockSlot: root.dockIcon + root.dockInset * 2
-    /*! A broad Gaussian: one stride away is 117.2%, two is 111.1%. */
-    readonly property real dockMagnification: 1.2
-    readonly property real dockWaveSpread: 1.85
+    /*! At defaults, a broad Gaussian: one stride away is 117.2%, two is 111.1%. */
+    readonly property real dockMagnification: 1 + Tuning.pick("dockZoom") / 100
+    readonly property real dockWaveSpread: 1.85 * Tuning.pick("dockWaveWidth") / 100
     /*! Whether the dock has any glass at all; Appearance, which resolves the
         dock's opacity, sets it. */
     property bool dockBackground: true

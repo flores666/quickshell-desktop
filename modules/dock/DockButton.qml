@@ -11,11 +11,10 @@ Clickable {
 
     property string icon: ""
     property string tipText: ""
-    property real magnification: 1
+    property alias targetMagnification: wave.targetScale
+    readonly property real magnification: wave.value
 
-    Behavior on magnification {
-        NumberAnimation { duration: Appearance.t.instant; easing.type: Appearance.t.emphasizedEasing }
-    }
+    DockMagnification { id: wave }
 
     signal activated
     signal hoverChanged(string key, string label, real centerX, bool entered)

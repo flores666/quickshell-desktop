@@ -46,7 +46,7 @@ Row {
         const spread = root.slotStride * Appearance.m.dockWaveSpread;
         return root.original.centers.map(center => {
             const distance = (cursor - center) / spread;
-            return root.magnifying && !root.drag
+            return root.magnifying && Settings.dockMagnificationEnabled && !root.drag
                 ? Math.min(Appearance.m.dockMagnification,
                     1 + (Appearance.m.dockMagnification - 1) * Math.exp(-distance * distance / 2)) : 1;
         });
@@ -150,7 +150,7 @@ Row {
             panel: root.panel
             slide: root.slideFor(this.slot)
             rearranging: root.rearranging
-            magnification: root.magnifications[this.index] ?? 1
+            targetMagnification: root.magnifications[this.index] ?? 1
             onIndexChanged: root.geometryRevision++
             onClicked: (item, centerX) => root.activated(item, centerX)
             onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)
@@ -187,7 +187,7 @@ Row {
         icon: "apps"
         tipText: qsTr("Applications")
         selected: Overlay.isOpen(Overlay.launcher)
-        magnification: root.magnifications[slots.count] ?? 1
+        targetMagnification: root.magnifications[slots.count] ?? 1
         y: Appearance.m.dockSlot - height
         scheme: root.panel.schemeOver(launcher)
         onActivated: Overlay.toggle(Overlay.launcher, root.screen, launcher.centerX())

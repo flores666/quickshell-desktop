@@ -31,6 +31,8 @@ Singleton {
         barGap:      { min: 0,  max: 16,  def: 6   },
         barSideGap:  { min: 0,  max: 32,  def: 10  },
         dockIcon:    { min: 28, max: 48,  def: 34  },
+        dockZoom:    { min: 0,  max: 20,  def: 20  },
+        dockWaveWidth: { min: 50, max: 200, def: 100 },
         border:      { min: 0,  max: 2,   def: 1   },
         roundness:   { min: 0,  max: 150, def: 100 },
         fontScale:   { min: 85, max: 125, def: 100 },

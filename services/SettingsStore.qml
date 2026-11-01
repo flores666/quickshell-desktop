@@ -14,6 +14,7 @@ JsonAdapter {
     property bool dockAutoHide: true
     /*! On, the dock takes the top panel's opacity instead of its own. */
     property bool dockOpacityFollowsBar: false
+    property bool dockMagnificationEnabled: true
     property list<string> pinnedApps: []
     /*! Application keys in the order the dock shows them. Keys that are
         neither pinned nor running are ignored, so it never needs pruning. */
@@ -50,6 +51,9 @@ JsonAdapter {
     property int barGap: -1
     property int barSideGap: -1
     property int dockIcon: -1
+    property int dockZoom: -1
+    property int dockWaveWidth: -1
+    property int dockMagnificationDuration: -1
     property int border: -1
     property int roundness: -1
     property int fontScale: -1

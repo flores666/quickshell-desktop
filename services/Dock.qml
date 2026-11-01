@@ -21,6 +21,11 @@ Singleton {
     readonly property var hideDelayRange: ({ min: 0, max: 5000, def: 700 })
     readonly property int hideDelay: Settings.pick("dockHideDelay", root.hideDelayRange)
 
+    /*! A retarget starts moving immediately; the chosen duration is shared
+        by application icons and the launcher, on entry, travel and exit. */
+    readonly property var magnificationDurationRange: ({ min: 40, max: 300, def: 120 })
+    readonly property int magnificationDuration: Settings.pick("dockMagnificationDuration", root.magnificationDurationRange)
+
     /*!
         [{ key, entry, appId, name, icon, windows, pinned, running }]
 

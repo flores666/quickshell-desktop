@@ -42,7 +42,9 @@ for test in "${tests[@]}"; do
 
     # Its output read line by line as it comes, until the closing line, qs
     # exiting or fifteen seconds: a wait on the output, not on a clock.
-    exec {out}< <(exec env XDG_STATE_HOME="$work/state" XDG_CACHE_HOME="$work/cache" \
+    # A persistence test may intentionally rewrite its preferences. The next
+    # shell must start from profile again, not inherit the previous test's file.
+    exec {out}< <(exec env XDG_STATE_HOME="$work/state/$name" XDG_CACHE_HOME="$work/cache" \
         XDG_DATA_HOME="$work/data" QML_IMPORT_PATH="$work/native/qml" \
         PATH="$work/tree/tests/bin:$PATH" \
         TEST_GSETTINGS="$work/gsettings" TEST_SIGNALS="$work/signals" TEST_NOTIFY="$work/notify" \

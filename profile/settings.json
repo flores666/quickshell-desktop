@@ -9,11 +9,15 @@
     "doNotDisturb": false,
     "dockHideDelay": 999,
     "dockIcon": 43,
+    "dockMagnificationDuration": -1,
+    "dockMagnificationEnabled": true,
     "dockOrder": [
         "firefox",
         "kitty",
         "org.gnome.Nautilus"
     ],
+    "dockWaveWidth": -1,
+    "dockZoom": -1,
     "fontFamily": "",
     "fontScale": 96,
     "hiddenColors": [

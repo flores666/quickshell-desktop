@@ -21,14 +21,11 @@ Item {
     property alias slide: icon.slide
     property alias rearranging: icon.rearranging
     readonly property bool dragging: icon.dragging
-    property real magnification: 1
+    property alias targetMagnification: wave.targetScale
+    readonly property real magnification: wave.value
     readonly property real growth: Appearance.m.dockIcon * (root.magnification - 1)
 
-    Behavior on magnification {
-        // Retargeting on every pointer move must make progress immediately;
-        // restarting an ease-in here leaves the wave trailing the cursor.
-        NumberAnimation { duration: Appearance.t.instant; easing.type: Appearance.t.emphasizedEasing }
-    }
+    DockMagnification { id: wave }
 
     signal clicked(var item, real centerX)
     signal hoverChanged(string key, string label, real centerX, bool entered)

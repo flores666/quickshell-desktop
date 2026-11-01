@@ -48,6 +48,7 @@ Singleton {
     readonly property bool dockAutoHide: store.dockAutoHide
     /*! The dock lays down the top panel's opacity rather than its own. */
     readonly property bool dockOpacityFollowsBar: store.dockOpacityFollowsBar
+    readonly property bool dockMagnificationEnabled: store.dockMagnificationEnabled
 
     // ------------------------------------------------------------- overrides
     //
@@ -62,6 +63,9 @@ Singleton {
     readonly property int barGap: store.barGap
     readonly property int barSideGap: store.barSideGap
     readonly property int dockIcon: store.dockIcon
+    readonly property int dockZoom: store.dockZoom
+    readonly property int dockWaveWidth: store.dockWaveWidth
+    readonly property int dockMagnificationDuration: store.dockMagnificationDuration
     readonly property int border: store.border
     readonly property int roundness: store.roundness
     readonly property int fontScale: store.fontScale
@@ -93,6 +97,7 @@ Singleton {
         "barHeight", "barGap", "barSideGap", "dockIcon", "border",
         "roundness", "fontScale", "barOpacity", "dockOpacity", "popupOpacity",
         "notificationTimeout", "dockHideDelay",
+        "dockZoom", "dockWaveWidth", "dockMagnificationDuration",
         "hyprGapsIn", "hyprGapsOut", "hyprBorder", "hyprRounding", "hyprBlur", "hyprBlurSize",
         "hyprAnimations", "hyprActiveOpacity", "hyprInactiveOpacity", "hyprMouseSpeed",
         "hyprMouseAccel", "hyprTouchpadSpeed", "hyprNaturalScroll", "hyprTapToClick",
@@ -121,6 +126,10 @@ Singleton {
 
     function setDockOpacityFollowsBar(on: bool): void {
         store.dockOpacityFollowsBar = on;
+    }
+
+    function setDockMagnificationEnabled(on: bool): void {
+        store.dockMagnificationEnabled = on;
     }
 
     function setAccentColor(value: string): void {
