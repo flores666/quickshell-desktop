@@ -25,7 +25,9 @@ Item {
     readonly property real growth: Appearance.m.dockIcon * (root.magnification - 1)
 
     Behavior on magnification {
-        NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+        // Retargeting on every pointer move must make progress immediately;
+        // restarting an ease-in here leaves the wave trailing the cursor.
+        NumberAnimation { duration: Appearance.t.instant; easing.type: Appearance.t.emphasizedEasing }
     }
 
     signal clicked(var item, real centerX)

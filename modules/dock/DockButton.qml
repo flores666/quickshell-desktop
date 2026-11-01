@@ -14,7 +14,7 @@ Clickable {
     property real magnification: 1
 
     Behavior on magnification {
-        NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+        NumberAnimation { duration: Appearance.t.instant; easing.type: Appearance.t.emphasizedEasing }
     }
 
     signal activated

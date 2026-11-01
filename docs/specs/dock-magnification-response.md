@@ -57,4 +57,34 @@ on this branch as the baseline. Leave this branch unmerged and unpushed.
 
 ## Verification results
 
-Pending.
+- Completed both plan items. Pointer coordinates already arrived promptly
+  over artwork and gaps; the measured cause was the per-target 180 ms
+  `InOutQuad` animation. Both application slots and the launcher now use the
+  existing 120 ms `instant` timing and `OutCubic` movement curve, so every
+  retarget starts making progress immediately without spring or overshoot.
+- Before implementation, `DockResponseTest` completed with five expected
+  response failures: early entry progress, entry deadline, continuous
+  rightward movement, exit deadline, and launcher deadline. Pointer-delivery
+  checks passed. The committed test contract was unchanged afterward.
+- After implementation, all 10 response checks and all 31 existing
+  magnification checks passed.
+- Full suite: 31 suites, 676 checks passed, zero failed. The run used a hidden
+  nested Hyprland with two outputs, the branch's window plugin built into a
+  scratch directory, and the repository's look-and-feel/window rules. A copy
+  of the checkout supplied a generated wallpaper in its test profile for
+  `BackdropProbeTest`; implementation and test files matched the checkout
+  byte for byte. The normal config directory remained in use so `TasksTest`
+  could reach the user systemd manager with its own test-only unit prefix.
+- Background captures covered entry, both horizontal directions, gaps, exit,
+  28 px and 48 px icons, and transparent chrome. The peak remained 1.2,
+  neighbors were 1.1728 and 1.1115, and exit restored every scale to 1.
+  Synthetic input on the nested socket opened the launcher, reordered an
+  application from slot 3 to slot 5, and hid/revealed the dock successfully.
+- `./tools/lint.sh` reported only the existing Quickshell type warnings.
+  `git diff --check` passed. Both the isolated runtime log and the live
+  service's automatic-reload log were clean; the live service remained
+  active. The user's subsequent instruction to keep tests in the background
+  superseded the planned live-service restart: no restart or workspace/focus
+  switch was used for final verification.
+- Temporary compositor instances and runtime test rules were removed. No
+  requested behavior remains unimplemented; no tests remain red.
