@@ -21,6 +21,36 @@ Row {
     required property Surface panel
     /*! Where the grid's button is, for the divider before it. */
     readonly property real launcherX: launcher.x
+    /*! Window coordinates, independent of the row's magnified width. */
+    property real pointerX: 0
+    property bool magnifying: false
+    property int geometryRevision: 0
+    readonly property var original: {
+        void root.geometryRevision;
+        const centers = [];
+        let width = 0;
+        for (let i = 0; i < slots.count; ++i) {
+            const slot = slots.itemAt(i);
+            const presence = slot ? slot.presence : 0;
+            centers.push(width + Appearance.m.dockSlot * presence / 2);
+            width += root.slotStride * presence;
+        }
+        centers.push(width + Appearance.m.dockSlot / 2);
+        return { centers, width: width + Appearance.m.dockSlot };
+    }
+    readonly property var magnifications: {
+        // The original row stays centred in the window even as the glass and
+        // live row widen. Never feed a magnified position back into the wave.
+        const windowWidth = root.QsWindow.window?.width ?? root.screen.width;
+        const cursor = root.pointerX - (windowWidth - root.original.width) / 2;
+        const spread = root.slotStride * Appearance.m.dockWaveSpread;
+        return root.original.centers.map(center => {
+            const distance = (cursor - center) / spread;
+            return root.magnifying && !root.drag
+                ? Math.min(Appearance.m.dockMagnification,
+                    1 + (Appearance.m.dockMagnification - 1) * Math.exp(-distance * distance / 2)) : 1;
+        });
+    }
 
     /*! Reported to the dock, which owns the tooltip and the preview, and
         decides what a click on an application does. */
@@ -98,8 +128,12 @@ Row {
 
     // Each slot carries the gap after it, so one shrinking takes its gap along.
     spacing: 0
+    height: Appearance.m.dockSlot
 
     Repeater {
+        id: slots
+        onItemAdded: root.geometryRevision++
+        onItemRemoved: root.geometryRevision++
         // By key, so a slot lives as long as its application is drawn.
         model: ScriptModel {
             values: root.drawn
@@ -107,6 +141,7 @@ Row {
         }
 
         DockSlot {
+            required property int index
             required property var modelData
             readonly property int slot: Dock.appKeys.indexOf(this.modelData.key)
 
@@ -115,6 +150,8 @@ Row {
             panel: root.panel
             slide: root.slideFor(this.slot)
             rearranging: root.rearranging
+            magnification: root.magnifications[this.index] ?? 1
+            onIndexChanged: root.geometryRevision++
             onClicked: (item, centerX) => root.activated(item, centerX)
             onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)
             // Not from inside the slot's own signal, which dropping it destroys.
@@ -150,6 +187,8 @@ Row {
         icon: "apps"
         tipText: qsTr("Applications")
         selected: Overlay.isOpen(Overlay.launcher)
+        magnification: root.magnifications[slots.count] ?? 1
+        y: Appearance.m.dockSlot - height
         scheme: root.panel.schemeOver(launcher)
         onActivated: Overlay.toggle(Overlay.launcher, root.screen, launcher.centerX())
         onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)

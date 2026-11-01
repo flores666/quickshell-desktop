@@ -21,6 +21,12 @@ Item {
     property alias slide: icon.slide
     property alias rearranging: icon.rearranging
     readonly property bool dragging: icon.dragging
+    property real magnification: 1
+    readonly property real growth: Appearance.m.dockIcon * (root.magnification - 1)
+
+    Behavior on magnification {
+        NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+    }
 
     signal clicked(var item, real centerX)
     signal hoverChanged(string key, string label, real centerX, bool entered)
@@ -46,7 +52,7 @@ Item {
         onTriggered: root.gone(root.entry.key)
     }
 
-    width: (Appearance.m.dockSlot + Appearance.m.dockGap) * root.presence
+    width: (Appearance.m.dockSlot + root.growth + Appearance.m.dockGap) * root.presence
     height: Appearance.m.dockSlot
     opacity: root.presence
     // Above its neighbours while it is being carried, so it is never clipped
@@ -62,7 +68,9 @@ Item {
         // One that is leaving has nothing left to open; a click would launch it.
         enabled: !root.entry.leaving
         // Centred in what it takes up, and as small.
-        x: Appearance.m.dockSlot * (root.presence - 1) / 2
+        x: (Appearance.m.dockSlot + root.growth) * (root.presence - 1) / 2
+        y: -root.growth
+        magnification: root.magnification
         scale: root.presence
 
         onClicked: root.clicked(root.entry.item, icon.centerX())

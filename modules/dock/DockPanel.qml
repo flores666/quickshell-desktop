@@ -102,6 +102,7 @@ PanelWindow {
     mask: Region {
         item: trigger
         Region { item: surface }
+        Region { item: iconReach }
         Region { item: preview.visible ? preview : null }
     }
 
@@ -180,7 +181,7 @@ PanelWindow {
         screen: root.modelData
         suppressed: root.held || !root.shown
         pointer: dockHover.hovered
-            ? Qt.point(surface.x + dockHover.point.position.x, surface.y + dockHover.point.position.y) : null
+            ? dockHover.point.scenePosition : null
         z: 1
     }
 
@@ -223,7 +224,20 @@ PanelWindow {
             NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
         }
 
-        HoverHandler { id: dockHover }
+        // Keep the small part of a magnified icon above the glass clickable,
+        // including with transparent chrome. This region has fixed height;
+        // entering it cannot resize itself and make hover oscillate.
+        Item {
+            id: iconReach
+            width: parent.width
+            height: parent.height + Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1)
+            anchors.bottom: parent.bottom
+        }
+
+        HoverHandler {
+            id: dockHover
+            margin: Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1)
+        }
 
         // Midway across the gap before the launcher, level with the icons'
         // centres; outside the row, so it adds nothing to its spacing.
@@ -245,6 +259,8 @@ PanelWindow {
             anchors.bottomMargin: root.base
             screen: root.modelData
             panel: surface
+            pointerX: dockHover.point.scenePosition.x
+            magnifying: dockHover.hovered && root.shown
             onActivated: (item, x) => root.activate(item, x)
             onChildHover: (key, label, x, entered) => root.onChildHover(key, label, x, entered)
         }

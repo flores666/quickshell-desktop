@@ -11,14 +11,19 @@ Clickable {
 
     property string icon: ""
     property string tipText: ""
+    property real magnification: 1
+
+    Behavior on magnification {
+        NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
+    }
 
     signal activated
     signal hoverChanged(string key, string label, real centerX, bool entered)
 
-    implicitWidth: Appearance.m.dockSlot
-    implicitHeight: Appearance.m.dockSlot
+    implicitWidth: Appearance.m.dockSlot + Appearance.m.dockIcon * (root.magnification - 1)
+    implicitHeight: implicitWidth
     // The slot an application has, highlight and all (see DockItem).
-    radius: Appearance.r.capsule(Appearance.m.dockSlot)
+    radius: Appearance.r.capsule(root.height)
     focusable: false
 
     /*! Its middle across the dock's window, as a DockItem reports it. */
@@ -34,14 +39,17 @@ Clickable {
     // glyph's dots fill two thirds of its box, about what an icon's artwork
     // does of its own.
     Icon {
-        x: Appearance.m.dockInset
-        y: Appearance.m.dockInset
+        id: artwork
+        x: (root.width - artwork.size) / 2
+        y: root.height - Appearance.m.dockInset - artwork.size
         name: root.icon
         size: Appearance.m.dockIcon
         color: root.selected ? root.scheme.accent : root.scheme.text
-        scale: root.down ? 0.9 : root.hovered ? 1.06 : 1
+        transformOrigin: Item.Bottom
+        property real pressScale: root.down ? 0.9 : 1
+        scale: root.magnification * artwork.pressScale
 
-        Behavior on scale {
+        Behavior on pressScale {
             NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
         }
         Behavior on color {

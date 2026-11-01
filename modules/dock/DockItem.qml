@@ -18,6 +18,7 @@ Clickable {
         on its slot there, its dots those that read on their own strip. */
     required property Surface panel
     readonly property ColorScheme dotScheme: root.panel.schemeOver(dots)
+    property real magnification: 1
 
     /*! Whether one of its windows has focus; read here, not in the model. */
     readonly property bool active: root.item.windows.some(w => w?.activated ?? false)
@@ -42,11 +43,11 @@ Clickable {
     signal dragMoved(real dx)
     signal dragEnded
 
-    implicitWidth: Appearance.m.dockSlot
-    implicitHeight: Appearance.m.dockSlot
+    implicitWidth: Appearance.m.dockSlot + Appearance.m.dockIcon * (root.magnification - 1)
+    implicitHeight: implicitWidth
     // Round, so at either end of the row the highlight is concentric with the
     // dock's round edge.
-    radius: Appearance.r.capsule(Appearance.m.dockSlot)
+    radius: Appearance.r.capsule(root.height)
     focusable: false
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     selected: root.active
@@ -103,14 +104,16 @@ Clickable {
 
     AppIcon {
         id: icon
-        x: Appearance.m.dockInset
-        y: Appearance.m.dockInset
+        x: (root.width - icon.size) / 2
+        y: root.height - Appearance.m.dockInset - icon.size
         source: root.item.icon
         size: Appearance.m.dockIcon
         optical: true
-        scale: root.down ? 0.9 : root.hovered ? 1.06 : 1
+        transformOrigin: Item.Bottom
+        property real pressScale: root.down ? 0.9 : 1
+        scale: root.magnification * icon.pressScale
 
-        Behavior on scale {
+        Behavior on pressScale {
             NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
         }
     }
