@@ -200,8 +200,7 @@ PanelWindow {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.shown
             ? Appearance.m.screenGap : -(root.dockHeight + Appearance.m.screenGap)
-        // The shelf keeps its resting box; only the icons spread on hover.
-        width: layout.original.width + root.frame * 2
+        width: layout.implicitWidth + root.frame * 2
         height: root.dockHeight
         radius: Appearance.r.capsule(root.dockHeight)
         glass: Appearance.dockOpacity
@@ -225,21 +224,19 @@ PanelWindow {
             NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
         }
 
-        // Keep the row clickable above and beyond the fixed glass, including
-        // with transparent chrome. This follows drawn geometry only; cursor
-        // distances still come from the original row, never this region.
+        // Keep the small part of a magnified icon above the glass clickable,
+        // including with transparent chrome. This region has fixed height;
+        // entering it cannot resize itself and make hover oscillate.
         Item {
             id: iconReach
-            width: Math.max(parent.width, layout.width + root.frame * 2)
+            width: parent.width
             height: parent.height + Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1)
-            anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
         }
 
         HoverHandler {
             id: dockHover
-            margin: Math.max(Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1),
-                (iconReach.width - surface.width) / 2)
+            margin: Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1)
         }
 
         // Midway across the gap before the launcher, level with the icons'
@@ -248,8 +245,7 @@ PanelWindow {
             id: separator
             visible: Dock.items.length > 0
             color: surface.schemeOver(separator).border
-            x: layout.x + layout.launcherX
-                - Math.round((Appearance.m.dockGap - layout.fitting.gapReduction + width) / 2)
+            x: layout.x + layout.launcherX - Math.round((Appearance.m.dockGap + width) / 2)
             y: layout.y + Math.round((Appearance.m.dockSlot - height) / 2)
         }
 

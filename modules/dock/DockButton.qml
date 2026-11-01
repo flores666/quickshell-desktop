@@ -12,9 +12,7 @@ Clickable {
     property string icon: ""
     property string tipText: ""
     property alias targetMagnification: wave.targetScale
-    property real fitFactor: 1
-    readonly property real requestedMagnification: wave.value
-    readonly property real magnification: 1 + (wave.value - 1) * root.fitFactor
+    readonly property real magnification: wave.value
 
     DockMagnification { id: wave }
 

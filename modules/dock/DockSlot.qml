@@ -22,10 +22,7 @@ Item {
     property alias rearranging: icon.rearranging
     readonly property bool dragging: icon.dragging
     property alias targetMagnification: wave.targetScale
-    property real fitFactor: 1
-    property real gapReduction: 0
-    readonly property real requestedMagnification: wave.value
-    readonly property real magnification: 1 + (wave.value - 1) * root.fitFactor
+    readonly property real magnification: wave.value
     readonly property real growth: Appearance.m.dockIcon * (root.magnification - 1)
 
     DockMagnification { id: wave }
@@ -54,7 +51,7 @@ Item {
         onTriggered: root.gone(root.entry.key)
     }
 
-    width: (Appearance.m.dockSlot + root.growth + Appearance.m.dockGap - root.gapReduction) * root.presence
+    width: (Appearance.m.dockSlot + root.growth + Appearance.m.dockGap) * root.presence
     height: Appearance.m.dockSlot
     opacity: root.presence
     // Above its neighbours while it is being carried, so it is never clipped
