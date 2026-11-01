@@ -248,7 +248,8 @@ PanelWindow {
             id: separator
             visible: Dock.items.length > 0
             color: surface.schemeOver(separator).border
-            x: layout.x + layout.launcherX - Math.round((Appearance.m.dockGap + width) / 2)
+            x: layout.x + layout.launcherX
+                - Math.round((Appearance.m.dockGap - layout.fitting.gapReduction + width) / 2)
             y: layout.y + Math.round((Appearance.m.dockSlot - height) / 2)
         }
 

@@ -29,18 +29,32 @@ Row {
         void root.geometryRevision;
         const centers = [];
         let width = 0;
+        let weight = 0;
         for (let i = 0; i < slots.count; ++i) {
             const slot = slots.itemAt(i);
             const presence = slot ? slot.presence : 0;
             centers.push(width + Appearance.m.dockSlot * presence / 2);
             width += root.slotStride * presence;
+            weight += presence;
         }
         centers.push(width + Appearance.m.dockSlot / 2);
-        return { centers, width: width + Appearance.m.dockSlot };
+        return { centers, width: width + Appearance.m.dockSlot, weight };
+    }
+    /*! Growth uses the existing artwork gaps, so both ends stay put. Read
+        raw animation values, never widths or fitted scales: no layout loop. */
+    readonly property var fitting: {
+        const weight = root.original.weight;
+        let growth = Appearance.m.dockIcon * (launcher.requestedMagnification - 1);
+        for (let i = 0; i < slots.count; ++i) {
+            const item = slots.itemAt(i);
+            if (item) growth += Appearance.m.dockIcon * (item.requestedMagnification - 1) * item.presence;
+        }
+        const budget = weight * (Appearance.m.dockGap + Appearance.m.dockInset * 2 - Appearance.s.xxs);
+        const factor = growth > 0 ? Math.min(1, budget / growth) : 1;
+        return { factor, gapReduction: weight > 0 ? growth * factor / weight : 0 };
     }
     readonly property var magnifications: {
-        // The original row stays centred in the window even as the glass and
-        // live row widen. Never feed a magnified position back into the wave.
+        // Never feed magnified positions or reclaimed gaps back into the wave.
         const windowWidth = root.QsWindow.window?.width ?? root.screen.width;
         const cursor = root.pointerX - (windowWidth - root.original.width) / 2;
         const spread = root.slotStride * Appearance.m.dockWaveSpread;
@@ -151,6 +165,8 @@ Row {
             slide: root.slideFor(this.slot)
             rearranging: root.rearranging
             targetMagnification: root.magnifications[this.index] ?? 1
+            fitFactor: root.fitting.factor
+            gapReduction: root.fitting.gapReduction
             onIndexChanged: root.geometryRevision++
             onClicked: (item, centerX) => root.activated(item, centerX)
             onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)
@@ -188,6 +204,7 @@ Row {
         tipText: qsTr("Applications")
         selected: Overlay.isOpen(Overlay.launcher)
         targetMagnification: root.magnifications[slots.count] ?? 1
+        fitFactor: root.fitting.factor
         y: Appearance.m.dockSlot - height
         scheme: root.panel.schemeOver(launcher)
         onActivated: Overlay.toggle(Overlay.launcher, root.screen, launcher.centerX())

@@ -34,6 +34,35 @@ workers/worktrees are needed. Leave this branch unmerged and unpushed.
 
 ## Verification
 
-The corrected footprint test reproduces 18 width/right-artwork-bound failures
-on the previous implementation. The revised existing tests also reproduce
-row expansion. Final verification is pending.
+The corrected footprint test reproduced 18 width/right-artwork-bound failures
+on the previous implementation. Revised existing tests also reproduced row
+expansion. Their committed contract was unchanged during implementation.
+
+Magnification now spends the existing gap space instead of adding width to
+the row. The fit calculation reads raw animated scales and presence only,
+then provides bounded scales and gap reduction, keeping layout out of the
+pointer-distance calculation. The divider follows the actual artwork gap.
+
+Verification completed:
+
+- Full suite: 34 suites, 897 checks passed, zero failed, in hidden nested
+  Hyprland with the established repository window configuration and wallpaper
+  fixture. Test files matched the checkout byte for byte; the persistence
+  case ran last. No tests were edited after the corrected contract commit.
+- The footprint regression covers center/edge hover and exit with nine,
+  one, and zero application icons. It checks row width, first/last transformed
+  artwork bounds, clear gaps, scale caps, and retained components. Existing
+  response-time, settings/persistence, geometry, and input checks pass too.
+- Transparent-dock rest/hover/exit captures had identical visible pixel
+  bounds, x=152 through x=1121. The row width stayed 982 logical pixels, with
+  transformed artwork bounds x=151 through x=1129 in all three states.
+- Background-only pointer checks covered opaque/transparent docks, 28/48 px
+  icons, the broadest wave, edge context-menu/launcher clicks, drag reordering,
+  and auto-hide/reveal. All passed, with no overlap or footprint growth.
+- `./tools/lint.sh` reported only established Quickshell type warnings;
+  `git diff --check` passed. Isolated runtime and live automatic-reload logs
+  had no dock errors. No workspace/focus switches or live-shell restart were
+  used. Temporary compositor instances and runtime rules were removed.
+
+No requested behavior or verification remains incomplete. The branch stays
+unmerged and unpushed.
