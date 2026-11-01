@@ -10,6 +10,8 @@ import "root:/services"
 Item {
     id: root
 
+    property int leaving: 0
+
     implicitHeight: 320
 
     Item {
@@ -64,6 +66,7 @@ Item {
         cacheBuffer: 0
 
         delegate: NotificationCard {
+            id: rowCard
             required property var modelData
 
             // Clear of the scrollbar whether it shows or not: a width that
@@ -71,8 +74,23 @@ Item {
             // new or removed row's transition runs, and ListView ignores the
             // first row's change of height then (see AGENTS.md).
             width: list.width - scrollbar.footprint
-            notification: this.modelData
-            onDismissed: Notifs.remove(this.modelData)
+            notification: rowCard.modelData
+            onDismissed: Notifs.remove(rowCard.modelData)
+
+            // Keep the row in the view until its own exit finishes, even
+            // when it is the first or last row, or all rows are cleared.
+            ListView.delayRemove: exit.running
+            ListView.onRemove: {
+                root.leaving++;
+                exit.start();
+            }
+            transform: Translate { id: rowSlide }
+            NotificationExit {
+                id: exit
+                card: rowCard
+                slide: rowSlide
+                onFinished: root.leaving--
+            }
         }
 
         add: Transition {
@@ -82,28 +100,13 @@ Item {
                 easing.type: Appearance.t.standardEasing
             }
         }
-        // A row leaves the way a toast does, back out to the right as it
-        // fades, and the rows below wait for it before closing the gap.
-        remove: Transition {
-            NumberAnimation {
-                property: "x"; to: Appearance.m.notificationSlide
-                duration: Appearance.t.resize
-                easing.type: Appearance.t.standardEasing
-            }
-            NumberAnimation {
-                property: "opacity"; to: 0
-                duration: Appearance.t.resize
-                easing.type: Appearance.t.standardEasing
-            }
-        }
+        // delayRemove holds the slot until the shared exit finishes; the
+        // remaining rows then close the gap at the same pace as the toasts.
         removeDisplaced: Transition {
-            SequentialAnimation {
-                PauseAnimation { duration: Appearance.t.resize }
-                NumberAnimation {
-                    properties: "y"
-                    duration: Appearance.t.base
-                    easing.type: Appearance.t.standardEasing
-                }
+            NumberAnimation {
+                properties: "y"
+                duration: Appearance.t.resize
+                easing.type: Appearance.t.standardEasing
             }
             NumberAnimation {
                 property: "opacity"; to: 1
@@ -131,7 +134,7 @@ Item {
     Column {
         anchors.centerIn: list
         spacing: Appearance.s.md
-        visible: Notifs.count === 0
+        visible: Notifs.count === 0 && root.leaving === 0
 
         Icon {
             anchors.horizontalCenter: parent.horizontalCenter

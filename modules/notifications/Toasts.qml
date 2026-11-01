@@ -109,7 +109,7 @@ PanelWindow {
                 // a card still sliding in when another left was put back there
                 // and stayed (see AGENTS.md).
                 transform: Translate {
-                    id: slide
+                    id: toastSlide
 
                     NumberAnimation on x {
                         from: Appearance.m.notificationSlide
@@ -140,10 +140,10 @@ PanelWindow {
                         leave.start();
                 }
 
-                ParallelAnimation {
+                NotificationExit {
                     id: leave
-                    NumberAnimation { target: slide; property: "x"; to: Appearance.m.notificationSlide; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
-                    NumberAnimation { target: toast; property: "opacity"; to: 0; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
+                    card: toast
+                    slide: toastSlide
                     onFinished: root.forget(toast.modelData)
                 }
             }
