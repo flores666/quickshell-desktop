@@ -74,15 +74,15 @@ Item {
             check.near("layout growth never changes the resting width", row.original.width, root.restingWidth);
             check.equal("resting pointer has no layout feedback",
                 JSON.stringify(row.magnifications), JSON.stringify(root.centeredTargets));
-            check.equal("row grows to keep icons apart", row.width > root.restingWidth, true);
+            check.near("magnification keeps the icon row width fixed", row.width, root.restingWidth);
             for (let i = 0; i < root.kept.length; ++i) {
                 const slot = root.kept[i];
                 const icon = slot.children[0];
                 check.near("bottom stays fixed " + i, icon.y + icon.height, root.restingBottom);
                 if (i > 0)
-                    check.near("neighbor gap stays clear " + i,
-                        slot.x - root.kept[i - 1].x - root.kept[i - 1].children[0].width,
-                        Appearance.m.dockGap);
+                    check.equal("neighbor artwork stays separated " + i,
+                        slot.x - root.kept[i - 1].x - root.kept[i - 1].children[0].width
+                            + Appearance.m.dockInset * 2 >= Appearance.s.xxs - 0.001, true);
             }
             root.pointAt(4.001);
             check.equal("subpixel movement changes the wave continuously",

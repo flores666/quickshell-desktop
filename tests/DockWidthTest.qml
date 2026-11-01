@@ -8,8 +8,7 @@ import "root:/components"
 import "root:/services"
 import "root:/modules/dock"
 
-/*! The glass keeps its resting box while the icon row expands past it.
-    Overflow must stay inside the hover/input region on both ends. */
+/*! Both the glass and the visible icon span keep their resting boxes. */
 Item {
     id: root
     Check { id: check }
@@ -52,6 +51,14 @@ Item {
     }
     function launcher(): var {
         return root.row.children.find(item => item instanceof DockButton);
+    }
+    function separator(item: var): var {
+        if (item instanceof DockSeparator) return item;
+        for (const child of item.children ?? []) {
+            const found = root.separator(child);
+            if (found) return found;
+        }
+        return null;
     }
     function point(x: real): void {
         const y = root.row.mapToItem(dock.contentItem, 0, root.row.height / 2).y;
@@ -103,6 +110,15 @@ Item {
         check.near(label + ": background width", panel.width, root.rest.width);
         check.near(label + ": background left edge", origin.x, root.rest.x);
         check.near(label + ": bottom edge", origin.y + panel.height, root.rest.y + root.rest.height);
+        check.near(label + ": icon row width", root.row.width, root.row.original.width);
+        const last = root.slots()[root.slots().length - 1].children[0];
+        const appArt = last.children.find(c => c instanceof AppIcon);
+        const buttonArt = root.launcher().children.find(c => c instanceof Icon);
+        const divider = root.separator(panel);
+        const midpoint = (appArt.mapToItem(dock.contentItem, appArt.width, 0).x
+            + buttonArt.mapToItem(dock.contentItem, 0, 0).x) / 2;
+        check.within(label + ": divider stays between artwork",
+            divider.mapToItem(dock.contentItem, divider.width / 2, 0).x, midpoint, 0.51);
     }
 
     function begin(): void {
@@ -114,7 +130,7 @@ Item {
         root.pointAt(4);
         root.after(() => {
             root.unchanged("center hover");
-            check.equal("live icons still move apart", root.row.width > root.row.original.width, true);
+            check.near("live icon row stays fixed", root.row.width, root.row.original.width);
             root.leftEdge();
         });
     }
@@ -125,9 +141,8 @@ Item {
             root.unchanged("first icon hover");
             const first = root.slots()[0].children[0];
             const x = first.mapToItem(dock.contentItem, 0, 0).x;
-            check.equal("first icon can extend past the background", x < root.rest.x, true);
-            // Beyond the old fixed margin, but inside the expanded first slot.
-            root.point(root.rest.x - Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1) - 1);
+            check.equal("first icon stays inside the background", x >= root.rest.x, true);
+            root.point(first.mapToItem(dock.contentItem, first.width / 2, 0).x);
             root.after(() => {
                 root.unchanged("left overflow hover");
                 check.equal("left overflow keeps dock hover", dock.pointerNear, true);
@@ -143,9 +158,8 @@ Item {
             root.unchanged("launcher hover");
             const launcher = root.launcher();
             const far = launcher.mapToItem(dock.contentItem, launcher.width, 0).x;
-            check.equal("launcher can extend past the background", far > root.rest.x + root.rest.width, true);
-            const x = root.rest.x + root.rest.width
-                + Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1) + 1;
+            check.equal("launcher stays inside the background", far <= root.rest.x + root.rest.width + 0.001, true);
+            const x = launcher.mapToItem(dock.contentItem, launcher.width / 2, 0).x;
             root.point(x);
             root.after(() => {
                 root.unchanged("right overflow hover");

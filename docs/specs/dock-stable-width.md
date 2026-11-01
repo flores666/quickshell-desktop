@@ -1,91 +1,39 @@
-# Stable dock background during magnification
+# Stable dock footprint during magnification
 
 ## Goal
 
-Keep the dock's glass background at its normal resting width when the pointer
-enters, moves across, and leaves the dock. As selected in the interview,
-magnified icons may extend beyond that background while retaining the
-existing wave, spacing, response controls, and strict 120% scale ceiling.
+The user's before/after screenshots clarify that the visible icon row itself
+must keep its resting width, including when the background is transparent.
+The previous background-only fix was insufficient. This correction supersedes
+allowing the icon row to expand past the glass.
 
-## Plan
+## Plan and contract
 
-1. Separate background width from magnified icon geometry.
-   - Given an unchanged application list, icon size, and chrome settings,
-     hovering any icon or gap leaves the background's width and horizontal
-     center unchanged throughout entry, movement, and exit.
-   - The background follows the existing unscaled row measurement and frame
-     padding. Actual application arrivals/departures and icon/chrome setting
-     changes may still resize it, preserving existing behavior.
-   - The live icon row still expands and stays centered, so neighboring icons
-     move apart without overlap. Its enlarged first/last icons may extend
-     past the background's edges; they are drawn and remain interactive.
-   - The input mask and hover handler cover that overflow, including with
-     transparent chrome, the largest icon size, and the widest wave. Moving
-     from the background onto an overflowed icon does not drop hover or start
-     auto-hide. Keep input bounded to dock/preview/reveal regions.
-   - The reveal strip uses the stable background width. Magnification still
-     samples original icon centers; no layout feedback, component recreation,
-     polling, or additional surfaces are introduced.
-   - Files: `modules/dock/DockPanel.qml` and existing dock geometry helpers
-     only if needed; regression tests in `tests/DockWidthTest.qml`.
-   - Add tests first, run them against current behavior, and confirm failures
-     describe background width following the wave or missing overflow input.
-     Commit this spec and the red tests before implementation; keep the test
-     contract unchanged afterward. Existing row-growth tests remain valid.
+1. Keep the icon row and its outer artwork bounds fixed during center/edge
+   hover and exit. Reclaim magnification growth from the existing gaps;
+   maintain a small clear artwork gap, the original cursor-distance inputs,
+   bottom alignment, 120% cap, timing/settings, and component identities.
+   Short rows limit effective growth to what fits without overlap. Actual
+   application arrivals/departures and icon/chrome settings can still resize
+   the dock. Keep the launcher divider centered in the remaining artwork gap.
+   Files: `modules/dock/DockRow.qml`, `DockSlot.qml`, `DockButton.qml`, and
+   `DockPanel.qml`.
+2. Before implementation, update the earlier row-growth/overflow assertions
+   to the corrected requirement and add `tests/DockFootprintTest.qml` for
+   center/edge/exit, artwork bounds, separation, and one/zero application
+   rows. Run these red for the width error, commit, and keep them unchanged
+   during implementation.
+3. Run regression/full-suite/lint checks and background-only visual/input
+   checks on opaque/transparent docks. Compare the first/last icon bounds
+   as well as the glass; verify click, drag, auto-hide, and real list changes.
+   Use the established hidden nested compositor and wallpaper fixture. Do
+   not switch the user's workspace/focus or restart their live shell.
 
-2. Verify fixed background and overflow interactions in the background.
-   - Capture rest, center/edge hover, horizontal travel, and exit in a hidden
-     nested compositor. Compare the glass's left/right edges across captures;
-     check the upward growth, clear spacing, and original bottom baseline.
-   - Exercise an outer icon beyond the background, launcher click, drag
-     reordering, auto-hide/reveal, transparent chrome, minimum/maximum icon
-     sizes, and the broadest wave using input on the nested socket only.
-   - Run the new test, existing dock tests, full suite, `./tools/lint.sh`, and
-     `git diff --check`. Use the established nested setup and wallpaper
-     fixture; run the compositor-reset persistence test last where needed.
-   - Inspect isolated runtime logs and the live shell's automatic-reload log.
-     Keep the user's workspace/focus unchanged and do not restart their shell.
-     Remove temporary compositor instances and runtime rules, and record the
-     final verification here.
+The geometry is one coupled subtask on `forge/dock-stable-width`; no parallel
+workers/worktrees are needed. Leave this branch unmerged and unpushed.
 
-## Execution
+## Verification
 
-Background sizing and overflow input are one coupled dock-geometry subtask.
-Work on `forge/dock-stable-width` from the current settings branch, with no
-parallel workers or worktrees. Leave the final branch unmerged and unpushed.
-
-## Verification results
-
-- Completed both plan items. Only `DockPanel.qml` required production changes:
-  glass width now follows the original row plus frame padding; the centered
-  input reach follows the live row, and the hover margin includes its overflow.
-  Icon layout, animation settings, scaling, and pointer-distance inputs are
-  unchanged. The reveal strip inherits the stable glass width.
-- Before implementation, `DockWidthTest` completed with 24 expected failures
-  for hover-driven background resizing/movement in opaque and transparent
-  modes. Its committed test source remained unchanged afterward.
-- After implementation, all 61 new width/overflow checks and the existing
-  dock magnification/response checks passed. The test observes intermediate
-  width/position changes as well as settled geometry and clicks the launcher
-  beyond the background's edge at maximum icon size and wave width.
-- Full suite: 33 suites, 801 checks passed, zero failed. The hidden nested
-  compositor used repository window rules, the unchanged branch window-plugin
-  build, and two outputs. A test-profile copy supplied a generated wallpaper;
-  all implementation and test files matched the working tree byte for byte.
-  The compositor-reset persistence test ran last, as in the previous work.
-- Background screenshots at rest, center hover, both edges, and exit retained
-  the same glass box (x 141, width 998 in the default-size fixture), while the
-  live row grew from 982 to 1021.6 pixels. A pixel scanline near the glass's
-  bottom edge was byte-identical across all five captures.
-- Actual pointer input on the nested socket kept hover active beyond both
-  edges and opened the outer application's context menu and the overflowed
-  launcher. Checks passed with 28 px and 48 px icons, maximum wave width, and
-  transparent chrome. Drag reordering, auto-hide held open over overflow,
-  hiding/revealing, and resizing when an application was unpinned/re-pinned
-  also passed.
-- `./tools/lint.sh` reported only established Quickshell type warnings;
-  `git diff --check` passed. The isolated runtime and live shell's automatic
-  reload logged no dock errors. No live-shell restart or workspace/focus
-  switch was used. Temporary compositor instances and runtime rules were
-  removed; no requested behavior or verification remains incomplete.
-- Left `forge/dock-stable-width` unmerged and unpushed.
+The corrected footprint test reproduces 18 width/right-artwork-bound failures
+on the previous implementation. The revised existing tests also reproduce
+row expansion. Final verification is pending.
