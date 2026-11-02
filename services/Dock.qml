@@ -142,6 +142,26 @@ Singleton {
     /*! The applications the dock is showing, in the order it shows them. */
     readonly property var appKeys: root.items.map(item => item.key)
 
+    /*! A closed, unpinned application has given up its place. Keeping its
+        old key made the next launch appear among the arranged icons instead
+        of joining the end. Keep unavailable pins, whose entries may return.
+        Defer until the model and the settings file have finished updating. */
+    function forgetClosed(): void {
+        if (!Settings.ready)
+            return;
+        const present = new Set(root.appKeys);
+        const keys = Settings.dockOrder.filter(key => present.has(key) || Settings.isPinned(key));
+        if (keys.length !== Settings.dockOrder.length)
+            Settings.setDockOrder(keys);
+    }
+
+    onItemsChanged: Qt.callLater(root.forgetClosed)
+    Component.onCompleted: Qt.callLater(root.forgetClosed)
+    Connections {
+        target: Settings
+        function onReadyChanged(): void { Qt.callLater(root.forgetClosed); }
+    }
+
     /*! Move the application at `from` to where the one at `to` is now. */
     function moveItem(from: int, to: int): void {
         const items = root.items;

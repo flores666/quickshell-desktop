@@ -41,7 +41,7 @@ Row {
     readonly property var magnifications: {
         // Distances use the resting centres, so an icon's animated artwork
         // never feeds back into its own magnification target.
-        const windowWidth = root.QsWindow.window?.width ?? root.screen.width;
+        const windowWidth = root.QsWindow.window?.width ?? root.screen?.width ?? 0;
         const cursor = root.pointerX - (windowWidth - root.original.width) / 2;
         const spread = root.slotStride * Appearance.m.dockWaveSpread;
         return root.original.centers.map(center => {
@@ -58,8 +58,8 @@ Row {
     signal activated(var item, real centerX)
 
     /*!
-        The drag in flight: the slot the icon came from, and the slot it would
-        land in.
+        The drag in flight: the application keys it came from and would land
+        on. Indices can change while an application starts or quits.
 
         One property and not two. Assigning a pair of them leaves a frame in
         which `slideFor` sees the new drag against the last drop — QML
@@ -86,22 +86,45 @@ Row {
 
     /*! How far an icon has to step aside to open a gap where the drag will land. */
     function slideFor(slot: int): real {
-        if (!root.drag || slot === root.drag.from || slot === -1)
+        if (!root.drag || slot === -1)
             return 0;
-        if (slot > root.drag.from && slot <= root.drag.to)
+        const from = Dock.appKeys.indexOf(root.drag.from);
+        const to = Dock.appKeys.indexOf(root.drag.to);
+        if (from === -1 || to === -1 || slot === from)
+            return 0;
+        if (slot > from && slot <= to)
             return -root.slotStride;
-        if (slot < root.drag.from && slot >= root.drag.to)
+        if (slot < from && slot >= to)
             return root.slotStride;
         return 0;
     }
 
-    /*! [{ key, item, leaving, arriving }]: what the row draws. */
+    /*! Stable records with { key, item, leaving, arriving }: what the row draws. */
     property var drawn: []
+
+    Component {
+        id: record
+        QtObject {
+            required property string key
+            required property var item
+            required property bool arriving
+            property bool leaving: false
+        }
+    }
 
     /*! Dock's list, with each application that has left kept after the one
         it stood behind until it has shrunk away. */
     function reconcile(arriving: bool): void {
-        const out = Dock.items.map(item => ({ key: item.key, item, leaving: false, arriving }));
+        const previous = new Map(root.drawn.map(e => [e.key, e]));
+        const out = Dock.items.map(item => {
+            const kept = previous.get(item.key);
+            if (kept) {
+                kept.item = item;
+                kept.leaving = false;
+                return kept;
+            }
+            return record.createObject(root, { key: item.key, item, arriving });
+        });
         let behind = -1;
         for (const e of root.drawn) {
             const at = out.findIndex(o => o.key === e.key);
@@ -110,13 +133,18 @@ Row {
                 continue;
             }
             behind += 1;
-            out.splice(behind, 0, { key: e.key, item: e.item, leaving: true, arriving: false });
+            e.leaving = true;
+            out.splice(behind, 0, e);
         }
         root.drawn = out;
     }
 
     function forget(key: string): void {
-        root.drawn = root.drawn.filter(e => !(e.key === key && e.leaving));
+        const leaving = root.drawn.find(e => e.key === key && e.leaving);
+        if (!leaving)
+            return;
+        root.drawn = root.drawn.filter(e => e !== leaving);
+        leaving.destroy();
     }
 
     Component.onCompleted: root.reconcile(false)
@@ -134,10 +162,13 @@ Row {
         id: slots
         onItemAdded: root.geometryRevision++
         onItemRemoved: root.geometryRevision++
-        // By key, so a slot lives as long as its application is drawn.
+        // Keep record identities stable and update their properties directly.
+        // ScriptModel 0.3.2 batches changed JS payloads past the next key:
+        // inserting in the middle then changes old delegates into other apps
+        // and grows the last one instead of the new application.
         model: ScriptModel {
             values: root.drawn
-            objectProp: "key"
+            comparisonMode: ObjectComparison.Identity
         }
 
         DockSlot {
@@ -154,15 +185,17 @@ Row {
             onIndexChanged: root.geometryRevision++
             onClicked: (item, centerX) => root.activated(item, centerX)
             onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)
-            // Not from inside the slot's own signal, which dropping it destroys.
-            onGone: key => Qt.callLater(root.forget, key)
+            // Not inside the slot's signal, which dropping it destroys. Each
+            // callback must be distinct: callLater(forget, key) coalesces a
+            // simultaneous batch of exits and forgets only its last key.
+            onGone: key => Qt.callLater(() => root.forget(key))
 
             onDragMoved: dx => {
                 root.rearranging = true;
                 root.drag = ({
-                    from: this.slot,
-                    to: Math.max(0, Math.min(Dock.items.length - 1,
-                        this.slot + Math.round(dx / root.slotStride)))
+                    from: this.modelData.key,
+                    to: Dock.appKeys[Math.max(0, Math.min(Dock.items.length - 1,
+                        this.slot + Math.round(dx / root.slotStride)))]
                 });
             }
             onDragEnded: {
@@ -172,7 +205,7 @@ Row {
                 root.rearranging = false;
                 root.drag = null;
                 if (drag) {
-                    Dock.moveItem(drag.from, drag.to);
+                    Dock.moveItem(Dock.appKeys.indexOf(drag.from), Dock.appKeys.indexOf(drag.to));
                     // Laid out now, not at the next frame's polish: Qt checks
                     // hover before that, and found the old order's icon under
                     // the pointer, its wash on for six frames.
