@@ -297,11 +297,13 @@ and a prompt of rounded pills — the working directory, the git branch, and the
 last command's status only when it failed — with a blank line above each one.
 
 `terminal/kitty.conf` is the whole kitty config — the font, the keys, the
-look. Your own `kitty.conf` only includes it, then `font-size.conf`, where
-`bin/kitty-font-size` keeps the size Ctrl+=/Ctrl+- set for that machine (a
-machine starts at the project's 13 pt); anything you add after the include wins
-over the project. The prompt is fish's, so fish is made the login shell; its
-syntax colours are fish's default theme, drawn in the terminal's palette.
+look. Your own `kitty.conf` only includes it, then `font-size.conf` for that
+machine's default size (13 pt unless overridden); anything you add after the
+include wins over the project. Ctrl+=/Ctrl+- change only the current terminal
+window's size, by one point or two with Shift, leaving other windows and the
+default for new windows unchanged. The prompt is fish's, so fish is made the
+login shell; its syntax colours are fish's default theme, drawn in the
+terminal's palette.
 
 The colours are written once, in `terminal/palette.conf`: kitty takes them
 through `kitty-colors.py` (a `geninclude`), and the prompt and neovim
