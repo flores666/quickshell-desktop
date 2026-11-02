@@ -44,10 +44,19 @@ for test in "${tests[@]}"; do
     # exiting or fifteen seconds: a wait on the output, not on a clock.
     # A persistence test may intentionally rewrite its preferences. The next
     # shell must start from profile again, not inherit the previous test's file.
-    exec {out}< <(exec env XDG_STATE_HOME="$work/state/$name" XDG_CACHE_HOME="$work/cache" \
+    # Notification tests must exercise the real server without claiming the
+    # desktop's bus name. Each gets a bus that dies with its test process.
+    session=()
+    notification_bus=""
+    if [[ "$name" == Notification*Test ]]; then
+        session=(setsid dbus-run-session --)
+        notification_bus=private
+    fi
+    exec {out}< <(exec "${session[@]}" env XDG_STATE_HOME="$work/state/$name" XDG_CACHE_HOME="$work/cache" \
         XDG_DATA_HOME="$work/data" QML_IMPORT_PATH="$work/native/qml" \
         PATH="$work/tree/tests/bin:$PATH" \
         TEST_GSETTINGS="$work/gsettings" TEST_SIGNALS="$work/signals" TEST_NOTIFY="$work/notify" \
+        TEST_NOTIFICATION_BUS="$notification_bus" \
         qs -p "$work/tree/shell.qml" 2>&1)
     pid=$!
     : > "$log"
@@ -56,7 +65,11 @@ for test in "${tests[@]}"; do
         printf '%s\n' "$line" >> "$log"
         [[ "$line" == *'TESTS DONE'* ]] && break
     done
-    kill "$pid" 2>/dev/null || true
+    if [[ -n "$notification_bus" ]]; then
+        kill -- "-$pid" 2>/dev/null || true
+    else
+        kill "$pid" 2>/dev/null || true
+    fi
     wait "$pid" 2>/dev/null || true
     exec {out}<&-
 

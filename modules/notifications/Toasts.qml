@@ -21,21 +21,8 @@ import "root:/services"
 PanelWindow {
     id: root
 
-    /*! Toasts on screen, newest last, including any still fading out. */
-    property var shown: []
-
-    function forget(n: var): void {
-        root.shown = root.shown.filter(x => x && x !== n);
-    }
-
-    Connections {
-        target: Notifs
-        function onPopupsChanged(): void {
-            const added = Notifs.popups.filter(p => p && root.shown.indexOf(p) === -1);
-            if (added.length > 0)
-                root.shown = root.shown.filter(x => x).concat(added);
-        }
-    }
+    /*! Toasts on screen, including any still fading out. */
+    readonly property var shown: column.shown
 
     screen: Compositor.focusedScreen
     visible: root.shown.length > 0
@@ -64,7 +51,7 @@ PanelWindow {
 
     mask: Region { item: column }
 
-    Column {
+    NotificationStack {
         id: column
 
         anchors.top: parent.top
@@ -72,81 +59,7 @@ PanelWindow {
         anchors.right: parent.right
         anchors.rightMargin: Appearance.s.lg
         width: 372
-        spacing: Appearance.s.md
-
-        // The others close the gap instead of jumping into it.
-        move: Transition {
-            NumberAnimation { property: "y"; duration: Appearance.t.resize; easing.type: Appearance.t.standardEasing }
-        }
-
-        Repeater {
-            // A ScriptModel rather than the bare array: reassigning an array
-            // rebuilds every delegate, so each new toast would restart the
-            // others' fade-in and expiry. This keeps the ones still listed.
-            model: ScriptModel { values: root.shown }
-
-            NotificationCard {
-                id: toast
-                required property var modelData
-
-                width: column.width
-                notification: toast.modelData
-                standalone: true
-                onDismissed: Notifs.dismissPopup(toast.modelData)
-
-                readonly property int expiry: Notifs.timeoutFor(toast.modelData)
-                readonly property bool leaving: Notifs.popups.indexOf(toast.modelData) === -1
-
-                Timer {
-                    running: toast.expiry > 0 && !toast.leaving
-                    interval: toast.expiry
-                    onTriggered: Notifs.dismissPopup(toast.modelData)
-                }
-
-                // The card slides in from the edge it appears at... On a
-                // Translate rather than its own x, which the column's move
-                // transition writes too, with the x it read as the move began:
-                // a card still sliding in when another left was put back there
-                // and stayed (see AGENTS.md).
-                transform: Translate {
-                    id: toastSlide
-
-                    NumberAnimation on x {
-                        from: Appearance.m.notificationSlide
-                        to: 0
-                        duration: Appearance.t.base
-                        easing.type: Appearance.t.emphasizedEasing
-                    }
-                }
-                NumberAnimation on opacity {
-                    id: arrive
-                    from: 0
-                    to: 1
-                    duration: Appearance.t.base
-                    easing.type: Appearance.t.standardEasing
-                }
-
-                // ...and back out to it. A plain animation rather than a
-                // Behavior, so its end can be relied on to free the slot.
-                // One pushed out by a burst before it has finished arriving
-                // was never really seen and goes at once: played out, each
-                // would hold its slot and push the ones shown down the screen.
-                onLeavingChanged: {
-                    if (!toast.leaving)
-                        return;
-                    if (arrive.running)
-                        root.forget(toast.modelData);
-                    else
-                        leave.start();
-                }
-
-                NotificationExit {
-                    id: leave
-                    card: toast
-                    slide: toastSlide
-                    onFinished: root.forget(toast.modelData)
-                }
-            }
-        }
+        notifications: Notifs.popups
+        standalone: true
     }
 }

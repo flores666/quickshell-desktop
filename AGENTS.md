@@ -167,6 +167,10 @@ modules/             the surfaces themselves
                      and TaskEditor
   polkit/            the authentication prompt: AuthWindow, a surface of its
                      own above the popups, and AuthCard
+  notifications/     NotificationStack holds live cards and their exiting
+                     slots; NotificationEntry owns arrival, expiry and exit
+                     through NotificationExit. NotificationList scrolls the
+                     history stack; Toasts owns the toast surface and its mask
   common/            shared surface chrome (OverlaySurface, ShellOverlay,
                      OverlayCard), IPC,
                      overview theming
@@ -843,12 +847,17 @@ expensive to find.
   expiry on each new arrival. Services replace their arrays wholesale, so a
   view over one uses `ScriptModel { values: … }`, which diffs and keeps the
   delegates of what is still listed.
-- **`ListView` cannot animate its first row leaving.** Removing row 0 moves
-  the view's origin rather than the rows below, so the leaving delegate is
-  culled on the first frame and nothing animates. Toasts are a `Column` with a
-  `move` transition and keep their own list of what is still drawn. (The
-  notification centre's `ListView`, whose `removeDisplaced` waits for the
-  leaving row, does animate its first row out, measured on 6.12.)
+- **`ListView` removal moves its origin as well as its rows.** An exit owned
+  by the delegate with `delayRemove` plays the first row out, but the view
+  then jumps `contentY` instead of animating its neighbours' `y`. Clearing
+  scrolled history also moved the visible exiting rows (12 px on Qt 6.12).
+  Both notification presentations therefore use `NotificationStack`, a
+  `Column` with stable notification identities and held slots. History puts
+  it in a `Flickable`; rendering at most 64 live rows costs more than the old
+  view's visible delegates, but avoids its independent removal lifecycle.
+  Its scrollable extent includes the bottom row's animated position until
+  it lands, so clamping a bottom-scrolled viewport follows the row rather
+  than jumping ahead of it. The empty state reads the held list itself.
 - **A positioner's `move` transition writes `x` as well as `y`**: the x it
   read as the move began — during an earlier move, that move's destination —
   set at once, since the transition does not animate it (6.12.0's
@@ -863,12 +872,11 @@ expensive to find.
   rows below keep the place the old height gave them. A positioner
   (`Column`, `Row`) in a delegate lays out again only on the next frame,
   which is exactly then: a wrapped body is measured once the card has its
-  width, and a notification arriving with the centre open overlapped the
-  one below it. A delegate's height is therefore a binding over what it
-  holds, final when the delegate is made; `NotificationCard` is built so.
-  Its width must not change afterwards either: rows narrowed only while
-  the scrollbar showed rewrapped just as a row arrived and made it show, so
-  `NotificationList` keeps the bar's footprint clear always.
+  width, and under the centre's former ListView a new notification overlapped
+  the one below it. `NotificationCard` still sizes directly from its contents.
+  Rows narrowed only while the scrollbar showed also rewrapped just as a row
+  arrived and made it show. `NotificationList` keeps the bar's footprint clear
+  always, so scrolling never changes a card's wrapping.
 - **`visible` reads false for everything in a popup while it is closed**: it
   is the effective visibility, and the popup (`ShellOverlay`) is hidden then. A size
   computed from a part's `visible` changes as the popup closes and again as
@@ -878,9 +886,16 @@ expensive to find.
   condition the part shows on (`bodyText !== ""`), never from `visible`.
 - **A `ListView` row displaced during its `add` transition keeps whatever
   opacity it had reached**: the displacement cuts the add short (Qt documents
-  it under *Handling Interrupted Animations*). A burst of notifications into
-  the open centre left every row but the newest invisible, so `displaced`
-  animates opacity to 1 as well as `y`.
+  it under *Handling Interrupted Animations*). This left burst arrivals into
+  the old notification centre invisible. `NotificationEntry` now owns opacity
+  independently of layout, and stops arrival before starting the shared exit.
+- **Bindings on the same source do not update together.** A separate eviction
+  flag and leaving flag let Clear all of three arriving toasts read the old
+  eviction flag and skip all three exits. `NotificationEntry` derives leaving
+  from its live list and reads that same snapshot when deciding whether an
+  arriving toast was evicted for capacity. Clear all and user dismissals play
+  the exit; only capacity evictions skip unseen arrivals. The stack also seeds
+  itself from the live list on creation, so pending toasts survive a reload.
 - **A property declared on a `Binding` and read by its own `value` logs a
   binding loop** at every load — `value` reads it before it has been
   evaluated. `CompositorTheme`'s title bar options are a function for this
@@ -1099,6 +1114,12 @@ expensive to find.
   `pkill` that only notes what it was asked (`TEST_SIGNALS`). A test that
   would set either checks that they are the stand-ins first, and fails
   rather than run without them.
+- **Notification tests use a private session bus.** `tools/test.sh` runs each
+  `Notification*Test` in `setsid dbus-run-session` and kills its whole group
+  at the closing marker. Killing only the bus wrapper leaves qs running.
+  `NotificationDriver` uses gdbus on that bus, so real Notification objects,
+  actions and RetainableLock are exercised without claiming the desktop's
+  notification server. Fixtures stay unloaded without the runner's marker.
 - **`TasksTest` runs against the user's own systemd user manager**, there
   being no other: under a prefix of its own (`qs-tasktest-`), every unit of
   which it removes first and last, so nothing of it shows among the user's

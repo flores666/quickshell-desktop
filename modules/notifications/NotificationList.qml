@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
 import "root:/config"
 import "root:/components"
 import "root:/services"
@@ -9,8 +8,6 @@ import "root:/services"
 /*! The notification centre: everything received this session, newest first. */
 Item {
     id: root
-
-    property int leaving: 0
 
     implicitHeight: 320
 
@@ -50,7 +47,7 @@ Item {
         }
     }
 
-    ListView {
+    Flickable {
         id: list
 
         anchors.top: heading.bottom
@@ -59,82 +56,29 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         clip: true
-        spacing: Appearance.s.md
-        // Diffed, so a new arrival inserts a row instead of rebuilding them all.
-        model: ScriptModel { values: Notifs.history }
+        contentHeight: stack.height
         boundsBehavior: Flickable.StopAtBounds
-        cacheBuffer: 0
+        // The extent follows the moving bottom row, so this clamp progresses
+        // with its animation rather than snapping to the new layout height.
+        function clampScroll(): void {
+            contentY = Math.max(0, Math.min(contentY, Math.max(0, contentHeight - height)));
+        }
+        onContentHeightChanged: list.clampScroll()
+        onHeightChanged: list.clampScroll()
 
-        delegate: NotificationCard {
-            id: rowCard
-            required property var modelData
-
-            // Clear of the scrollbar whether it shows or not: a width that
-            // followed it would rewrap the rows as it came and went, while a
-            // new or removed row's transition runs, and ListView ignores the
-            // first row's change of height then (see AGENTS.md).
+        NotificationStack {
+            id: stack
+            // Always keep the scrollbar's footprint, so rows never rewrap
+            // just because an arrival or removal makes scrolling necessary.
             width: list.width - scrollbar.footprint
-            notification: rowCard.modelData
-            onDismissed: Notifs.remove(rowCard.modelData)
-
-            // Keep the row in the view until its own exit finishes, even
-            // when it is the first or last row, or all rows are cleared.
-            ListView.delayRemove: exit.running
-            ListView.onRemove: {
-                root.leaving++;
-                exit.start();
-            }
-            transform: Translate { id: rowSlide }
-            NotificationExit {
-                id: exit
-                card: rowCard
-                slide: rowSlide
-                onFinished: root.leaving--
-            }
-        }
-
-        add: Transition {
-            NumberAnimation {
-                property: "opacity"; from: 0; to: 1
-                duration: Appearance.t.base
-                easing.type: Appearance.t.standardEasing
-            }
-        }
-        // delayRemove holds the slot until the shared exit finishes; the
-        // remaining rows then close the gap at the same pace as the toasts.
-        removeDisplaced: Transition {
-            NumberAnimation {
-                properties: "y"
-                duration: Appearance.t.resize
-                easing.type: Appearance.t.standardEasing
-            }
-            NumberAnimation {
-                property: "opacity"; to: 1
-                duration: Appearance.t.base
-                easing.type: Appearance.t.standardEasing
-            }
-        }
-        displaced: Transition {
-            NumberAnimation {
-                properties: "y"
-                duration: Appearance.t.base
-                easing.type: Appearance.t.standardEasing
-            }
-            // A row displaced while it is still fading in has its add
-            // transition cut short, and would stay as faint as it had got:
-            // in a burst, every row but the newest stayed invisible.
-            NumberAnimation {
-                property: "opacity"; to: 1
-                duration: Appearance.t.base
-                easing.type: Appearance.t.standardEasing
-            }
+            notifications: Notifs.history
         }
     }
 
     Column {
         anchors.centerIn: list
         spacing: Appearance.s.md
-        visible: Notifs.count === 0 && root.leaving === 0
+        visible: stack.shown.length === 0
 
         Icon {
             anchors.horizontalCenter: parent.horizontalCenter
