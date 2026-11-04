@@ -41,6 +41,6 @@ Singleton {
         if (root.usingUwsm)
             Quickshell.execDetached(["uwsm", "stop"]);
         else
-            Hyprland.dispatch("exit");
+            Hyprland.dispatch("hl.dsp.exit()");
     }
 }

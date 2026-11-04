@@ -124,16 +124,14 @@ link "$repo" "$shell_dir"
 
 # The shell's native module (native/: Qt reads the icon themes again when an
 # install changes them), built when missing, or built against another Qt or
-# from other sources; hyprland.conf runs the same check at every login.
+# from other sources; hyprland.lua runs the same check at every login.
 "$repo/tools/build-native-module.sh" --if-stale
 
-# The compositor plugins: the overview, and the windows' (title bars, and
-# windows that open floating where they were left). Each is built when
-# missing, or built against another Hyprland or from other sources;
-# hyprland.conf runs the same check at every login, so an update rebuilds them
-# by itself. What the window plugin remembers is this machine's own, kept in
-# ~/.local/state, and not saved to profile/: sizes are one screen's.
-if pkg-config --exists hyprland 2>/dev/null; then
+# The compositor plugins (overview, title bars, placement and stacking) still
+# target 0.56. Their existing sources/patches need porting; the Lua desktop runs on
+# 0.57 without them; do not let a plugin build failure prevent config setup.
+if pkg-config --exists hyprland 2>/dev/null \
+    && [[ "$(pkg-config --modversion hyprland)" == 0.56.* ]]; then
     "$repo/tools/build-overview-plugin.sh" --if-stale
     "$repo/tools/build-windows-plugin.sh" --if-stale
 fi
@@ -141,15 +139,15 @@ fi
 # ------------------------------------------------------------------- configs
 
 # Hyprland's own file stays the machine's, for what only it needs: everything
-# else comes from the one line that sources the project.
-hypr_conf="$config/hypr/hyprland.conf"
-hypr_line="source = $shell_dir/hypr/hyprland.conf"
+# else comes from the one line that requires the project.
+hypr_conf="$config/hypr/hyprland.lua"
+hypr_line="require(\"$shell_dir/hypr/hyprland.lua\")"
 if ! { [[ -f "$hypr_conf" ]] && grep -qxF "$hypr_line" "$hypr_conf"; }; then
     mkdir -p "$(dirname "$hypr_conf")"
     if [[ -e "$hypr_conf" || -L "$hypr_conf" ]]; then put_aside "$hypr_conf"; fi
     printf '%s\n' \
-        "# The desktop's Hyprland config is in the project (written by its install.sh)." \
-        "# What only this machine needs goes below this line." \
+        "-- The desktop's Hyprland config is in the project (written by its install.sh)." \
+        "-- What only this machine needs goes below this line." \
         "$hypr_line" > "$hypr_conf"
     say "wrote $hypr_conf"
 fi

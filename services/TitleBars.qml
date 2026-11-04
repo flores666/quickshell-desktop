@@ -27,7 +27,8 @@ Singleton {
 
     function push(changed: bool): void {
         if (Settings.ready && (changed || root.hidden !== ""))
-            Hyprland.dispatch(`windows:hidden_for ${root.hidden}`);
+            Quickshell.execDetached(["hyprctl", "eval",
+                `if hl.plugin.windows then hl.plugin.windows.hidden_for(${Compositor.luaString(root.hidden)}) end`]);
     }
 
     /*!

@@ -24,7 +24,7 @@ place:
 
 | What | Where it goes |
 | --- | --- |
-| `hypr/` — Hyprland and hyprpaper | `~/.config/hypr/hyprland.conf` sources it; `hyprpaper.conf` is linked |
+| `hypr/` — Hyprland and hyprpaper | `~/.config/hypr/hyprland.lua` requires it; `hyprpaper.conf` is linked |
 | `terminal/kitty.conf` | `~/.config/kitty/kitty.conf` includes it |
 | `terminal/prompt.fish` | linked into `~/.config/fish/conf.d` |
 | `nvim/` | linked as `~/.config/nvim` |
@@ -45,9 +45,20 @@ Screens are detected — each at its highest resolution and that resolution's
 highest refresh rate, placed and scaled automatically — and the shell finds
 the touchpad, the battery, the backlight and the Bluetooth adapter where there
 are any. A machine that wants more, say one monitor above another, puts it in
-its own `~/.config/hypr/hyprland.conf` after the line that sources the project.
+its own `~/.config/hypr/hyprland.lua` after the line that requires the project.
 The saved dock keeps only applications the project installs, and a login
 manager is left to each machine.
+
+Hyprland 0.57 uses Lua and ignores the old `hyprland.conf`. The installer
+writes the Lua entry point and keeps the old config. Carry any machine-specific
+overrides into Lua after the project's `require` line. The shell's settings
+and window actions use the new Lua IPC API too.
+
+The window plugin's sources and the overview's local patches still target
+Hyprland 0.56. On 0.57 the desktop runs without custom title bars, remembered
+window placement, mixed stacking or the overview until those plugins are
+ported. Incompatible binaries are kept and are never loaded into the new
+compositor. The installer skips their unsupported builds.
 
 ## What is where
 
@@ -138,12 +149,11 @@ hyprexpo was dropped from the official hyprland-plugins repo as unmaintained, so
 `tools/build-overview-plugin.sh` builds the maintained
 [sandwichfarm fork](https://github.com/sandwichfarm/hyprexpo), picking the tag
 that matches the installed Hyprland. Hyprland refuses to load a plugin built
-against different headers, so `hyprland.conf` runs it with `--if-stale` at every
-login: after a Hyprland update, or a change to its patches, it rebuilds the
-plugin in the background, loads it and sends a notification, and otherwise
-does nothing.
+against different headers. The current build script and local patches target
+0.56; see the 0.57 compatibility note above. `hyprland.lua` loads only a
+binary whose build stamp matches the running release.
 
-Its layout and gestures live in `hyprland.conf`; its three colours are pushed by
+Its layout and gestures live in `hyprland.lua`; its three colours are pushed by
 the shell (`modules/common/CompositorTheme.qml`) so the overview follows the theme.
 
 ### Events only, never polled

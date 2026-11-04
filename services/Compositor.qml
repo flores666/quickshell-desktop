@@ -87,7 +87,14 @@ Singleton {
         do. The dispatcher is a no-op when the plugin is not loaded.
     */
     function toggleOverview(): void {
-        Hyprland.dispatch("hyprexpo:expo toggle");
+        Quickshell.execDetached(["hyprctl", "eval",
+            'if hl.plugin.hyprexpo then hl.plugin.hyprexpo.expo("toggle") end']);
+    }
+
+    /*! A Lua string literal for Hyprland's eval/dispatch API (0.57+). */
+    function luaString(value: string): string {
+        return '"' + value.replace(/[\u0000-\u001f\\"]/g, c =>
+            c === "\\" || c === '"' ? "\\" + c : "\\" + String(c.charCodeAt(0)).padStart(3, "0")) + '"';
     }
 
     /*!
@@ -108,23 +115,25 @@ Singleton {
     function focusWindow(toplevel: HyprlandToplevel): void {
         if (!toplevel || toplevel.address === "")
             return;
-        const address = `address:0x${toplevel.address}`;
+        const address = root.luaString(`address:0x${toplevel.address}`);
         const restore = toplevel.workspace?.name === root.minimizedWorkspace && root.focusedWorkspace
-            ? `dispatch movetoworkspacesilent ${root.focusedWorkspace.id},${address} ; ` : "";
-        Quickshell.execDetached(["sh", "-c",
-            'w=$(hyprctl getoption cursor:no_warps | sed -n "s/^int: //p");'
-            + ` hyprctl --batch "keyword cursor:no_warps 1 ; ${restore}dispatch focuswindow ${address} ; dispatch alterzorder top,${address} ; keyword cursor:no_warps \${w:-0}" >/dev/null`]);
+            ? `hl.dispatch(hl.dsp.window.move({ workspace = ${root.focusedWorkspace.id}, window = ${address}, follow = false })); ` : "";
+        Quickshell.execDetached(["hyprctl", "eval",
+            'local warp = hl.get_config("cursor.no_warps"); hl.config({ cursor = { no_warps = true } }); '
+            + restore + `hl.dispatch(hl.dsp.focus({ window = ${address} })); `
+            + `hl.dispatch(hl.dsp.window.alter_zorder({ mode = "top", window = ${address} })); `
+            + 'hl.config({ cursor = { no_warps = warp } })']);
     }
 
     function closeWindow(toplevel: HyprlandToplevel): void {
         if (toplevel && toplevel.address !== "")
-            Hyprland.dispatch(`closewindow address:0x${toplevel.address}`);
+            Hyprland.dispatch(`hl.dsp.window.close({ window = ${root.luaString(`address:0x${toplevel.address}`)} })`);
     }
 
     /*! Silent: the window moves, the workspace you are looking at does not. */
     function moveWindowToWorkspace(toplevel: HyprlandToplevel, id: int): void {
         if (toplevel && toplevel.address !== "")
-            Hyprland.dispatch(`movetoworkspacesilent ${id},address:0x${toplevel.address}`);
+            Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${id}, window = ${root.luaString(`address:0x${toplevel.address}`)}, follow = false })`);
     }
 
     /*!
@@ -139,11 +148,11 @@ Singleton {
             return;
         const quote = s => `'${String(s).replace(/'/g, "'\\''")}'`;
         const run = "exec " + command.map(quote).join(" ");
-        Hyprland.dispatch("exec " + (workingDirectory ? `cd ${quote(workingDirectory)} && ${run}` : run));
+        Hyprland.dispatch(`hl.dsp.exec_cmd(${root.luaString(workingDirectory ? `cd ${quote(workingDirectory)} && ${run}` : run)})`);
     }
 
     function switchToWorkspace(id: int): void {
-        Hyprland.dispatch(`workspace ${id}`);
+        Hyprland.dispatch(`hl.dsp.focus({ workspace = ${id} })`);
     }
 
     /*! Cycle within the monitor's own workspaces, without wrapping onto another. */

@@ -15,15 +15,15 @@ import Quickshell.Hyprland
     modules/common/CompositorTheme — a service cannot read config/), and they
     ride the same pushes and re-pushes.
 
-    hyprland.conf stays the source of every default.  A user change is an
+    hyprland.lua stays the source of every default.  A user change is an
     override in Settings like any other, and the shell pushes it with
-    `hyprctl keyword` — so an untouched shell leaves the compositor exactly as
+    `hyprctl eval` — so an untouched shell leaves the compositor exactly as
     configured, and the conf.d files are never rewritten.
 
-    Hyprland forgets keywords whenever it reloads its config, so on every
+    Hyprland forgets runtime options whenever it reloads its config, so on every
     `configreloaded` event the configured values are read afresh and the
     overrides pushed again.  That same reload is how an override is undone:
-    there is no keyword for "back to what the file said", so clearing one asks
+    there is no runtime option for "back to what the file said", so clearing one asks
     Hyprland to reload and lets the re-push restore the rest.
 
     Every value is an integer on the Settings side, negative meaning unset.
@@ -52,7 +52,7 @@ Singleton {
         hyprMouseScroll:     { option: "input:scroll_factor", kind: "percent", min: 25, max: 300 },
         hyprTouchpadScroll:  { option: "input:touchpad:scroll_factor", kind: "percent", min: 25, max: 300 },
         hyprNaturalScroll:   { option: "input:touchpad:natural_scroll", kind: "bool" },
-        hyprTapToClick:      { option: "input:touchpad:tap-to-click", kind: "bool" },
+        hyprTapToClick:      { option: "input:touchpad:tap_to_click", kind: "bool" },
         // Per device, so the option name needs the touchpad's; see optionFor.
         hyprTouchpadSpeed:   { option: "", kind: "speed", min: 0, max: 200 }
     })
@@ -63,7 +63,7 @@ Singleton {
     property string touchpad: ""
     readonly property bool hasTouchpad: root.touchpad !== ""
 
-    /*! What hyprland.conf set, in the Settings encoding. A key is missing when
+    /*! What hyprland.lua set, in the Settings encoding. A key is missing when
         Hyprland cannot report it — device options are write-only. */
     property var configured: ({})
 
@@ -104,8 +104,23 @@ Singleton {
         case "percent": return Math.round(reply.float * 100);
         case "speed": return Math.round((reply.float + 1) * 100);
         case "accel": return reply.str === "flat" ? 0 : 1;
-        default: return reply.int ?? parseInt(String(reply.custom ?? "0"));
+        case "bool": return reply.bool ? 1 : 0;
+        default: return reply.int ?? parseInt(String(reply.css ?? reply.custom ?? "0"));
         }
+    }
+
+    /*! Lua options use dots and typed values; device options have their own
+        API. Keep the old value encoding at the design-system boundary. */
+    function assignment(option: string, value: string): string {
+        const device = /^device\[(.+)\]:(.+)$/.exec(option);
+        const literal = /^-?\d+(\.\d+)?$/.test(value) ? value : Compositor.luaString(value);
+        if (device)
+            return `hl.device({ name = ${Compositor.luaString(device[1])}, [${Compositor.luaString(device[2])}] = ${literal} })`;
+        const key = Compositor.luaString(option.replace(/:/g, "."));
+        // Absent plugins have no registered options. They are pushed again
+        // on configreloaded when a compatible plugin is loaded.
+        const set = `hl.config({ [${key}] = ${literal} })`;
+        return option.startsWith("plugin:") ? `if hl.get_config(${key}) ~= nil then ${set} end` : set;
     }
 
     // --------------------------------------------------------------- pushing
@@ -115,7 +130,7 @@ Singleton {
     /*!
         What the shell sets on hardware it finds rather than from a token or an
         override: a touchpad keeps libinput's adaptive acceleration, whatever
-        flat profile hyprland.conf gives the mouse — without it a touchpad
+        flat profile hyprland.lua gives the mouse — without it a touchpad
         crawls, and the project names no machine's touchpad.
     */
     readonly property var detected: root.hasTouchpad
@@ -147,7 +162,7 @@ Singleton {
             if (v >= 0) {
                 next[key] = v;
                 if (root.applied[key] !== v)
-                    root.pending.push(`keyword ${root.optionFor(key)} ${root.encode(key, v)}`);
+                    root.pending.push(root.assignment(root.optionFor(key), root.encode(key, v)));
             } else if (root.applied[key] !== undefined) {
                 root.reloadWanted = true;
             }
@@ -156,7 +171,7 @@ Singleton {
         const wanted = Object.assign({}, root.derived, root.detected);
         for (const option in wanted)
             if (root.appliedDerived[option] !== wanted[option])
-                root.pending.push(`keyword ${option} ${wanted[option]}`);
+                root.pending.push(root.assignment(option, wanted[option]));
         // One no longer derived goes back to the config's, as a cleared
         // override does.
         for (const option in root.appliedDerived)
@@ -175,7 +190,7 @@ Singleton {
             root.pending = [];
             push.command = ["hyprctl", "reload"];
         } else if (root.pending.length > 0) {
-            push.command = ["hyprctl", "--batch", root.pending.join(" ; ")];
+            push.command = ["hyprctl", "eval", root.pending.join("; ")];
             root.pending = [];
         } else {
             return;

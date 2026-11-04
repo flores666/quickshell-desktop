@@ -102,7 +102,7 @@ Singleton {
     function choose(at: int): void {
         root.point(at);
         root.commit();
-        Hyprland.dispatch("submap reset");
+        Hyprland.dispatch('hl.dsp.submap("reset")');
     }
 
     function cancel(): void {

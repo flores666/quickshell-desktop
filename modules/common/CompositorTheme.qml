@@ -18,7 +18,7 @@ import "root:/services"
     land even when the shell is up before the plugin is.
 
     Everything else about the overview (grid shape, gestures) is static and
-    belongs in hyprland.conf.
+    belongs in hyprland.lua.
 */
 Binding {
     id: root
