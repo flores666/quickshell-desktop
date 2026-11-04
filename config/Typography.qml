@@ -23,4 +23,8 @@ QtObject {
     readonly property int title: Math.round(19 * root.scale)
     readonly property int display: Math.round(34 * root.scale)
     readonly property int clock: Math.round(44 * root.scale)
+    /*! Hyprland's renderer takes points and a fontconfig family. */
+    readonly property int titleBarPointSize: 10
+    readonly property int titleBarWeight: 600
+    readonly property string titleBarFamily: "sans-serif"
 }

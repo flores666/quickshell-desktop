@@ -41,7 +41,7 @@ Column {
             id: strip
 
             anchors.fill: parent
-            cellHeight: 58
+            cellHeight: Appearance.m.fontSampleHeight
             model: root.families
             currentIndex: Math.max(0, root.families.indexOf(Settings.fontFamily))
 
@@ -57,7 +57,7 @@ Column {
 
                 /*! One cell per family, all the same width: a name runs as long
                     as it likes, and a strip of ragged chips reads as a mess. */
-                implicitWidth: 108
+                implicitWidth: Appearance.m.fontSampleWidth
                 height: strip.cellHeight
                 radius: Appearance.r.md
                 focusable: false

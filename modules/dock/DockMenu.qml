@@ -16,14 +16,25 @@ ShellOverlay {
 
     overlayId: Overlay.dockMenu
     placement: ShellOverlay.Placement.AboveDock
-    cardWidth: 220
+    cardWidth: Appearance.m.dockMenuWidth
     cardHeight: column.implicitHeight + Appearance.s.md * 2
 
-    readonly property var item: root.subject
+    // The subject is the identity of the hand-off, not a live window list.
+    readonly property var currentItem: !root.subject ? null
+        : Dock.items.find(i => i.key === root.subject.key)
+            ?? Object.assign({}, root.subject, { windows: [], running: false })
+    property var heldItem: null
+    readonly property var item: root.shown ? root.currentItem : root.heldItem
+    onCurrentItemChanged: if (root.shown) root.heldItem = root.currentItem
+    onShownChanged: if (root.shown) root.heldItem = root.currentItem
     /*! The menu has one sub-level: the list of workspaces to send a window to. */
     property bool pickingWorkspace: false
 
-    onRenderedChanged: if (!root.rendered) root.pickingWorkspace = false
+    onRenderedChanged: if (!root.rendered) {
+        root.pickingWorkspace = false;
+        root.heldItem = null;
+    }
+    onWindowCountChanged: if (root.windowCount !== 1) root.pickingWorkspace = false
     // Set afresh each time the menu opens.
     onItemChanged: if (root.item) TitleBars.read(root.item.windows)
     readonly property bool pinned: root.item?.entry ? Settings.isPinned(root.item.entry.id) : false
@@ -50,11 +61,11 @@ ShellOverlay {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: Appearance.s.md
-        spacing: 1
+        spacing: Appearance.m.rowGap
 
         Label {
             width: parent.width
-            height: 26
+            height: Appearance.m.menuHeading
             text: root.pickingWorkspace ? qsTr("Move to Workspace") : (root.item?.name ?? "")
             role: Label.Role.Caption
             faint: true

@@ -17,8 +17,8 @@ Item {
         ? [PowerProfile.PowerSaver, PowerProfile.Balanced, PowerProfile.Performance]
         : [PowerProfile.PowerSaver, PowerProfile.Balanced]
 
-    implicitWidth: 300
-    implicitHeight: 36
+    implicitWidth: Appearance.m.qsRowWidth
+    implicitHeight: Appearance.m.qsRowHeight
 
     Row {
         anchors.fill: parent

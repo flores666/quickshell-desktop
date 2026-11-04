@@ -22,7 +22,7 @@ Item {
     default property alias content: holder.data
     property alias trailing: trailingHolder.data
 
-    implicitWidth: 240
+    implicitWidth: Appearance.m.fieldWidth
     implicitHeight: Appearance.m.fieldHeight
 
     Rectangle {

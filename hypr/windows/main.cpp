@@ -118,6 +118,15 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }))
         throw std::runtime_error("[windows] could not register hidden_for");
 
+    // Called after the shell's style-option batch: option writes alone do
+    // not re-place decorations. Drawing, hit testing and reserved space
+    // must all take the new geometry in the same compositor step.
+    if (!HyprlandAPI::addLuaFunction(PHANDLE, "windows", "restyle", [](lua_State*) {
+        forEachBar([](CTitleBar* bar) { bar->reposition(); });
+        return 0;
+    }))
+        throw std::runtime_error("[windows] could not register restyle");
+
     auto& events = Event::bus()->m_events;
     g_state->listeners = {
         // After the rules, before the layout places the window.

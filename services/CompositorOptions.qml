@@ -169,9 +169,15 @@ Singleton {
         }
         root.applied = next;
         const wanted = Object.assign({}, root.derived, root.detected);
-        for (const option in wanted)
-            if (root.appliedDerived[option] !== wanted[option])
+        let restyle = false;
+        for (const option in wanted) {
+            if (root.appliedDerived[option] !== wanted[option]) {
                 root.pending.push(root.assignment(option, wanted[option]));
+                restyle = restyle || option.startsWith("plugin:windows:");
+            }
+        }
+        if (restyle)
+            root.pending.push("if hl.plugin.windows and hl.plugin.windows.restyle then hl.plugin.windows.restyle() end");
         // One no longer derived goes back to the config's, as a cleared
         // override does.
         for (const option in root.appliedDerived)

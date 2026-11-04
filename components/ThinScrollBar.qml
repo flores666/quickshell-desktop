@@ -21,8 +21,8 @@ Item {
     property bool vertical: true
 
     /*! How thick the bar paints, and how far it is inset from the edges. */
-    readonly property int thickness: 6
-    readonly property int inset: 2
+    readonly property int thickness: Appearance.m.scrollbarThickness
+    readonly property int inset: Appearance.m.scrollbarInset
     /*! What a caller keeps clear alongside the bar: the bar, the insets it
         sits in, and a gap, so content does not run up against it. */
     readonly property int footprint: root.thickness + root.inset * 2 + Appearance.s.md
@@ -35,20 +35,25 @@ Item {
         : root.vertical ? root.flickable.height : root.flickable.width
     readonly property real position: !root.flickable ? 0
         : root.vertical ? root.flickable.contentY : root.flickable.contentX
+    readonly property real origin: !root.flickable ? 0
+        : root.vertical ? root.flickable.originY : root.flickable.originX
+    readonly property real reach: Math.max(0, root.content - root.viewport)
+    readonly property real progress: root.reach > 0
+        ? Math.max(0, Math.min(1, (root.position - root.origin) / root.reach)) : 0
 
     readonly property bool overflowing: root.content > root.viewport + 1
     /*! How far the bar runs, and how much of that the thumb covers. */
     readonly property real span: root.vertical ? root.height : root.width
     readonly property real thumbLength: root.overflowing
-        ? Math.max(28, root.span * (root.viewport / root.content)) : 0
+        ? Math.min(root.span, Math.max(Appearance.m.scrollbarThumb, root.span * (root.viewport / root.content))) : 0
+    readonly property real travel: Math.max(0, root.span - root.thumbLength)
+    readonly property real lead: root.travel * root.progress
 
     /*! Scroll so that the thumb's leading edge lands at `at`. */
     function scrollTo(at: real): void {
-        const travel = root.span - root.thumbLength;
-        if (travel <= 0)
+        if (!root.flickable || root.travel <= 0)
             return;
-        const reach = root.content - root.viewport;
-        const to = Math.max(0, Math.min(1, at / travel)) * reach;
+        const to = root.origin + Math.max(0, Math.min(1, at / root.travel)) * root.reach;
         if (root.vertical)
             root.flickable.contentY = to;
         else
@@ -65,7 +70,7 @@ Item {
     implicitWidth: root.thickness
     implicitHeight: root.thickness
     visible: root.overflowing
-    opacity: (root.flickable && root.flickable.moving) || grab.pressed ? 1 : 0.45
+    opacity: (root.flickable && root.flickable.moving) || grab.pressed ? 1 : Appearance.m.scrollbarIdle
 
     Behavior on opacity {
         NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.standardEasing }
@@ -76,13 +81,15 @@ Item {
         into the content than the 6px it paints, which is the difference between
         a scrollbar you can use with a mouse and one you can only look at.
     */
-    MouseArea {
+    Clickable {
         id: grab
 
         anchors.fill: parent
         anchors.leftMargin: root.vertical ? -Appearance.s.md : 0
         anchors.topMargin: root.vertical ? 0 : -Appearance.s.md
         enabled: root.overflowing
+        focusable: false
+        showStateLayer: false
         preventStealing: true
         cursorShape: Qt.PointingHandCursor
 
@@ -95,15 +102,15 @@ Item {
             return root.vertical ? event.y : event.x;
         }
 
-        onPressed: event => {
+        onPointerPressed: event => {
             const at = grab.along(event);
-            const lead = root.vertical ? thumb.y : thumb.x;
+            const lead = root.lead;
             const onThumb = at >= lead && at <= lead + root.thumbLength;
             grab.offset = onThumb ? at - lead : root.thumbLength / 2;
             if (!onThumb)
                 root.scrollTo(at - grab.offset);
         }
-        onPositionChanged: event => {
+        onPointerMoved: event => {
             if (grab.pressed)
                 root.scrollTo(grab.along(event) - grab.offset);
         }
@@ -112,13 +119,8 @@ Item {
     Rectangle {
         id: thumb
 
-        readonly property real lead: root.overflowing
-            ? root.span * Math.max(0, Math.min(1 - root.thumbLength / root.span,
-                root.position / root.content))
-            : 0
-
-        x: root.vertical ? 0 : thumb.lead
-        y: root.vertical ? thumb.lead : 0
+        x: root.vertical ? 0 : root.lead
+        y: root.vertical ? root.lead : 0
         width: root.vertical ? root.width : root.thumbLength
         height: root.vertical ? root.thumbLength : root.height
         radius: root.thickness / 2

@@ -33,6 +33,39 @@ choose_terminal() {
   return 1
 }
 
+launch_terminal() {
+  local terminal="$1" title="$2" shell_command="$3"
+  case "$(basename "$terminal")" in
+    kitty)
+      setsid -f kitty --title "$title" -e bash -lc "$shell_command"
+      ;;
+    alacritty)
+      setsid -f alacritty --title "$title" -e bash -lc "$shell_command"
+      ;;
+    foot)
+      setsid -f foot --title "$title" -e bash -lc "$shell_command"
+      ;;
+    ghostty)
+      setsid -f ghostty --title="$title" -e bash -lc "$shell_command"
+      ;;
+    wezterm)
+      setsid -f wezterm start --always-new-process --class "$title" -- bash -lc "$shell_command"
+      ;;
+    konsole)
+      setsid -f konsole --title "$title" -e bash -lc "$shell_command"
+      ;;
+    gnome-terminal)
+      setsid -f gnome-terminal --title="$title" -- bash -lc "$shell_command"
+      ;;
+    xterm)
+      setsid -f xterm -T "$title" -e bash -lc "$shell_command"
+      ;;
+    *)
+      setsid -f "$terminal" -e bash -lc "$shell_command"
+      ;;
+  esac
+}
+
 install_packages_interactive() {
   local packages=("$@")
   if ((${#packages[@]} == 0)); then
@@ -90,35 +123,7 @@ echo
 read -r -p 'Press Enter to close...'
 "
 
-  case "$(basename "$terminal")" in
-    kitty)
-      setsid -f kitty --title "$INSTALL_TITLE" -e bash -lc "$shell_command"
-      ;;
-    alacritty)
-      setsid -f alacritty --title "$INSTALL_TITLE" -e bash -lc "$shell_command"
-      ;;
-    foot)
-      setsid -f foot --title "$INSTALL_TITLE" -e bash -lc "$shell_command"
-      ;;
-    ghostty)
-      setsid -f ghostty --title="$INSTALL_TITLE" -e bash -lc "$shell_command"
-      ;;
-    wezterm)
-      setsid -f wezterm start --always-new-process --class "$INSTALL_TITLE" -- bash -lc "$shell_command"
-      ;;
-    konsole)
-      setsid -f konsole --title "$INSTALL_TITLE" -e bash -lc "$shell_command"
-      ;;
-    gnome-terminal)
-      setsid -f gnome-terminal --title="$INSTALL_TITLE" -- bash -lc "$shell_command"
-      ;;
-    xterm)
-      setsid -f xterm -T "$INSTALL_TITLE" -e bash -lc "$shell_command"
-      ;;
-    *)
-      setsid -f "$terminal" -e bash -lc "$shell_command"
-      ;;
-  esac
+  launch_terminal "$terminal" "$INSTALL_TITLE" "$shell_command"
 }
 
 ensure_dependencies() {
@@ -221,35 +226,7 @@ echo '$HELP_FILE'
 echo
 read -r -p 'Press Enter to close...'
 "
-    case "$(basename "$terminal")" in
-      kitty)
-        setsid -f kitty --title "$HELP_TITLE" -e bash -lc "$shell_command"
-        ;;
-      alacritty)
-        setsid -f alacritty --title "$HELP_TITLE" -e bash -lc "$shell_command"
-        ;;
-      foot)
-        setsid -f foot --title "$HELP_TITLE" -e bash -lc "$shell_command"
-        ;;
-      ghostty)
-        setsid -f ghostty --title="$HELP_TITLE" -e bash -lc "$shell_command"
-        ;;
-      wezterm)
-        setsid -f wezterm start --always-new-process --class "$HELP_TITLE" -- bash -lc "$shell_command"
-        ;;
-      konsole)
-        setsid -f konsole --title "$HELP_TITLE" -e bash -lc "$shell_command"
-        ;;
-      gnome-terminal)
-        setsid -f gnome-terminal --title="$HELP_TITLE" -- bash -lc "$shell_command"
-        ;;
-      xterm)
-        setsid -f xterm -T "$HELP_TITLE" -e bash -lc "$shell_command"
-        ;;
-      *)
-        setsid -f "$terminal" -e bash -lc "$shell_command"
-        ;;
-    esac
+    launch_terminal "$terminal" "$HELP_TITLE" "$shell_command"
   fi
   exit 1
 fi
@@ -278,32 +255,4 @@ export LESS="-R -+F -+X"
 exec glow -p -s dark "$HELP_FILE"
 '
 
-case "$(basename "$terminal")" in
-  kitty)
-    setsid -f kitty --title "$HELP_TITLE" -e bash -lc "$shell_command"
-    ;;
-  alacritty)
-    setsid -f alacritty --title "$HELP_TITLE" -e bash -lc "$shell_command"
-    ;;
-  foot)
-    setsid -f foot --title "$HELP_TITLE" -e bash -lc "$shell_command"
-    ;;
-  ghostty)
-    setsid -f ghostty --title="$HELP_TITLE" -e bash -lc "$shell_command"
-    ;;
-  wezterm)
-    setsid -f wezterm start --always-new-process --class "$HELP_TITLE" -- bash -lc "$shell_command"
-    ;;
-  konsole)
-    setsid -f konsole --title "$HELP_TITLE" -e bash -lc "$shell_command"
-    ;;
-  gnome-terminal)
-    setsid -f gnome-terminal --title="$HELP_TITLE" -- bash -lc "$shell_command"
-    ;;
-  xterm)
-    setsid -f xterm -T "$HELP_TITLE" -e bash -lc "$shell_command"
-    ;;
-  *)
-    setsid -f "$terminal" -e bash -lc "$shell_command"
-    ;;
-esac
+launch_terminal "$terminal" "$HELP_TITLE" "$shell_command"

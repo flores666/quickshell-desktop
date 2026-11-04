@@ -37,7 +37,10 @@ QtObject {
             return;
         root.pending = null;
         root.timeout.stop();
-        waited.then(waited.missing ? "" : root.file.text());
+        const text = waited.missing ? "" : root.file.text();
+        // A callback may start another file wait. Let this load finish before
+        // replacing its operation (FileView warns on a dropped load).
+        Qt.callLater(() => waited.then(text));
     }
 
     readonly property FileView file: FileView {

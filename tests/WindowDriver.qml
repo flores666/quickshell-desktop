@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import "root:/config"
 
 /*!
     A window for the tests to switch between modes: a kitty of a class of its
@@ -128,10 +129,9 @@ QtObject {
         root.run(`hyprctl eval 'hl.plugin.windows.hidden_for(""); hl.dispatch(hl.dsp.window.close({window="address:${root.address}"}))' >/dev/null; sleep 0.3; echo`, () => then());
     }
 
-    /*! A maximized floating window's box: the work area less its title bar's
-        28 px (CTitleBar::HEIGHT) at the top. */
+    /*! A maximized floating window's box: the work area less its title bar. */
     function maximized(): var {
         const a = root.workArea;
-        return [a[0], a[1] + 28, a[2], a[3] - 28];
+        return [a[0], a[1] + Appearance.m.titleBarHeight, a[2], a[3] - Appearance.m.titleBarHeight];
     }
 }

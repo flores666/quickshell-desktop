@@ -20,7 +20,7 @@ Column {
         id: strip
 
         width: root.width
-        cellHeight: 72
+        cellHeight: Appearance.m.wallpaperHeight
         visible: Wallpaper.available
         model: Wallpaper.items
         currentIndex: Math.max(0, Wallpaper.items.indexOf(Wallpaper.current))
@@ -30,7 +30,7 @@ Column {
 
             required property string modelData
 
-            implicitWidth: 120
+            implicitWidth: Appearance.m.wallpaperWidth
             height: strip.cellHeight
             radius: Appearance.r.md
             focusable: false
@@ -46,8 +46,8 @@ Column {
                 anchors.fill: parent
                 radius: Appearance.r.md
                 color: Appearance.c.sunken
-                scale: tile.down ? 0.96 : 1
-                border.width: tile.selected ? 2 : Appearance.m.border
+                scale: tile.down ? Appearance.m.wallpaperPressedScale : 1
+                border.width: tile.selected ? Appearance.m.focusRing : Appearance.m.border
                 border.color: tile.selected ? Appearance.c.accent
                     : tile.hovered ? Appearance.c.borderStrong : Appearance.c.border
 
@@ -61,7 +61,7 @@ Column {
                     fillMode: Image.PreserveAspectCrop
                     // Twice the tile, so it stays sharp on a scaled screen and
                     // no further: these are thumbnails of 4K photographs.
-                    sourceSize.width: 240
+                    sourceSize.width: tile.width * 2
                     asynchronous: true
                     cache: true
                 }

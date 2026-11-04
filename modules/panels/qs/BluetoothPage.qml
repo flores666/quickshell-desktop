@@ -11,7 +11,7 @@ Item {
     id: root
 
 
-    implicitHeight: Math.min(340, heading.height + list.contentHeight + Appearance.s.md)
+    implicitHeight: Math.min(Appearance.m.qsDevicesHeight, heading.height + list.contentHeight + Appearance.s.md)
 
     Component.onCompleted: Bt.setDiscovering(true)
     Component.onDestruction: Bt.setDiscovering(false)
@@ -19,7 +19,7 @@ Item {
     Row {
         id: heading
         width: parent.width
-        height: 40
+        height: Appearance.m.qsHeading
         spacing: Appearance.s.md
 
         Label {
@@ -55,7 +55,7 @@ Item {
         anchors.bottom: parent.bottom
         clip: true
         model: Bt.enabled ? Bt.listed : []
-        spacing: 1
+        spacing: Appearance.m.rowGap
         boundsBehavior: Flickable.StopAtBounds
 
         delegate: MenuRow {

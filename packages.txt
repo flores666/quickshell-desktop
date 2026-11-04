@@ -65,6 +65,10 @@ kitty
 fish
 neovim
 glow
+# nvim-help: active-window JSON, process ancestry and glow's pager
+jq
+procps-ng
+less
 nautilus
 firefox
 

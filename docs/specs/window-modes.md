@@ -17,7 +17,7 @@ mode the window had.
   `reserved`).
 - **MAX**: a maximized floating window's box,
   `[WA.x, WA.y + 28, WA.w, WA.h − 28]`. 28 is the title bar's height
-  (`CTitleBar::HEIGHT`).
+  (`Appearance.m.titleBarHeight`).
 - **layout**: the bar's floating/tiled button, the same as
   `togglefloating`. **zoom**: `fullscreen 1` (maximize). **full**:
   `fullscreen 0`. **minimize**: `movetoworkspacesilent special:minimized`.

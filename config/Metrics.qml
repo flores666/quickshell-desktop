@@ -137,6 +137,73 @@ QtObject {
     readonly property int pickerPlane: 112
     readonly property int pickerStrip: 14
     readonly property int pickerKnob: 16
+    readonly property real pickerPressedScale: 1.15
+
+    /*! Shared control furniture, fixed independently of the user's tuning. */
+    readonly property real disabledOpacity: 0.42
+    readonly property int controlBorder: 1
+    readonly property int knobFocusGap: 3
+    readonly property int sliderWidth: 160
+    readonly property int sliderTrack: 6
+    readonly property int sliderKnob: 18
+    readonly property real sliderPressedScale: 1.12
+    readonly property real sliderHoverScale: 1.06
+    readonly property int scrollbarThickness: 6
+    readonly property int scrollbarInset: 2
+    readonly property int scrollbarThumb: 28
+    readonly property real scrollbarIdle: 0.45
+    readonly property int spinnerThickness: 2
+    readonly property int spinnerSweep: 260
+    readonly property int menuRowHeight: 44
+    readonly property int searchWidth: 320
+    readonly property int fieldWidth: 240
+    readonly property int clearButton: 26
+    readonly property int compactButton: 28
+    readonly property int resetButton: 22
+    readonly property int dockMenuWidth: 220
+    readonly property int menuHeading: 26
+    readonly property int dockTrigger: 3
+    readonly property int rowGap: 1
+
+    /*! Date menu's month grid. Week/day counts are calendar arithmetic. */
+    readonly property int calendarWidth: 280
+    readonly property int calendarHeading: 32
+    readonly property int calendarWeekdays: 22
+    readonly property int calendarDay: 30
+    readonly property int calendarToday: 26
+
+    /*! Quick-settings tiles, rows and detail pages. */
+    readonly property int qsTileWidth: 168
+    readonly property int qsTileHeight: 58
+    readonly property int qsBubble: 34
+    readonly property int qsRowWidth: 300
+    readonly property int qsRowHeight: 36
+    readonly property int qsChevron: 30
+    readonly property int qsAudioHeight: 320
+    readonly property int qsDevicesHeight: 340
+    readonly property int qsHeading: 40
+
+    /*! Font samples and wallpaper thumbnails. */
+    readonly property int fontSampleWidth: 108
+    readonly property int fontSampleHeight: 58
+    readonly property int wallpaperWidth: 120
+    readonly property int wallpaperHeight: 72
+    readonly property real wallpaperPressedScale: 0.96
+
+    /*! Native title bars and first-launch floating-window size caps. */
+    readonly property int titleBarHeight: 28
+    readonly property int titleBarButton: 12
+    readonly property int titleBarGap: 8
+    readonly property int titleBarInset: 12
+    readonly property int titleBarEdge: 4
+    readonly property real windowWidthCap: 0.7
+    readonly property real windowHeightCap: 0.8
+    readonly property int windowShadowDrop: 6
+    readonly property real windowShadowRange: 1.7
+    readonly property int windowShadowPower: 4
+    readonly property real windowShadowAlpha: 0.75
+    readonly property real overviewFocusZoom: 0.02
+    readonly property real overviewCurrentFocus: 0.4
 
     /*! A chart's line, and the dot a lone sample is. */
     readonly property int chartLine: 2

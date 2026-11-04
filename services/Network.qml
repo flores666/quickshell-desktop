@@ -11,8 +11,7 @@ import Quickshell.Networking
 
     NetworkManager is the only backend Quickshell speaks; when it is absent or
     restarting `backend` reports None and every derived value collapses to the
-    offline state, which the UI renders as a plain "offline" indicator rather
-    than a broken control.
+    offline state. Indicators are shown only for actual adapters.
 */
 Singleton {
     id: root
@@ -72,11 +71,6 @@ Singleton {
             || (b.signalStrength - a.signalStrength));
         return out;
     }
-
-    readonly property bool limited: root.available && Networking.canCheckConnectivity
-        && Networking.connectivityCheckEnabled
-        && (Networking.connectivity === NetworkConnectivity.Portal
-            || Networking.connectivity === NetworkConnectivity.Limited)
 
     /*! Quickshell reports signal strength as 0-1, not NetworkManager's 0-100. */
     function signalIcon(strength: real): string {

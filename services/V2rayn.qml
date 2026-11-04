@@ -51,10 +51,11 @@ Singleton {
     /*! The TUN core's routing mode, "Rule", "Global" or "Direct"; empty
         while it cannot be read — no TUN mode, or v2rayN not running. */
     property string mode: ""
+    property int modeGeneration: 0
 
     readonly property bool available: root.port > 0
-    readonly property bool canSwitch: root.mode !== ""
-    readonly property bool direct: root.mode === "Direct"
+    readonly property bool canSwitch: root.api !== "" && root.mode !== ""
+    readonly property bool direct: root.canSwitch && root.mode === "Direct"
     readonly property bool active: root.reach === "up" && !root.direct
 
     /*! Seconds a request through the proxy, or to the core's API, may take. */
@@ -88,12 +89,18 @@ Singleton {
     function readMode(): void {
         if (root.api !== "")
             modeReader.run();
-        else
+        else {
+            modeReader.again = false;
             root.mode = "";
+        }
     }
 
     // The two files load in no set order; whichever completes the address reads.
-    onApiChanged: root.readMode()
+    onApiChanged: {
+        root.modeGeneration++;
+        root.mode = "";
+        root.readMode();
+    }
 
     function toggle(): void {
         if (!root.canSwitch || switcher.running)
@@ -159,8 +166,18 @@ Singleton {
 
     Probe {
         id: modeReader
+        property string endpoint: ""
+        property int generation: -1
+        onRunningChanged: if (running) {
+            modeReader.endpoint = root.api;
+            modeReader.generation = root.modeGeneration;
+        }
         command: ["curl", "-s", "-f", "--max-time", String(root.apiTimeout), root.api + "/configs"]
-        stdout: StdioCollector { onStreamFinished: root.mode = String(root.parse(this.text)?.mode ?? "") }
+        stdout: StdioCollector {
+            onStreamFinished: if (modeReader.endpoint !== "" && modeReader.endpoint === root.api
+                    && modeReader.generation === root.modeGeneration)
+                root.mode = String(root.parse(this.text)?.mode ?? "");
+        }
     }
 
     Process {
@@ -171,7 +188,7 @@ Singleton {
         command: ["curl", "-s", "-f", "--max-time", String(root.apiTimeout), "-X", "PATCH",
             "-d", JSON.stringify({ mode: switcher.target }), root.api + "/configs"]
         // Whatever happened, the core says what it is now.
-        onExited: modeReader.run()
+        onExited: root.readMode()
     }
 
     Probe {

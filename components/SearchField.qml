@@ -19,7 +19,7 @@ FocusScope {
     /*! The keyboard's right click (Clickable's keys), for the selected result. */
     signal menuRequested
 
-    implicitWidth: 320
+    implicitWidth: Appearance.m.searchWidth
     implicitHeight: Appearance.m.fieldHeight
 
     function clear(): void { field.text = ""; }
@@ -102,7 +102,7 @@ FocusScope {
             x: root.width - width - Appearance.s.sm
             visible: field.text !== ""
             icon: "clear"
-            size: 26
+            size: Appearance.m.clearButton
             iconSize: Appearance.m.iconSm
             focusable: false
             onClicked: {

@@ -627,20 +627,20 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
 | `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
-| `Processes` | every process (kernel threads aside), memory and the machine's counters — CPU ticks and frequency, whole disks, the root filesystem, physical interfaces, the first GPU reporting `gpu_busy_percent` — sampled from `/proc` and `/sys` by one gawk run (`ProcessSampler`, whose empty `ENDFILE {}` keeps a read failing part way from ending the run): the counters always, each process only while anything watches (see hard rule 3), a sample without them leaving `list` as it was; a process's CPU and disk I/O between two samples that read it; with a watcher's extras, each own process's GPU time (its DRM fds' fdinfo, a client once a process) and open inet sockets (fd links matched against /proc/net's tcp/tcp6 not listening, udp/udp6), from one `find` into the same gawk run | `watch(key, on, extras)` (`extras`: `"gpu"`, `"net"`; on again, a key asks anew), `watched` (any key on: the processes read), `extras` (the union over the keys on), `sampleInterval`, `samples`, `sampled(previous, current)`, `listed` (samples with the processes in this watch), `list` (`{ pid, uid, ppid, ticks, rss, oomScore, oomAdj, readBytes, writeBytes, gpuTime, connections, name, cpu, io, gpu, own, user }`; `io`, `gpu` and `connections` -1 for another user's or unasked), `byPid`, `memory` (KiB), `uid`, `parse` (`ProcessSampler.parse`; also `cpuTicks`, `cpuFreq`, `disks`, `fs`, `nets`, `gpu`), `cpu`, `io`, `gpu`, `sample`, `terminate`/`forceKill` (own processes only), `formatSize` |
+| `Processes` | every process (kernel threads aside), memory and the machine's counters — CPU ticks and frequency, whole disks, the root filesystem, physical interfaces, the first GPU reporting `gpu_busy_percent` — sampled from `/proc` and `/sys` by one gawk run (`ProcessSampler`, whose empty `ENDFILE {}` keeps a read failing part way from ending the run): the counters always, each process only while anything watches (see hard rule 3), a sample without them leaving `list` as it was; a process's CPU and disk I/O between two samples that read it; with a watcher's extras, each own process's GPU time (its DRM fds' fdinfo, a client once a process) and open inet sockets (fd links matched against /proc/net's tcp/tcp6 not listening, udp/udp6), from one `find` into the same gawk run | `watch(key, on, extras)` (`extras`: `"gpu"`, `"net"`; on again, a key asks anew), `watched` (any key on: the processes read), `extras` (the union over the keys on), `sampleInterval`, `samples`, `sampled(previous, current)`, `listed` (samples with the processes in this watch), `list` (`{ pid, uid, ppid, ticks, rss, oomScore, oomAdj, readBytes, writeBytes, gpuTime, connections, name, cpu, io, gpu, own, user }`; `io`, `gpu` and `connections` -1 for another user's or unasked), `byPid`, `memory` (KiB), `uid`, `parse` (`ProcessSampler.parse`; also `cpuTicks`, `cpuFreq`, `disks`, `fs`, `nets`, `gpu`), `cpu`, `io`, `gpu`, `terminate`/`forceKill` (own processes only), `formatSize` |
 | `Usage` | the machine's usage from every sample of `Processes`, from the shell's start (shell.qml brings it up): rates (-1 until two samples are in; a sample less than `least` after the last one rated is passed over, its rates noise), the facts beside them, and the last minute of each for the charts | `cpu`, `memory`, `gpu`, `disk` (the busiest disk's busy time), `diskRead`/`diskWrite`, `netDown`/`netUp` (bytes/s), `cpuFreq`, `cpuModel`/`cpuCores`/`cpuThreads` (/proc/cpuinfo, read once; `cpuInfo`), `memoryUsed`/`memoryTotal`, `hasGpu`, `gpuName` (one `lspci` run), `vramUsed`/`vramTotal`, `gpuTemp`, `fsUsed`/`fsTotal`, `diskModel`, `history` (`{ t, v }` per series), `now`, `span`, `least`, `rates`, `trim`, `formatBytes`, `formatRate` |
 | `Activity` | which processes used each thing most over the last `Usage.span`: a record of each sample that read the processes (only what was above 0), dropped once older than the span, kept across watches, so a tab opened again within the minute still lists what was busy; ranked once a sample | `top(key, count)` (`"cpu"`/`"gpu"`: the mean % over the samples that read it, one it was absent from counting 0; `"io"`: mean bytes a second; `"rss"`/`"connections"`: as they stand; `[{ pid, name, value, now }]`, best first, ties by pid; `now` false for one gone quiet), `ranked`, `revision`, `rank`, `record` |
 | `EarlyOom` | earlyoom: installed (its unit file), running, its options (`/etc/default/earlyoom`, watched), its kills (its journal, followed: wheel, adm and systemd-journal may read it) and their notifications, memory and the next victim as it reckons them | `available`, `running`, `logReadable`, `config`, `kills`, `usage`, `next`, `victim`, `preference`, `withPreference`, `protect`/`preferKill`/`clear`, `apply` (pkexec), `pending`, `failure`, `fileText`, `readEntry` |
 | `EarlyOomArgs` | EARLYOOM_ARGS read and written: the levels, the two lists as names (each escaped with bracket expressions and no space or backslash, which systemd would take apart), what else a list holds kept as written (`avoidExtra`), every other option in `rest` | `parse`, `format`, `regex`, `listable`, `matches`, `matcher` |
 | `Tasks` | scheduled tasks: their units in `~/.config/systemd/user`, changed one script at a time and read again after each; runs heard from the user manager's journal lines; the user's other timers, read-only | `prefix`, `tasks` (`{ id, name, command, schedule, enabled, next, last, result, status }`), `others`, `read`, `save`, `runNow`, `setEnabled`, `remove`, `validate` (systemd-analyze), `formatWhen` |
 | `TaskUnits` | a task as units: its schedule (`once`, `hourly`, `daily`, `weekly`, `calendar`, `login`) as OnCalendar, its command quoted for ExecStart, the units' text and the task read back | `parts`, `validSchedule`, `calendar`, `describe`, `validCommand`, `exec`, `files`, `read`, `days` |
-| `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch`, `iconFor` |
+| `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch` |
 | `IconThemes` | the icon themes as the shell reads them: read again whenever one changes on disk, through the native module (`IconThemeWatch`), so an application installed while the shell runs comes with its icon; without the module, as they were at start | `revision` (whatever resolves an icon by name reads it: `AppIcon`), `watch` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
 | `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `scan` (one, as the Wi-Fi list opens), `restartWifi`, `restarting`, `passwordRequested`, `failure` |
 | `Vpn` | the VPN menu: the NetworkManager connections `Settings.vpnConnections` names (states from `nmcli monitor`, switched with `nmcli`, latency a ping to the tunnel's far end), whether anything in the menu is up; latency measured as the menu opens and as a connection comes up, never on a schedule | `available`, `anyActive`, `connections`, `states`, `isActive`, `status`, `toggle` |
 | `V2rayn` | v2rayN, from the files it writes: the active server, its latency (a request through v2rayN's proxy), and in TUN mode a switch — the TUN core's Clash API mode, Rule or Direct, so no root is needed and the TUN stays up. Measured on events alone: its settings or its core's config written, the TUN coming up (`ip monitor`), the menu opening, and the core ending (`waitpid` on the proxy port's process) | `available`, `active`, `status`, `canSwitch`, `direct`, `toggle`, `measure` |
-| `Bt` | BlueZ adapter and devices | `available`, `enabled`, `listed`, `icon`, `label`, `setEnabled`, `toggleConnection` |
+| `Bt` | BlueZ adapter and devices | `available`, `enabled`, `listed`, `icon`, `label`, `setEnabled`, `setDiscovering` (the page's intent, synchronized on adapter/enable events), `toggleConnection` |
 | `Power` | UPower battery and power-profiles-daemon, and the battery's charge limit (UPower's, kept across reboots; watched with `gdbus monitor`, since `busctl monitor` needs root on the system bus) | `hasBattery`, `percentage`, `held` (on power and not charging: the limit reached), `icon` (plugged in, no bolt, while held), `timeLabel`, `hasProfiles`, `profile`, `setProfile`, `hasChargeLimit`, `chargeLimited`, `chargeLimit` (0 where the firmware picks it), `limitLabel` (said on power in place of "until full": quick settings' footer), `setChargeLimited` |
 | `Brightness` | the backlight: read and watched in sysfs, written through logind | `available` (once read), `value`, `set`, `step` |
 | `Players` | MPRIS, with one sticky "current" player | `hasPlayer`, `playing`, `title`, `artist`, `playPause`, `seekTo`, `formatTime` |
@@ -649,7 +649,7 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `Osd` | the transient volume/mic/brightness indicator, listening to each source only once it holds a true reading | `shown`, `kind`, `value`, `icon`, `text`, `holdTime` |
 | `Screenshot` | screen capture through grim/slurp; a region is dragged out over the screen frozen by hyprpicker | `capture`, `captureRegion` |
 | `Wallpaper` | the pictures in ~/Pictures/Wallpapers, and driving hyprpaper | `folder`, `folderPath`, `items`, `available`, `current` (always a path: a saved bare name is that picture in the folder, empty until it is there), `set` |
-| `Fonts` | the font families Qt found, and applying the chosen one to applications — the GTK interface font and a fontconfig file the shell owns (`conf.d/50-quickshell-font.conf`); *Default* restores the GTK font it first replaced | `families`, `available`, `chosen`, `search` |
+| `Fonts` | the font families Qt found, and applying the chosen one to applications — the GTK interface font and a fontconfig file the shell owns (`conf.d/50-quickshell-font.conf`); *Default* restores the GTK font it first replaced | `families`, `chosen`, `search` |
 | `Polkit` | the session's polkit agent (Quickshell.Services.Polkit), registered at start — unless another agent holds the session, when nothing of it shows and that one asks. The shell runs in a user unit, outside the login session: polkit takes the user's display session for its pid | `available` (registered), `flow` (an `AuthFlow`, or null: kept through a wrong password, which asks again; freed once it succeeds or is cancelled) |
 | `Session` | lock, suspend, logout, reboot, shutdown | `lock` (raises `lockRequested`), `suspend`, `logout`, … |
 | `Time` | one clock for the whole shell | `now`, `time`, `dateShort`, `dateLong` |
@@ -1106,8 +1106,9 @@ expensive to find.
   a scratch path, never over the installed one). A drag by the title bar
   needs a pointer button, which QML cannot press: that is a
   wlr-virtual-pointer client on the nested socket (below).
-  `BackdropProbeTest` needs a second screen and a saved wallpaper, and in a
-  nested instance with one screen never finishes.
+  `BackdropProbeTest` needs a second screen and creates its own wallpaper in
+  the runner's fixture directory; without that isolation or the screen it fails
+  immediately.
 - **No test reaches the machine's dconf or the user's terminals**:
   `tools/test.sh` puts `tests/bin` first on their `PATH` — a `gsettings` that
   keeps what is set in a file of the run's own (`TEST_GSETTINGS`) and a
@@ -1267,11 +1268,11 @@ disk, see *Testing*) and sends a notification. install.sh runs the same
 check, so a patch changed after the plugin was built is not missed. Its output is in `journalctl --user -t hyprexpo`.
 `master` chases hyprland-git and will not compile against a release.
 
-Five patches are applied, in order, all relative to the source directory:
+Six patches are applied, in order, all relative to the source directory:
 `hyprexpo-real-wallpaper-bg.patch` (the real wallpaper, blurred, behind the
 tiles), `hyprexpo-tile-zoom-and-add-tile.patch`,
-`hyprexpo-swipe-open-close.patch`, `hyprexpo-shell-above-overview.patch` and
-`hyprexpo-key-zoom.patch`. The second highlights a
+`hyprexpo-swipe-open-close.patch`, `hyprexpo-shell-above-overview.patch`,
+`hyprexpo-key-zoom.patch` and `hyprexpo-focus-tokens.patch`. The second highlights a
 tile with a focus zoom instead of a border, so the shell pushes
 `border_width` 0: the tile under the pointer or the keyboard keeps its size
 and the workspace in it grows 2% inside the tile's rounded edge (a crop of
@@ -1374,6 +1375,12 @@ Hyprland with this desktop's animations, frame by frame from a trace: an
 open or close 380 ms, 90% at 217 ms, 2% in the first frame, no frame missed;
 a close taken back from a third open in 250 ms; with animations off it
 jumps.
+
+The sixth passes the focus zoom's duration, curve, strength and current-workspace
+share from `config/` through `CompositorTheme`, with the same defaults; it keeps
+the frame-driven damage and the reduced-motion guard. Title-bar geometry,
+typography and initial window-size caps use that option pipeline too; after a
+style batch, `windows.restyle()` places and damages every bar together.
 
 ### The window plugin
 

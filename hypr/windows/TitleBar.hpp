@@ -33,14 +33,6 @@
 */
 class CTitleBar : public IHyprWindowDecoration {
   public:
-    // macOS's proportions, in logical pixels.
-    static constexpr double HEIGHT = 28, BUTTON = 12, GAP = 8, INSET = 12;
-    // How far into a tiled or fullscreen window's top the pointer brings its
-    // bar out: an edge, as macOS's menu bar over a full-screen window, since
-    // under the rest of the bar are the application's own controls (a
-    // browser's tabs).
-    static constexpr double EDGE = 4;
-
     explicit CTitleBar(PHLWINDOW window);
 
     /*! Whether a window gets a bar: whether its client left the frame to the
@@ -68,7 +60,7 @@ class CTitleBar : public IHyprWindowDecoration {
         tiled or fullscreen one it is out only when brought out. */
     bool above() const;
     /*! On the bar's box, or the edge that brought it out; and at its
-        window's top edge — the top EDGE px, or the gap above them — which is
+        window's top edge — the top edge, or the gap above them — which is
         what brings a bar over its window out. */
     bool onBar(const Vector2D& pos) const;
     bool revealsAt(const Vector2D& pos) const;

@@ -110,6 +110,12 @@ git apply "${apply_args[@]}" "$shell_patch" || { echo "hyprexpo-shell-above-over
 key_patch="$script_dir/hyprexpo-key-zoom.patch"
 git apply "${apply_args[@]}" "$key_patch" || { echo "hyprexpo-key-zoom.patch no longer applies to ${tag}" >&2; exit 1; }
 
+# Focus zoom styling follows config/Metrics and Motion, through the same
+# option pipeline as the overview's colors and rounding. Applied last so the
+# gesture/crop patches above keep their shared context.
+focus_patch="$script_dir/hyprexpo-focus-tokens.patch"
+git apply "${apply_args[@]}" "$focus_patch" || { echo "hyprexpo-focus-tokens.patch no longer applies to ${tag}" >&2; exit 1; }
+
 make all
 install -Dm755 hyprexpo.so "$dest/hyprexpo.so"
 printf '%s\n' "$built_for" > "$stamp"

@@ -26,8 +26,8 @@ Item {
     signal toggled
     signal pageRequested
 
-    implicitWidth: 168
-    implicitHeight: 58
+    implicitWidth: Appearance.m.qsTileWidth
+    implicitHeight: Appearance.m.qsTileHeight
 
     Clickable {
         id: main
@@ -48,8 +48,8 @@ Item {
             id: bubble
             x: Appearance.s.md + Appearance.s.xxs
             anchors.verticalCenter: parent.verticalCenter
-            width: 34
-            height: 34
+            width: Appearance.m.qsBubble
+            height: width
             radius: height / 2
             color: root.active ? Appearance.popupAccentLayer : Appearance.c.sunken
 
@@ -115,7 +115,7 @@ Item {
         visible: root.hasPage
         icon: "chevron-right"
         iconSize: Appearance.m.iconSm
-        size: 28
+        size: Appearance.m.compactButton
         iconColor: root.active ? Appearance.popupAccentInkMuted : Appearance.c.textMuted
         onClicked: root.pageRequested()
     }

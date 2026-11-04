@@ -10,7 +10,7 @@ Item {
 
     property int size: Appearance.m.icon
     property color color: Appearance.c.accent
-    property int thickness: 2
+    property int thickness: Appearance.m.spinnerThickness
 
     implicitWidth: root.size
     implicitHeight: root.size
@@ -32,7 +32,7 @@ Item {
                 radiusX: (root.size - root.thickness) / 2
                 radiusY: (root.size - root.thickness) / 2
                 startAngle: 0
-                sweepAngle: 260
+                sweepAngle: Appearance.m.spinnerSweep
             }
         }
 
@@ -41,7 +41,7 @@ Item {
             running: root.visible
             from: 0
             to: 360
-            duration: 900
+            duration: Appearance.t.spinner
             loops: Animation.Infinite
         }
     }

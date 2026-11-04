@@ -66,8 +66,7 @@ Item {
     }
 
     /*! A series' outline closed along the baseline, for the fill. */
-    function area(s: var): var {
-        const pts = root.line(s);
+    function area(pts: var): var {
         if (pts.length < 2)
             return [];
         return [Qt.point(pts[0].x, root.plotH), ...pts, Qt.point(pts[pts.length - 1].x, root.plotH)];
@@ -135,13 +134,16 @@ Item {
     }
 
     Repeater {
-        model: root.series
+        // A new sample replaces series records, not the series themselves.
+        // Keep delegates by index, and do no path work while hidden.
+        model: root.visible ? root.series.length : 0
 
         Item {
             id: one
-            required property var modelData
+            required property int index
+            readonly property var series: root.series[one.index]
             anchors.fill: parent
-            readonly property var points: root.line(one.modelData)
+            readonly property var points: root.line(one.series)
             /*! The line's highest point: the fill is strongest there and
                 fades to the baseline, so a low reading still shows one. */
             readonly property real crest: one.points.reduce((top, p) => Math.min(top, p.y), root.plotH)
@@ -157,15 +159,15 @@ Item {
                         y1: one.crest
                         x2: 0
                         y2: root.plotH
-                        GradientStop { position: 0; color: Qt.alpha(one.modelData.color, Appearance.m.chartFill) }
-                        GradientStop { position: 1; color: Qt.alpha(one.modelData.color, 0) }
+                        GradientStop { position: 0; color: Qt.alpha(one.series.color, Appearance.m.chartFill) }
+                        GradientStop { position: 1; color: Qt.alpha(one.series.color, 0) }
                     }
-                    PathPolyline { path: root.area(one.modelData) }
+                    PathPolyline { path: root.area(one.points) }
                 }
 
                 ShapePath {
                     strokeWidth: Appearance.m.chartLine
-                    strokeColor: one.modelData.color
+                    strokeColor: one.series.color
                     fillColor: "transparent"
                     joinStyle: ShapePath.RoundJoin
                     capStyle: ShapePath.RoundCap
@@ -179,7 +181,7 @@ Item {
                 width: Appearance.m.chartDot * 2
                 height: width
                 radius: width / 2
-                color: one.modelData.color
+                color: one.series.color
                 x: (one.points[0]?.x ?? 0) - width / 2
                 y: (one.points[0]?.y ?? 0) - height / 2
             }

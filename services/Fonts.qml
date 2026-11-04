@@ -29,8 +29,6 @@ Singleton {
     id: root
 
     readonly property var families: Qt.fontFamilies()
-    readonly property bool available: root.families.length > 0
-
     /*! The family in force for applications; empty means the system's own. */
     readonly property string chosen: Settings.fontFamily
 

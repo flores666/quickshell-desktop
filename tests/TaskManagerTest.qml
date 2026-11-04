@@ -221,10 +221,11 @@ Item {
     }
 
     function waysIn(): void {
-        sh.run("grep -c '^bind = CTRL SHIFT, Escape, global, shell:taskManager$' \"$1\"; "
+        sh.run("lua \"$3\" \"$1\" | grep -cx 'taskManager CTRL + SHIFT + Escape'; "
             + "grep -c '^Exec=qs -c shell ipc call shell taskManager$' \"$2\"",
-            [Qt.resolvedUrl("../hyprland.conf").toString().replace("file://", ""),
-             Qt.resolvedUrl("../applications/quickshell-task-manager.desktop").toString().replace("file://", "")],
+            [Qt.resolvedUrl("../hyprland.lua").toString().replace("file://", ""),
+             Qt.resolvedUrl("../applications/quickshell-task-manager.desktop").toString().replace("file://", ""),
+             Qt.resolvedUrl("HyprlandIntegration.lua").toString().replace("file://", "")],
             out => {
                 check.equal("the ways in: the bind and the launcher's entry", out.trim().split("\n").join(" "), "1 1");
                 check.done();

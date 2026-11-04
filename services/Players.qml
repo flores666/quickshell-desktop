@@ -33,7 +33,6 @@ Singleton {
     readonly property string artist: root.hasPlayer ? root.current.trackArtist : ""
     readonly property string artUrl: root.hasPlayer ? root.current.trackArtUrl : ""
     readonly property string identity: root.hasPlayer ? root.current.identity : ""
-    readonly property string appIcon: root.hasPlayer ? root.current.desktopEntry : ""
 
     readonly property bool canPlay: root.hasPlayer && root.current.canTogglePlaying
     readonly property bool canNext: root.hasPlayer && root.current.canGoNext
@@ -80,11 +79,6 @@ Singleton {
     function seekTo(fraction: real): void {
         if (root.canSeek)
             root.current.position = Math.max(0, Math.min(1, fraction)) * root.length;
-    }
-
-    function raise(): void {
-        if (root.hasPlayer && root.current.canRaise)
-            root.current.raise();
     }
 
     function formatTime(seconds: real): string {

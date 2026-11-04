@@ -34,7 +34,7 @@ Item {
 
     implicitHeight: root.pending
         ? prompt.implicitHeight
-        : Math.min(340, header.height + failure.height + list.contentHeight + Appearance.s.md)
+        : Math.min(Appearance.m.qsDevicesHeight, header.height + failure.height + list.contentHeight + Appearance.s.md)
 
     Component.onCompleted: Network.scan()
 
@@ -67,7 +67,7 @@ Item {
     Row {
         id: header
         width: parent.width
-        height: 40
+        height: Appearance.m.qsHeading
         visible: root.pending === null
         spacing: Appearance.s.md
 
@@ -119,7 +119,7 @@ Item {
         clip: true
         visible: root.pending === null
         model: Network.wifiEnabled && root.pending === null ? Network.wifiNetworks : []
-        spacing: 1
+        spacing: Appearance.m.rowGap
         boundsBehavior: Flickable.StopAtBounds
 
         delegate: Column {
@@ -168,7 +168,7 @@ Item {
                         visible: net.modelData.known
                         icon: "more"
                         iconSize: Appearance.m.iconSm
-                        size: 28
+                        size: Appearance.m.compactButton
                         selected: net.open
                         onClicked: root.expanded = net.open ? "" : net.modelData.name
                     }

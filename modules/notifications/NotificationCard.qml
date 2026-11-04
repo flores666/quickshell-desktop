@@ -42,7 +42,7 @@ Surface {
 
     implicitHeight: layout.implicitHeight + Appearance.s.lg * 2
     color: root.standalone ? Appearance.c.chrome : Appearance.c.raised
-    radius: root.standalone ? Appearance.r.lg : Appearance.r.md
+    radius: root.standalone ? Appearance.r.panel : Appearance.r.md
     elevation: root.standalone ? 3 : 0
     bordered: root.standalone
 

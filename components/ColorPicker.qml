@@ -39,7 +39,7 @@ Column {
     property real saturation: 0
     property real brightness: 0
     readonly property color current: Qt.hsva(root.hue, root.saturation, root.brightness, 1)
-    readonly property bool dragging: planeArea.pressed || stripArea.pressed
+    readonly property bool dragging: plane.pressed || strip.pressed
 
     readonly property real sMin: root.saturationRange[0]
     readonly property real sSpan: root.saturationRange[1] - root.saturationRange[0]
@@ -99,12 +99,17 @@ Column {
         event.accepted = true;
     }
 
-    Item {
+    Clickable {
         id: plane
 
         width: root.width
         height: Appearance.m.pickerPlane
-        activeFocusOnTab: root.enabled
+        showStateLayer: false
+        preventStealing: true
+        cursorShape: Qt.CrossCursor
+        focusRingTarget: planeKnob
+        focusRingRadius: Appearance.m.pickerKnob / 2
+        focusRingGap: Appearance.m.knobFocusGap
 
         RoundedClip {
             anchors.fill: parent
@@ -133,31 +138,21 @@ Column {
             anchors.fill: parent
             radius: Appearance.r.sm
             color: "transparent"
-            border.width: 1
+            border.width: Appearance.m.controlBorder
             border.color: Appearance.c.border
         }
 
         PickerKnob {
+            id: planeKnob
             fill: root.current
-            focused: plane.activeFocus
             x: (root.sSpan > 0 ? (root.saturation - root.sMin) / root.sSpan : 0) * plane.width - width / 2
             y: (root.vSpan > 0 ? 1 - (root.brightness - root.vMin) / root.vSpan : 0) * plane.height - height / 2
-            pressed: planeArea.pressed
+            scale: plane.pressed ? Appearance.m.pickerPressedScale : 1
         }
 
-        MouseArea {
-            id: planeArea
-            anchors.fill: parent
-            preventStealing: true
-            cursorShape: Qt.CrossCursor
-            onPressed: event => {
-                InputMode.pointerUsed();
-                plane.forceActiveFocus();
-                root.pickPlane(event.x, event.y);
-            }
-            onPositionChanged: event => root.pickPlane(event.x, event.y)
-            onReleased: root.committed(root.current.toString())
-        }
+        onPointerPressed: event => root.pickPlane(event.x, event.y)
+        onPointerMoved: event => { if (plane.pressed) root.pickPlane(event.x, event.y); }
+        onPointerReleased: root.committed(root.current.toString())
 
         Keys.onPressed: event => root.nudge(event, (dx, dy) => {
             root.saturation = root.clamp(root.saturation + dx * root.sSpan, root.saturationRange);
@@ -165,12 +160,16 @@ Column {
         })
     }
 
-    Item {
+    Clickable {
         id: strip
 
         width: root.width
         height: Appearance.m.pickerStrip
-        activeFocusOnTab: root.enabled
+        showStateLayer: false
+        preventStealing: true
+        focusRingTarget: stripKnob
+        focusRingRadius: Appearance.m.pickerKnob / 2
+        focusRingGap: Appearance.m.knobFocusGap
 
         RoundedClip {
             anchors.fill: parent
@@ -192,47 +191,34 @@ Column {
         }
 
         PickerKnob {
+            id: stripKnob
             fill: root.pureHue
-            focused: strip.activeFocus
             x: root.hue * strip.width - width / 2
             anchors.verticalCenter: parent.verticalCenter
-            pressed: stripArea.pressed
+            scale: strip.pressed ? Appearance.m.pickerPressedScale : 1
         }
 
-        MouseArea {
-            id: stripArea
-            anchors.fill: parent
-            preventStealing: true
-            cursorShape: Qt.PointingHandCursor
-            onPressed: event => {
-                InputMode.pointerUsed();
-                strip.forceActiveFocus();
-                root.pickHue(event.x);
-            }
-            onPositionChanged: event => root.pickHue(event.x)
-            onReleased: root.committed(root.current.toString())
-        }
+        onPointerPressed: event => root.pickHue(event.x)
+        onPointerMoved: event => { if (strip.pressed) root.pickHue(event.x); }
+        onPointerReleased: root.committed(root.current.toString())
 
         Keys.onPressed: event => root.nudge(event, (dx, dy) => {
-            root.hue = Math.max(0, Math.min(0.999, root.hue + (dx + dy) * root.step));
+            root.hue = Math.max(0, Math.min(0.999, root.hue + dx + dy));
         })
     }
 
     component PickerKnob: Rectangle {
         property color fill
-        property bool focused: false
-        property bool pressed: false
 
         width: Appearance.m.pickerKnob
         height: Appearance.m.pickerKnob
         radius: height / 2
         color: this.fill
-        border.width: 2
+        border.width: Appearance.m.focusRing
         // Whichever theme's text reads on the colour under it: a knob on a
         // dark background plane would vanish in a surface-coloured ring.
         border.color: Appearance.luminance(this.fill) > 0.18
             ? Appearance.day.text : Appearance.night.text
-        scale: this.pressed ? 1.15 : 1
 
         Behavior on scale {
             NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
@@ -242,16 +228,6 @@ Column {
             anchors.fill: parent
             radius: parent.radius
             level: 1
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: -3
-            radius: width / 2
-            color: "transparent"
-            border.width: 2
-            border.color: Appearance.c.accent
-            visible: parent.focused && InputMode.keyboard
         }
     }
 }

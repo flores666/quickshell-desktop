@@ -3,6 +3,10 @@
 
 #include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/desktop/state/ViewState.hpp>
+#include <hyprland/src/desktop/state/FocusState.hpp>
+#include <hyprland/src/desktop/state/WindowState.hpp>
+#include <hyprland/src/config/shared/actions/ConfigActions.hpp>
+#include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/desktop/state/ViewHitTester.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
@@ -59,7 +63,7 @@ namespace {
         const auto PROPERTIES = Desktop::View::RESERVED_EXTENTS | Desktop::View::INPUT_EXTENTS | Desktop::View::ALLOW_FLOATING;
         auto       window     = Desktop::viewState()->hitTest().windowAt(pos, PROPERTIES);
         if (!window)
-            window = Desktop::viewState()->hitTest().windowAt({pos.x, pos.y + CTitleBar::HEIGHT}, PROPERTIES);
+            window = Desktop::viewState()->hitTest().windowAt({pos.x, pos.y + Style::height()}, PROPERTIES);
         return window && CTitleBar::of(window) ? window : nullptr;
     }
 
@@ -197,4 +201,55 @@ void Pointer::modeChanged(PHLWINDOW window, bool floated) {
     if (floated)
         BAR->keepOnScreen();
     BAR->animate();
+}
+
+bool CTitleBar::onInputOnDeco(const eInputType type, const Vector2D& pos, std::any data) {
+    if (type != INPUT_TYPE_BUTTON || !shown() || !barBox().containsPoint(pos))
+        return false;
+
+    // Every button on the bar is the bar's; only the left one does anything.
+    const auto& E = std::any_cast<const IPointer::SButtonEvent&>(data);
+    if (E.button != BTN_LEFT)
+        return true;
+
+    const auto W = m_window.lock();
+    if (E.state == WL_POINTER_BUTTON_STATE_PRESSED) {
+        if (!Desktop::focusState()->isWindowActive(W))
+            Desktop::focusState()->rawWindowFocus(W, Desktop::FOCUS_REASON_CLICK);
+        if (W->isFloating())
+            Desktop::windowState()->raise(W);
+
+        g_state->hover(W, buttonAt(pos) != -1);
+        g_state->armed = buttonAt(pos);
+        if (g_state->armed == -1) {
+            g_state->dragging = W;
+            // Where along the bar it was taken, and how far down it.
+            const auto BAR = barBox();
+            g_state->grab  = {(pos.x - BAR.x) / BAR.w, pos.y - BAR.y};
+        }
+        return true;
+    }
+
+    const int ARMED = g_state->armed;
+    g_state->armed  = -1;
+    g_state->dragging.reset();
+    if (ARMED != -1 && ARMED == buttonAt(pos))
+        act(ARMED);
+    return true;
+}
+
+void CTitleBar::act(int button) {
+    const auto W = m_window.lock();
+    switch (button) {
+        case 0: (void)Config::Actions::closeWindow(W); break;
+        case 1: {
+            // Hyprland has no minimized state; a special workspace is the
+            // idiom, and the dock brings a window back from it.
+            (void)Config::Actions::moveToWorkspace("special:minimized", true, W);
+            break;
+        }
+        case 2: (void)Config::Actions::fullscreenWindow(Fullscreen::FSMODE_MAXIMIZED, true, W); break;
+        // Placed as it would open (Placement), and remembered so.
+        case 3: (void)Config::Actions::floatWindow(Config::Actions::TOGGLE_ACTION_TOGGLE, W); break;
+    }
 }

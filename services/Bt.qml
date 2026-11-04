@@ -24,6 +24,12 @@ Singleton {
     readonly property bool blocked: root.available
         && root.adapter.state === BluetoothAdapterState.Blocked
     readonly property bool discovering: root.available && root.adapter.discovering
+    /*! A page's request survives the adapter being disabled or unavailable. */
+    property bool discoveryRequested: false
+
+    onAdapterChanged: root.syncDiscovery()
+    onEnabledChanged: root.syncDiscovery()
+    onDiscoveryRequestedChanged: root.syncDiscovery()
 
     readonly property var devices: root.available ? root.adapter.devices.values.filter(d => d) : []
     readonly property var connected: root.devices.filter(d => d.connected)
@@ -79,8 +85,15 @@ Singleton {
     }
 
     function setDiscovering(on: bool): void {
-        if (root.available && root.enabled)
-            root.adapter.discovering = on;
+        root.discoveryRequested = on;
+    }
+
+    function syncDiscovery(): void {
+        // During adapterChanged the derived flags may still describe the old
+        // adapter. Use the event's actual source, including its removal.
+        const adapter = root.adapter;
+        if (adapter && adapter.enabled)
+            adapter.discovering = root.discoveryRequested;
     }
 
     function toggleConnection(device: BluetoothDevice): void {

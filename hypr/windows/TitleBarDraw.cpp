@@ -15,7 +15,6 @@
 #include <cairo/cairo.h>
 
 namespace {
-    constexpr int TITLE_PT = 10, TITLE_WEIGHT = 600;
     // How often a window's colour is read at most: each read waits on the
     // GPU, and a terminal printing commits every frame.
     constexpr auto SAMPLE_EVERY = std::chrono::milliseconds(250);
@@ -145,7 +144,7 @@ void CTitleBar::paint(Render::CRenderContext& ctx, PHLMONITOR monitor, float a, 
     // corners the window's own rounding would leave open. Rolled out less
     // than its rounding, its corners meet the window's own, so the bar and
     // the window are one rounded shape all the way.
-    const auto SHAPE = toLocal({BAR.x, BAR.y, BAR.w, HEIGHT + 2 * ROUND});
+    const auto SHAPE = toLocal({BAR.x, BAR.y, BAR.w, Style::height() + 2 * ROUND});
     std::vector<CBox> parts = {CLIP};
     if (above()) {
         parts.push_back(toLocal({BAR.x, BAR.y + BAR.h, ROUND, ROUND}));
@@ -173,22 +172,23 @@ void CTitleBar::paint(Render::CRenderContext& ctx, PHLMONITOR monitor, float a, 
         data.box     = toLocal(buttonBox(i));
         data.clipBox = CLIP;
         data.color   = withAlpha(mix(withAlpha(INK.text, 0.2F), INK.buttons[i], LIT), ALPHA);
-        data.round   = std::round(BUTTON * SCALE / 2);
+        data.round   = std::round(Style::button() * SCALE / 2);
         g_pHyprRenderer->addPassElement(ctx, makeUnique<CRectPassElement>(data));
         if (m_hover->value() > 0)
             drawGlyph(ctx, i, data.box, CLIP, INK.glyph, ALPHA * m_hover->value());
     }
 
     // Centred on the window, and kept clear of the buttons on both sides.
-    const int ROOM = std::floor((BAR.w - 2 * (INSET + Style::BUTTONS * (BUTTON + GAP))) * SCALE);
+    const int ROOM = std::floor((BAR.w - 2 * (Style::inset() + Style::BUTTONS * (Style::button() + Style::gap()))) * SCALE);
     if (W->metadata().title().empty() || ROOM <= 0)
         return;
-    const auto KEY = std::format("{}\n{}\n{}\n{}", W->metadata().title(), SCALE, ROOM, key(INK.text));
+    const auto FONT = Style::font();
+    const auto KEY = std::format("{}\n{}\n{}\n{}\n{}\n{}\n{}", W->metadata().title(), SCALE, ROOM, key(INK.text), FONT.family, FONT.points, FONT.weight);
     if (!m_title || KEY != m_titleKey) {
-        m_title    = g_pHyprRenderer->renderText(W->metadata().title(), INK.text, std::round(TITLE_PT * SCALE), false, "sans-serif", ROOM, TITLE_WEIGHT);
+        m_title    = g_pHyprRenderer->renderText(W->metadata().title(), INK.text, std::round(FONT.points * SCALE), false, FONT.family, ROOM, FONT.weight);
         m_titleKey = KEY;
     }
-    const auto                   LOCAL = toLocal({BAR.x, BAR.y, BAR.w, HEIGHT});
+    const auto                   LOCAL = toLocal({BAR.x, BAR.y, BAR.w, Style::height()});
     CTexPassElement::SRenderData title;
     title.tex     = m_title;
     title.box     = CBox{LOCAL.middle() - m_title->m_size / 2, m_title->m_size}.round();

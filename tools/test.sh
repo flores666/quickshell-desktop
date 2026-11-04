@@ -36,6 +36,7 @@ fi
 status=0
 for test in "${tests[@]}"; do
     name="$(basename "$test" .qml)"
+    mkdir -p "$work/bin/$name"
     log="$work/$name.log"
     printf 'import Quickshell\nimport "root:/tests"\n\nShellRoot {\n    %s {}\n}\n' "$name" \
         > "$work/tree/shell.qml"
@@ -54,7 +55,7 @@ for test in "${tests[@]}"; do
     fi
     exec {out}< <(exec "${session[@]}" env XDG_STATE_HOME="$work/state/$name" XDG_CACHE_HOME="$work/cache" \
         XDG_DATA_HOME="$work/data" QML_IMPORT_PATH="$work/native/qml" \
-        PATH="$work/tree/tests/bin:$PATH" \
+        PATH="$work/bin/$name:$work/tree/tests/bin:$PATH" TEST_BIN="$work/bin/$name" \
         TEST_GSETTINGS="$work/gsettings" TEST_SIGNALS="$work/signals" TEST_NOTIFY="$work/notify" \
         TEST_NOTIFICATION_BUS="$notification_bus" \
         qs -p "$work/tree/shell.qml" 2>&1)

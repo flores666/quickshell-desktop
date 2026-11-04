@@ -283,15 +283,15 @@ Item {
     function project(): void {
         sh.run("printf 'agent %s\\n' \"$(cat \"$1\" \"$2\" | grep -c hyprpolkitagent)\"; "
             + "printf 'polkit %s\\n' \"$(grep -cx polkit \"$1\")\"; "
-            + "printf 'rule %s\\n' \"$(awk '/^layerrule\\[shell-auth\\] \\{$/ { on = 1; next } "
-            + "on && /^\\}/ { on = 0 } on' \"$3\" | sed 's/^ *//' | sort | paste -sd '|')\"",
-            [root.path("packages.txt"), root.path("hypr/conf.d/20-autostart.conf"), root.path("hyprland.conf")],
+            + "lua \"$4\" \"$3\" | sed -n '/^auth /p'",
+            [root.path("packages.txt"), root.path("hypr/conf.d/20-autostart.lua"), root.path("hyprland.lua"),
+             root.path("tests/HyprlandIntegration.lua")],
             out => {
                 const lines = out.trim().split("\n");
                 check.equal("hyprpolkitagent neither listed nor started", lines[0], "agent 0");
                 check.equal("polkit stays", lines[1], "polkit 1");
                 check.equal("the layer rule: above the popups, no fade of Hyprland's", lines[2],
-                    "rule match:namespace = shell-auth|no_anim = on|order = -1");
+                    "auth shell-auth -1 true");
                 check.done();
             });
     }

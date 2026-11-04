@@ -5,17 +5,13 @@
 #include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
-#include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/desktop/rule/windowRule/WindowRuleApplicator.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
-#include <hyprland/src/config/shared/actions/ConfigActions.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/layout/space/Space.hpp>
 #include <hyprland/src/layout/target/Target.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/render/Renderer.hpp>
-
-#include <linux/input-event-codes.h>
 
 CTitleBar::CTitleBar(PHLWINDOW window) : IHyprWindowDecoration(window), m_window(window) {
     // A new window's bar is at once what it is: the window's own fade brings
@@ -95,7 +91,7 @@ SDecorationPositioningInfo CTitleBar::getPositioningInfo() {
         // from a tile, or a maximized window, and a roll must not resize one.
         info.edges          = DECORATION_EDGE_TOP;
         info.reserved       = m_above && m_roll->value() >= 1;
-        info.desiredExtents = {{0.0, HEIGHT * m_roll->value()}, {0.0, 0.0}};
+        info.desiredExtents = {{0.0, Style::height() * m_roll->value()}, {0.0, 0.0}};
     } else
         // The window's own box, nothing reserved: the bar is drawn over its
         // top, and input there is offered to it.
@@ -131,7 +127,7 @@ void CTitleBar::restoreUnder(const Vector2D& pointer) {
     if (SIZE.x <= 0 || SIZE.y <= 0)
         return;
     const auto GRAB = g_state->grab;
-    g_layoutManager->setTargetGeom({pointer.x - GRAB.x * SIZE.x, pointer.y - GRAB.y + HEIGHT, SIZE.x, SIZE.y}, TARGET);
+    g_layoutManager->setTargetGeom({pointer.x - GRAB.x * SIZE.x, pointer.y - GRAB.y + Style::height(), SIZE.x, SIZE.y}, TARGET);
 }
 
 void CTitleBar::keepOnScreen() {
@@ -143,7 +139,7 @@ void CTitleBar::keepOnScreen() {
 
     const auto AREA = TARGET->space()->workArea(true);
     auto       box  = TARGET->position();
-    const auto TOP  = AREA.y + HEIGHT;
+    const auto TOP  = AREA.y + Style::height();
     if (box.y >= TOP)
         return;
     box.h = std::min(box.h, AREA.y + AREA.h - TOP);
@@ -170,23 +166,23 @@ CBox CTitleBar::barBox() const {
         return {};
     const auto WINDOW = windowBox();
     if (above()) {
-        const double OUT = HEIGHT * m_roll->value();
+        const double OUT = Style::height() * m_roll->value();
         return {WINDOW.x, WINDOW.y - OUT, WINDOW.w, OUT};
     }
-    return {WINDOW.x, WINDOW.y, WINDOW.w, HEIGHT};
+    return {WINDOW.x, WINDOW.y, WINDOW.w, Style::height()};
 }
 
 CBox CTitleBar::buttonBox(int button) const {
     const auto BAR = barBox();
-    return {BAR.x + INSET + button * (BUTTON + GAP), BAR.y + (HEIGHT - BUTTON) / 2, BUTTON, BUTTON};
+    return {BAR.x + Style::inset() + button * (Style::button() + Style::gap()), BAR.y + (Style::height() - Style::button()) / 2, Style::button(), Style::button()};
 }
 
 CBox CTitleBar::edgeBox() const {
-    // The window's top EDGE px, and as far above them as a bar above the
+    // The window's reveal edge, and as far above it as a bar above the
     // window would reach: what is there is the gap the layout leaves, and
     // Pointer finds the window there only where nothing else is.
     const auto WINDOW = windowBox();
-    return {WINDOW.x, WINDOW.y - HEIGHT, WINDOW.w, HEIGHT + EDGE};
+    return {WINDOW.x, WINDOW.y - Style::height(), WINDOW.w, Style::height() + Style::edge()};
 }
 
 bool CTitleBar::onBar(const Vector2D& pos) const {
@@ -201,7 +197,7 @@ bool CTitleBar::revealsAt(const Vector2D& pos) const {
 int CTitleBar::buttonAt(const Vector2D& pos) const {
     for (int i = 0; i < Style::BUTTONS; ++i)
         // Up to halfway into each gap, so the row has no dead spots.
-        if (buttonBox(i).expand(GAP / 2).containsPoint(pos))
+        if (buttonBox(i).expand(Style::gap() / 2).containsPoint(pos))
             return i;
     return -1;
 }
@@ -228,57 +224,6 @@ void CTitleBar::animate() {
     EASE(m_focus, Desktop::focusState()->window() == W ? 1.F : 0.F, Style::fade());
 }
 
-bool CTitleBar::onInputOnDeco(const eInputType type, const Vector2D& pos, std::any data) {
-    if (type != INPUT_TYPE_BUTTON || !shown() || !barBox().containsPoint(pos))
-        return false;
-
-    // Every button on the bar is the bar's; only the left one does anything.
-    const auto& E = std::any_cast<const IPointer::SButtonEvent&>(data);
-    if (E.button != BTN_LEFT)
-        return true;
-
-    const auto W = m_window.lock();
-    if (E.state == WL_POINTER_BUTTON_STATE_PRESSED) {
-        if (!Desktop::focusState()->isWindowActive(W))
-            Desktop::focusState()->rawWindowFocus(W, Desktop::FOCUS_REASON_CLICK);
-        if (W->isFloating())
-            Desktop::windowState()->raise(W);
-
-        g_state->hover(W, buttonAt(pos) != -1);
-        g_state->armed = buttonAt(pos);
-        if (g_state->armed == -1) {
-            g_state->dragging = W;
-            // Where along the bar it was taken, and how far down it.
-            const auto BAR = barBox();
-            g_state->grab  = {(pos.x - BAR.x) / BAR.w, pos.y - BAR.y};
-        }
-        return true;
-    }
-
-    const int ARMED = g_state->armed;
-    g_state->armed  = -1;
-    g_state->dragging.reset();
-    if (ARMED != -1 && ARMED == buttonAt(pos))
-        act(ARMED);
-    return true;
-}
-
-void CTitleBar::act(int button) {
-    const auto W = m_window.lock();
-    switch (button) {
-        case 0: (void)Config::Actions::closeWindow(W); break;
-        case 1: {
-            // Hyprland has no minimized state; a special workspace is the
-            // idiom, and the dock brings a window back from it.
-            (void)Config::Actions::moveToWorkspace("special:minimized", true, W);
-            break;
-        }
-        case 2: (void)Config::Actions::fullscreenWindow(Fullscreen::FSMODE_MAXIMIZED, true, W); break;
-        // Placed as it would open (Placement), and remembered so.
-        case 3: (void)Config::Actions::floatWindow(Config::Actions::TOGGLE_ACTION_TOGGLE, W); break;
-    }
-}
-
 eDecorationType CTitleBar::getDecorationType() {
     return DECORATION_CUSTOM;
 }
@@ -293,7 +238,7 @@ void CTitleBar::damageEntire() {
         return;
     // Above the window and over its top, and the corners under a bar above.
     const auto WINDOW = windowBox();
-    g_pHyprRenderer->damageBox({WINDOW.x, WINDOW.y - HEIGHT, WINDOW.w, 2 * HEIGHT + W->presentation().rounding()});
+    g_pHyprRenderer->damageBox({WINDOW.x, WINDOW.y - Style::height(), WINDOW.w, 2 * Style::height() + W->presentation().rounding()});
 }
 
 eDecorationLayer CTitleBar::getDecorationLayer() {

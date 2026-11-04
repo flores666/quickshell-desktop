@@ -18,8 +18,8 @@ Item {
     signal iconClicked
     signal pageRequested
 
-    implicitWidth: 300
-    implicitHeight: 36
+    implicitWidth: Appearance.m.qsRowWidth
+    implicitHeight: Appearance.m.qsRowHeight
 
     // A mute button where the row has one. Without one the glyph only names
     // the slider, and is drawn as a glyph: a disabled button is Clickable's
@@ -29,7 +29,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         visible: root.toggleEnabled
         icon: root.icon
-        size: 32
+        size: Appearance.m.touchTarget
         iconColor: root.muted || !root.enabled ? Appearance.c.textMuted : Appearance.c.text
         onClicked: root.iconClicked()
     }
@@ -60,7 +60,7 @@ Item {
         visible: root.hasPage
         icon: "chevron-right"
         iconSize: Appearance.m.iconSm
-        size: 30
+        size: Appearance.m.qsChevron
         onClicked: root.pageRequested()
     }
 }

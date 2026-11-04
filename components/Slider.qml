@@ -16,7 +16,7 @@ import "root:/services"
     scrolling, and a slider that took it would change a value under a pointer
     that was only passing over it.
 */
-Item {
+Clickable {
     id: root
 
     property real value: 0            // 0..1
@@ -28,13 +28,20 @@ Item {
     signal moved(real value)
     signal committed(real value)
 
-    implicitWidth: 160
-    implicitHeight: 32
-    activeFocusOnTab: root.enabled && root.interactive
-    opacity: root.enabled ? 1 : 0.42
+    implicitWidth: Appearance.m.sliderWidth
+    implicitHeight: Appearance.m.touchTarget
+    focusable: root.interactive
+    hoverEnabled: root.interactive
+    pressEnabled: root.interactive
+    acceptedButtons: root.interactive ? Qt.LeftButton : Qt.NoButton
+    preventStealing: true
+    showStateLayer: false
+    focusRingTarget: knob
+    focusRingRadius: root.knobSize / 2
+    focusRingGap: Appearance.m.knobFocusGap
 
-    readonly property int trackHeight: 6
-    readonly property int knobSize: 18
+    readonly property int trackHeight: Appearance.m.sliderTrack
+    readonly property int knobSize: Appearance.m.sliderKnob
     readonly property real leading: root.icon !== "" ? Appearance.m.iconLg + Appearance.s.lg : 0
     readonly property real spanX: root.width - root.leading - root.knobSize
     readonly property real clamped: Math.max(0, Math.min(1, root.value))
@@ -82,9 +89,9 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         radius: height / 2
         color: Appearance.c.knob
-        border.width: 1
+        border.width: Appearance.m.controlBorder
         border.color: Appearance.c.border
-        scale: dragArea.pressed ? 1.12 : hover.hovered ? 1.06 : 1
+        scale: root.pressed ? Appearance.m.sliderPressedScale : root.hovered ? Appearance.m.sliderHoverScale : 1
 
         Behavior on scale {
             NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
@@ -97,39 +104,12 @@ Item {
         }
     }
 
-    Rectangle {
-        anchors.fill: knob
-        anchors.margins: -3
-        radius: width / 2
-        color: "transparent"
-        border.width: 2
-        border.color: Appearance.c.accent
-        visible: root.activeFocus && InputMode.keyboard
-    }
-
-    HoverHandler {
-        id: hover
-        enabled: root.enabled && root.interactive
-        cursorShape: Qt.PointingHandCursor
-    }
-
-    MouseArea {
-        id: dragArea
-        anchors.fill: parent
-        enabled: root.enabled && root.interactive
-        preventStealing: true
-
-        onPressed: event => {
-            InputMode.pointerUsed();
-            root.forceActiveFocus();
+    onPointerPressed: event => root.setFromX(event.x)
+    onPointerMoved: event => {
+        if (root.pressed)
             root.setFromX(event.x);
-        }
-        onPositionChanged: event => {
-            if (dragArea.pressed)
-                root.setFromX(event.x);
-        }
-        onReleased: root.committed(root.clamped)
     }
+    onPointerReleased: root.committed(root.clamped)
 
     Keys.onPressed: event => {
         let v = root.clamped;

@@ -37,11 +37,6 @@ Singleton {
         hideTimer.restart();
     }
 
-    function hide(): void {
-        root.shown = false;
-        hideTimer.stop();
-    }
-
     Timer {
         id: hideTimer
         interval: root.holdTime

@@ -1,5 +1,6 @@
 #include "Placement.hpp"
 #include "TitleBar.hpp"
+#include "Style.hpp"
 
 #include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/desktop/rule/Engine.hpp>
@@ -32,10 +33,6 @@ namespace {
 
     // By application id; read once, written whenever it changes.
     std::unordered_map<std::string, SRemembered> g_remembered;
-
-    // The share of the work area a window opens at, at most, until it has a
-    // size of its own here: the title bar counts towards the height.
-    constexpr double MAX_WIDTH = 0.7, MAX_HEIGHT = 0.8;
 
     std::filesystem::path file() {
         const char* STATE = getenv("XDG_STATE_HOME");
@@ -118,7 +115,7 @@ static std::optional<CBox> floatingBox(PHLWINDOW window) {
     const auto SPACE = window->m_workspace->space();
     SPACE->recheckWorkArea();
     const auto AREA = SPACE->workArea(true);
-    const auto BAR  = CTitleBar::wanted(window) && !CTitleBar::hiddenFor(window) ? CTitleBar::HEIGHT : 0.0;
+    const auto BAR  = CTitleBar::wanted(window) && !CTitleBar::hiddenFor(window) ? Style::height() : 0.0;
 
     Vector2D   size;
     const auto IT = g_remembered.find(window->metadata().initialAppID());
@@ -127,7 +124,7 @@ static std::optional<CBox> floatingBox(PHLWINDOW window) {
     if (IT != g_remembered.end() && IT->second.size.x > 0 && IT->second.size.y > 0)
         size = IT->second.size;
     else {
-        const Vector2D MOST = {AREA.w * MAX_WIDTH, AREA.h * MAX_HEIGHT - BAR};
+        const Vector2D MOST = {AREA.w * Style::sizeCap().x, AREA.h * Style::sizeCap().y - BAR};
         const auto     OWN  = window->layoutTarget()->desiredGeometry();
         size                = OWN ? OWN->size.clamp({}, MOST) : MOST;
     }
@@ -159,49 +156,56 @@ void Placement::place(PHLWINDOW window) {
     rules.position   = Math::SExpressionVec2{std::to_string(sc<int>(POS.x)), std::to_string(sc<int>(POS.y))};
 }
 
-void Placement::floatingChanged(PHLWINDOW window) {
-    // Floated from a tile, it takes the size it would open at, rather than
-    // whatever Hyprland makes of the tile or of what the application asks.
-    // Through the floating layout, which keeps the box: un-maximized or out of
-    // fullscreen, the window goes back to it, and set past the layout it went
-    // back to Hyprland's own pick, centred without its title bar.
-    if (window->isFloating() && managed(window) && !Fullscreen::controller()->isFullscreen(window)) {
-        if (const auto BOX = floatingBox(window))
-            g_layoutManager->setTargetGeom(*BOX, window->layoutTarget());
-    }
-    // Tiled from floating, the size it had floating is no longer the window's
-    // own: Hyprland keeps it on the layout target. Not a tile dropped after a
-    // drag, whose floating size was the drag's.
-    else if (!window->isFloating() && managed(window) && !g_layoutManager->dragController()->wasDraggingWindow()) {
-        const auto LAST = window->layoutTarget()->lastFloatingSize();
-        if (LAST.x > 0 && LAST.y > 0)
-            g_remembered[window->metadata().initialAppID()].size = LAST;
-    }
-    remember(window);
-}
-
-static bool record(PHLWINDOW window) {
-    if (!window->mapped() || !managed(window))
-        return false;
-
+static void recordManaged(PHLWINDOW window) {
     auto& r    = g_remembered[window->metadata().initialAppID()];
     r.floating = window->isFloating();
     // The size it was left at: not a maximized or fullscreen one, which is
     // not a size of its own, nor a tile's.
     if (window->isFloating() && !Fullscreen::controller()->isFullscreen(window))
         r.size = window->size(Desktop::View::IGeometric::GEOMETRIC_GOAL);
-    return true;
+}
+
+void Placement::floatingChanged(PHLWINDOW window) {
+    if (!managed(window))
+        return;
+    // Floated from a tile, it takes the size it would open at, rather than
+    // whatever Hyprland makes of the tile or of what the application asks.
+    // Through the floating layout, which keeps the box: un-maximized or out of
+    // fullscreen, the window goes back to it, and set past the layout it went
+    // back to Hyprland's own pick, centred without its title bar.
+    if (window->isFloating() && !Fullscreen::controller()->isFullscreen(window)) {
+        if (const auto BOX = floatingBox(window))
+            g_layoutManager->setTargetGeom(*BOX, window->layoutTarget());
+    }
+    // Tiled from floating, the size it had floating is no longer the window's
+    // own: Hyprland keeps it on the layout target. Not a tile dropped after a
+    // drag, whose floating size was the drag's.
+    else if (!window->isFloating() && !g_layoutManager->dragController()->wasDraggingWindow()) {
+        const auto LAST = window->layoutTarget()->lastFloatingSize();
+        if (LAST.x > 0 && LAST.y > 0)
+            g_remembered[window->metadata().initialAppID()].size = LAST;
+    }
+    if (window->mapped()) {
+        recordManaged(window);
+        save();
+    }
 }
 
 void Placement::remember(PHLWINDOW window) {
-    if (record(window))
+    if (window->mapped() && managed(window)) {
+        recordManaged(window);
         save();
+    }
 }
 
 void Placement::rememberAll() {
     bool any = false;
-    for (const auto& w : Desktop::windowState()->windows())
-        any = record(w) || any;
+    for (const auto& w : Desktop::windowState()->windows()) {
+        if (!w->mapped() || !managed(w))
+            continue;
+        recordManaged(w);
+        any = true;
+    }
     if (any)
         save();
 }

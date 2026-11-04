@@ -35,7 +35,7 @@ Singleton {
 
     /*! The whole screen. */
     function capture(): void {
-        root.run('grim "$f"');
+        root.run('grim "$f"', 0);
     }
 
     /*! A rectangle dragged out with the pointer. Escape cancels it. */
@@ -50,11 +50,16 @@ Singleton {
         A cancelled selection is the ordinary way for the capture step to fail,
         so it leaves quietly; there is nothing to save or announce either way.
     */
-    function run(step: string): void {
+    function run(step: string, frozen: int): void {
+        // Thaw even if directory creation or file reservation fails, before
+        // the capture step has had a chance to run.
+        const thaw = frozen > 0 ? `kill ${frozen} 2>/dev/null || true;` : "";
         Quickshell.execDetached(["sh", "-c",
-            'd=$(xdg-user-dir PICTURES); d=${d:-$HOME/Pictures}/Screenshots; mkdir -p "$d" || exit 1;'
-            + ' f="$d/Screenshot_$(date +%Y-%m-%d_%H-%M-%S).png";'
+            `f=; trap '[ -z "$f" ] || rm -f "$f"; ${thaw}' EXIT; trap 'exit 0' HUP INT TERM;`
+            + ' d=$(xdg-user-dir PICTURES); d=${d:-$HOME/Pictures}/Screenshots; mkdir -p "$d" || exit 1;'
+            + ' f=$(mktemp --suffix=.png "$d/Screenshot_$(date +%Y-%m-%d_%H-%M-%S)_XXXXXX") || exit 1;'
             + ` ${step} || exit 0;`
+            + ` trap - EXIT; ${thaw}`
             + ' wl-copy < "$f";'
             + ' notify-send -a Screenshot -i "$f" "Screenshot saved" "$f"']);
     }
@@ -70,7 +75,7 @@ Singleton {
         // running, which is why `shown` is reset by the press, not here.
         onRunningChanged: {
             if (!running && !shown)
-                root.run(root.selection);
+                root.run(root.selection, 0);
         }
     }
 
@@ -84,7 +89,7 @@ Singleton {
             // every screen's frame at once, each arrives with its screen's next
             // frame, and slurp is a process started only now.
             freeze.shown = true;
-            root.run(`${root.selection}; s=$?; kill ${freeze.processId}; [ $s = 0 ]`);
+            root.run(root.selection, freeze.processId);
         }
     }
 }

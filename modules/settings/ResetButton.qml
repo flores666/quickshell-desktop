@@ -14,7 +14,7 @@ IconButton {
     visible: Settings.isOverridden(root.key)
     icon: "refresh"
     iconSize: Appearance.m.iconSm
-    size: 22
+    size: Appearance.m.resetButton
     iconColor: Appearance.c.textMuted
     onClicked: Settings.setOverride(root.key, -1)
 }

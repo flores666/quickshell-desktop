@@ -29,7 +29,7 @@ Clickable {
     // its knob, so the two space alike in one column.
     implicitHeight: root.flush
         ? Math.max(texts.implicitHeight, trailingSlot.implicitHeight) + Appearance.s.sm * 2
-        : Math.max(44, texts.implicitHeight + Appearance.s.md * 2)
+        : Math.max(Appearance.m.menuRowHeight, texts.implicitHeight + Appearance.s.md * 2)
     radius: Appearance.r.sm
     showStateLayer: !root.flush
 
@@ -48,7 +48,7 @@ Clickable {
         anchors.verticalCenter: parent.verticalCenter
         x: leading.visible ? leading.x + leading.width + root.spacing : root.inset
         width: trailingSlot.x - x - root.spacing
-        spacing: 1
+        spacing: Appearance.m.rowGap
 
         Label {
             width: parent.width

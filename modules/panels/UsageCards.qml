@@ -59,11 +59,11 @@ Item {
                     anchors.fill: parent
                     title: card.modelData.title
                     figure: card.modelData.memory ? root.memoryFigure : root.cpuFigure
-                    series: [{
+                    series: card.visible ? [{
                         points: card.modelData.memory ? Usage.history.memory : Usage.history.cpu,
                         color: card.modelData.memory ? Appearance.c.seriesMemory : Appearance.c.seriesCpu
-                    }]
-                    now: Usage.now
+                    }] : []
+                    now: card.visible ? Usage.now : 0
                     span: Usage.span
                 }
             }

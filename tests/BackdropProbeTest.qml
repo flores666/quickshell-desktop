@@ -19,6 +19,8 @@ Item {
     Check {
         id: check
     }
+    Command { id: sh }
+    Until { id: ready }
 
     FloatingWindow {
         implicitWidth: 100
@@ -32,8 +34,17 @@ Item {
     }
 
     Component.onCompleted: {
-        if (Wallpaper.current !== "")
-            root.begin();
+        if (Quickshell.env("TEST_BIN") === "" || Quickshell.screens.length < 2) {
+            check.report("isolated fixture and two screens required", false, "run tools/test.sh in nested Hyprland with two outputs");
+            check.done(); return;
+        }
+        sh.run('python3 "$1" backdrop',
+            [Qt.resolvedUrl("ServiceFixtures.py").toString().replace("file://", "")], path => {
+                ready.until(Settings.readyChanged, () => Settings.ready, ok => {
+                    if (ok) Settings.setWallpaper(path.trim());
+                    else { check.report("settings loaded", false, "timed out"); check.done(); }
+                });
+            });
     }
 
     Connections {

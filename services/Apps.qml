@@ -90,11 +90,6 @@ Singleton {
         return null;
     }
 
-    function iconFor(appId: string): string {
-        const entry = root.byAppId(appId);
-        return entry ? entry.icon : appId;
-    }
-
     function launch(entry: var): void {
         if (!entry)
             return;
@@ -111,14 +106,14 @@ Singleton {
 
     // ---------------------------------------------------------------- search
 
-    function score(entry: var, needle: string): int {
+    function score(entry: var, needle: string, word: var): int {
         const name = entry.name.toLowerCase();
         if (name === needle)
             return 1000;
         if (name.startsWith(needle))
             return 800 - Math.min(100, name.length);
         // Match the start of any word, so "fire" finds "Mozilla Firefox".
-        if (new RegExp("\\b" + root.escapeRegExp(needle)).test(name))
+        if (word.test(name))
             return 600;
         if (name.includes(needle))
             return 400;
@@ -146,9 +141,10 @@ Singleton {
             return root.all.slice().sort((a, b) => (root.uses(b.id) - root.uses(a.id))
                 || a.name.localeCompare(b.name));
 
+        const word = new RegExp("\\b" + root.escapeRegExp(needle));
         const scored = [];
         for (const e of root.all) {
-            const s = root.score(e, needle);
+            const s = root.score(e, needle, word);
             if (s > 0)
                 scored.push({ entry: e, score: s });
         }

@@ -31,6 +31,18 @@ namespace Style {
     };
 
     using Config = Hyprutils::Animation::SAnimationPropertyConfig;
+    struct SFont {
+        std::string family;
+        int points, weight;
+    };
+
+    double height();
+    double button();
+    double gap();
+    double inset();
+    double edge();
+    Vector2D sizeCap();
+    SFont font();
 
     /*! Register the options, before the first config reload. */
     void        init(HANDLE handle);

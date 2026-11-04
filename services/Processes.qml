@@ -208,11 +208,6 @@ Singleton {
         return qsTr("%1 GiB").arg((kib / 1024 / 1024).toFixed(1));
     }
 
-    /*! A sample now, the next timed from it. */
-    function sample(): void {
-        sampler.run();
-    }
-
     /*! SIGTERM to one of the shell's own processes; false for another's. */
     function terminate(pid: int): bool {
         return root.signal(pid, "TERM");

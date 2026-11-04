@@ -44,13 +44,13 @@ Binding {
         4, a range of 1.7 × the blur and ¾ of the alpha — 0.30 and 76 for
         25/45/0.40. It falls short below a window and shows a little above.
     */
-    readonly property int drop: 6
+    readonly property int drop: Appearance.m.windowShadowDrop
     readonly property var shadow: Appearance.windowShadow[0]
     readonly property var windowShadow: ({
-        "decoration:shadow:range": String(Math.round(1.7 * root.shadow.blur)),
-        "decoration:shadow:render_power": "4",
+        "decoration:shadow:range": String(Math.round(Appearance.m.windowShadowRange * root.shadow.blur)),
+        "decoration:shadow:render_power": String(Appearance.m.windowShadowPower),
         "decoration:shadow:offset": `0 ${Math.min(root.drop, root.shadow.y)}`,
-        "decoration:shadow:color": root.rgba(Qt.alpha(Appearance.c.shadow, 0.75 * root.shadow.alpha))
+        "decoration:shadow:color": root.rgba(Qt.alpha(Appearance.c.shadow, Appearance.m.windowShadowAlpha * root.shadow.alpha))
     })
 
     /*!
@@ -81,6 +81,16 @@ Binding {
         return Object.assign({
             // A title bar is part of its window, not floating chrome: opaque.
             "plugin:windows:bar_color": root.rgba(Appearance.c.surface),
+            "plugin:windows:height": String(Appearance.m.titleBarHeight),
+            "plugin:windows:button_size": String(Appearance.m.titleBarButton),
+            "plugin:windows:button_gap": String(Appearance.m.titleBarGap),
+            "plugin:windows:button_inset": String(Appearance.m.titleBarInset),
+            "plugin:windows:reveal_edge": String(Appearance.m.titleBarEdge),
+            "plugin:windows:font_size": String(Appearance.font.titleBarPointSize),
+            "plugin:windows:font_weight": String(Appearance.font.titleBarWeight),
+            "plugin:windows:font_family": Appearance.font.titleBarFamily,
+            "plugin:windows:width_cap": String(Appearance.m.windowWidthCap),
+            "plugin:windows:height_cap": String(Appearance.m.windowHeightCap),
             "plugin:windows:hover_duration": String(Appearance.t.instant),
             "plugin:windows:fade_duration": String(Appearance.t.fast),
             "plugin:windows:roll_out_duration": String(Appearance.t.popupMove),
@@ -112,6 +122,10 @@ Binding {
         "plugin:hyprexpo:border_width": "0",
         // A workspace tile is a card like any other, so it takes the one
         // panel radius, which follows the roundness setting or the windows.
-        "plugin:hyprexpo:tile_rounding": String(Appearance.r.panel)
+        "plugin:hyprexpo:tile_rounding": String(Appearance.r.panel),
+        "plugin:hyprexpo:focus_duration": String(Appearance.t.overviewFocus),
+        "plugin:hyprexpo:focus_curve": Appearance.t.overviewFocusCurve.join(" "),
+        "plugin:hyprexpo:focus_zoom": String(Appearance.m.overviewFocusZoom),
+        "plugin:hyprexpo:current_focus": String(Appearance.m.overviewCurrentFocus)
     }, root.titleBars(), root.windowShadow, root.border())
 }

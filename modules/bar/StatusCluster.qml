@@ -51,6 +51,7 @@ BarButton {
 
     Icon {
         anchors.verticalCenter: parent.verticalCenter
+        visible: Network.available && (Network.hasWifi || Network.wired !== null)
         name: Network.icon
         size: Appearance.m.iconSm
         color: root.scheme.text
@@ -58,6 +59,7 @@ BarButton {
 
     Icon {
         anchors.verticalCenter: parent.verticalCenter
+        visible: Audio.hasSink
         name: Audio.volumeIcon
         size: Appearance.m.iconSm
         color: root.scheme.text

@@ -1,0 +1,96 @@
+--- a/PluginConfig.cpp
++++ b/PluginConfig.cpp
+@@ -12,6 +12,8 @@
+ #include <hyprland/src/managers/input/trackpad/GestureTypes.hpp>
+ #include <hyprland/src/managers/input/trackpad/TrackpadGestures.hpp>
+ #include <expected>
++#include <sstream>
++#include <cmath>
+ #include <string>
+ 
+ static void addConfigValue(SP<Config::Values::IValue> value) {
+@@ -26,7 +28,27 @@
+     return std::unexpected("invalid direction '" + value + "'");
+ }
+ 
++// quickshell-desktop: the focus curve comes from config/Motion.qml.
++static std::expected<void, std::string> validateFocusCurve(const Config::STRING& value) {
++    std::istringstream in(value);
++    double x1, y1, x2, y2;
++    std::string extra;
++    if (!(in >> x1 >> y1 >> x2 >> y2) || (in >> extra) || !std::isfinite(x1) || !std::isfinite(y1) ||
++        !std::isfinite(x2) || !std::isfinite(y2) || x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1)
++        return std::unexpected("expected four finite bezier coordinates, x in [0, 1]");
++    return {};
++}
++
+ void registerHyprexpoConfigValues() {
++    // Fallbacks until CompositorTheme pushes the shell's design tokens.
++    addConfigValue(makeShared<Config::Values::CIntValue>("plugin:hyprexpo:focus_duration", "tile focus duration in ms", 400,
++        Config::Values::SIntValueOptions{.min = 0}));
++    addConfigValue(makeShared<Config::Values::CStringValue>("plugin:hyprexpo:focus_curve", "tile focus bezier: x1 y1 x2 y2", "0.22 1 0.36 1",
++        Config::Values::SStringValueOptions{.validator = validateFocusCurve}));
++    addConfigValue(makeShared<Config::Values::CFloatValue>("plugin:hyprexpo:focus_zoom", "workspace zoom at full focus", 0.02F,
++        Config::Values::SFloatValueOptions{.min = 0.F, .max = 1.F}));
++    addConfigValue(makeShared<Config::Values::CFloatValue>("plugin:hyprexpo:current_focus", "resting focus of the current workspace", 0.4F,
++        Config::Values::SFloatValueOptions{.min = 0.F, .max = 1.F}));
+     addConfigValue(makeShared<Config::Values::CIntValue>("plugin:hyprexpo:dynamic_grid", "legacy dynamic grid toggle", HyprexpoConfig::LEGACY_DYNAMIC_GRID_DEFAULT));
+     addConfigValue(makeShared<Config::Values::CIntValue>("plugin:hyprexpo:fill_gaps", "legacy gap filling toggle", HyprexpoConfig::LEGACY_FILL_GAPS_DEFAULT));
+     addConfigValue(makeShared<Config::Values::CIntValue>("plugin:hyprexpo:mru_sort", "legacy mru sorting toggle", HyprexpoConfig::LEGACY_MRU_SORT_DEFAULT));
+--- a/OverviewRender.cpp
++++ b/OverviewRender.cpp
+@@ -27,6 +27,7 @@
+ #include <algorithm>
+ #include <cmath>
+ #include <string>
++#include <sstream>
+ #include <vector>
+ 
+ void COverview::redrawID(int id, bool forcelowres) {
+@@ -432,13 +433,21 @@
+     // far open the overview is, as the gaps do, so a workspace leaves the
+     // screen and lands back on it exactly, by key or by swipe.
+     static CConfigValue<Config::INTEGER> PANIMATIONS("animations:enabled");
+-    static const auto                    FOCUS_EASE = [] {
+-        Hyprutils::Animation::CBezierCurve curve;
+-        curve.setup({Vector2D{0.22, 1.0}, Vector2D{0.36, 1.0}});
+-        return curve;
+-    }();
+-    constexpr double FOCUS_SECONDS = 0.4;
+-    constexpr double FOCUS_IMAGE   = 0.02; // the workspace, at full focus
++    static CConfigValue<Config::INTEGER> PFOCUSDURATION("plugin:hyprexpo:focus_duration");
++    static CConfigValue<Config::STRING> PFOCUSCURVE("plugin:hyprexpo:focus_curve");
++    static CConfigValue<Config::FLOAT> PFOCUSZOOM("plugin:hyprexpo:focus_zoom"), PCURRENTFOCUS("plugin:hyprexpo:current_focus");
++    static Hyprutils::Animation::CBezierCurve FOCUS_EASE;
++    static std::string lastFocusCurve;
++    if (lastFocusCurve != *PFOCUSCURVE) {
++        std::istringstream in(*PFOCUSCURVE);
++        double x1 = 0, y1 = 0, x2 = 1, y2 = 1;
++        if (!(in >> x1 >> y1 >> x2 >> y2))
++            x1 = 0, y1 = 0, x2 = 1, y2 = 1;
++        FOCUS_EASE.setup({Vector2D{x1, y1}, Vector2D{x2, y2}});
++        lastFocusCurve = *PFOCUSCURVE;
++    }
++    const double FOCUS_SECONDS = *PFOCUSDURATION / 1000.0;
++    const double FOCUS_IMAGE = *PFOCUSZOOM;
+     const auto       FOCUS_NOW     = std::chrono::steady_clock::now();
+     const int        FOCUSED       = pointerMoved && hoveredID >= 0 ? hoveredID : kbFocusID;
+     const double     FOCUS_SETTLE  = openness();
+@@ -447,7 +456,7 @@
+     bool focusPending = false;
+     auto focusNow     = [&](const STileFocus& focus) -> double {
+         const double elapsed = std::chrono::duration<double>(FOCUS_NOW - focus.since).count();
+-        const double t       = *PANIMATIONS ? elapsed / FOCUS_SECONDS : 1.0;
++        const double t       = *PANIMATIONS && FOCUS_SECONDS > 0 ? std::clamp(elapsed / FOCUS_SECONDS, 0.0, 1.0) : 1.0;
+         if (t < 1.0)
+             focusPending = true;
+         return focus.from + (focus.to - focus.from) * FOCUS_EASE.getYForPoint((float)t);
+@@ -484,7 +493,7 @@
+             }
+ 
+             auto&        focus  = tileFocus[id];
+-            const double target = id == FOCUSED ? 1.0 : id == openedID ? 0.4 : 0.0;
++            const double target = id == FOCUSED ? 1.0 : id == openedID ? *PCURRENTFOCUS : 0.0;
+             if (!closing && target != focus.to)
+                 focus = {.from = focusNow(focus), .to = target, .since = FOCUS_NOW};
+             const double crop = (1.0 - 1.0 / (1.0 + FOCUS_IMAGE * focusNow(focus) * FOCUS_SETTLE)) / 2.0;

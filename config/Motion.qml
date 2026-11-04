@@ -24,6 +24,9 @@ QtObject {
     readonly property int resize: 320
     /*! The step between notification exits, oldest first, when cleared together. */
     readonly property int notificationStagger: 60
+    readonly property int spinner: 900
+    readonly property int overviewFocus: 400
+    readonly property var overviewFocusCurve: [0.22, 1, 0.36, 1]
 
     /*! How much quicker a popup's own motion is than the rest of the shell's:
         its card opening, closing, flying into another's place and changing

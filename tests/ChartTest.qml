@@ -87,6 +87,16 @@ Item {
         check.attempt("drawn", () => {
             check.equal("older than the span left out", chart.drawn(chart.series[0]).length, 3);
             check.equal("empty draws nothing", chart.drawn({ points: [] }).length, 0);
+            const delegates = () => chart.children.filter(c => c.points !== undefined);
+            const first = delegates()[0];
+            chart.series = [{ color: "#ff0000", points: [{ t: 100, v: 25 }] }];
+            check.equal("samples retain the series delegate", delegates()[0], first);
+            check.near("retained delegate takes the new sample", first.points[0].y, 75);
+            chart.visible = false;
+            check.equal("hidden chart has no presentation delegates", delegates().length, 0);
+            chart.series = [{ color: "#ff0000", points: [{ t: 100, v: 75 }] }];
+            chart.visible = true;
+            check.near("reopened chart takes the latest history", delegates()[0].points[0].y, 25);
         });
         check.attempt("series tokens", () => {
             for (const k of ["seriesCpu", "seriesMemory", "seriesGpu", "seriesDisk", "seriesIn", "seriesOut"])

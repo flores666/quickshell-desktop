@@ -29,6 +29,10 @@ Item {
     property bool focusable: true
     /*! Suppress the built-in state layer when the caller paints its own. */
     property bool showStateLayer: true
+    /*! A drag control may put its ring around its moving knob. */
+    property Item focusRingTarget: root
+    property real focusRingRadius: root.radius
+    property real focusRingGap: Appearance.m.focusRing
     /*! The colours its state layer and focus ring are drawn in: the theme's,
         unless it stands on thinned glass over a wallpaper that wants the
         other theme's (Surface.schemeOver). */
@@ -43,13 +47,18 @@ Item {
     readonly property bool pointerOver: root.enabled && root.hoverEnabled && mouse.containsMouse
     readonly property bool hovered: root.pointerOver && (root.hoverDelay <= 0 || root.hoverReady)
     property bool hoverReady: false
-    readonly property bool down: root.enabled && root.pressEnabled && mouse.pressed && mouse.containsMouse
+    readonly property bool pressed: root.enabled && root.pressEnabled && mouse.pressed
+    readonly property bool down: root.pressed && mouse.containsMouse
     readonly property bool focusVisible: root.enabled && root.focusable
         && root.activeFocus && InputMode.keyboard
 
     signal clicked(var event)
     signal rightClicked(var event)
     signal middleClicked(var event)
+    /*! Drag/value mapping belongs to the control; interaction state stays here. */
+    signal pointerPressed(var event)
+    signal pointerMoved(var event)
+    signal pointerReleased(var event)
 
     onPointerOverChanged: root.hoverReady = false
     onHoverDelayChanged: root.hoverReady = false
@@ -61,7 +70,7 @@ Item {
     }
 
     activeFocusOnTab: root.focusable && root.enabled
-    opacity: root.enabled ? 1 : 0.42
+    opacity: root.enabled ? 1 : Appearance.m.disabledOpacity
 
     Behavior on opacity {
         NumberAnimation { duration: Appearance.t.fast; easing.type: Appearance.t.standardEasing }
@@ -96,11 +105,14 @@ Item {
         cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton
 
-        onPressed: {
+        onPressed: event => {
             InputMode.pointerUsed();
             if (root.focusable)
                 root.forceActiveFocus(Qt.MouseFocusReason);
+            root.pointerPressed(event);
         }
+        onPositionChanged: event => root.pointerMoved(event)
+        onReleased: event => root.pointerReleased(event)
 
         onClicked: event => {
             if (event.button === Qt.RightButton)
@@ -128,9 +140,9 @@ Item {
 
     // Focus ring, drawn outside the shape so it never crops the content.
     Rectangle {
-        anchors.fill: parent
-        anchors.margins: -Appearance.m.focusRing
-        radius: root.radius > 0 ? root.radius + Appearance.m.focusRing : 0
+        anchors.fill: root.focusRingTarget
+        anchors.margins: -root.focusRingGap
+        radius: root.focusRingRadius > 0 ? root.focusRingRadius + root.focusRingGap : 0
         color: "transparent"
         border.width: Appearance.m.focusRing
         border.color: root.scheme.accent

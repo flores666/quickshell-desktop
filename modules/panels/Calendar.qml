@@ -28,7 +28,7 @@ Item {
         return new Date(first.getFullYear(), first.getMonth(), 1 - shift);
     }
 
-    implicitWidth: 280
+    implicitWidth: Appearance.m.calendarWidth
     implicitHeight: head.height + Appearance.s.md + weekdays.height + grid.height
 
     function sameDay(a: date, b: date): bool {
@@ -44,7 +44,7 @@ Item {
     Item {
         id: head
         width: parent.width
-        height: 32
+        height: Appearance.m.calendarHeading
 
         Label {
             anchors.verticalCenter: parent.verticalCenter
@@ -60,14 +60,14 @@ Item {
 
             IconButton {
                 icon: "chevron-left"
-                size: 28
+                size: Appearance.m.compactButton
                 iconSize: Appearance.m.iconSm
                 onClicked: root.shift(-1)
             }
 
             IconButton {
                 icon: "calendar"
-                size: 28
+                size: Appearance.m.compactButton
                 iconSize: Appearance.m.iconSm
                 enabled: root.shownMonth.getMonth() !== root.today.getMonth()
                     || root.shownMonth.getFullYear() !== root.today.getFullYear()
@@ -77,7 +77,7 @@ Item {
 
             IconButton {
                 icon: "chevron-right"
-                size: 28
+                size: Appearance.m.compactButton
                 iconSize: Appearance.m.iconSm
                 onClicked: root.shift(1)
             }
@@ -88,7 +88,7 @@ Item {
         id: weekdays
         y: head.height + Appearance.s.md
         width: parent.width
-        height: 22
+        height: Appearance.m.calendarWeekdays
 
         Repeater {
             model: 7
@@ -125,13 +125,13 @@ Item {
                 readonly property bool isToday: root.sameDay(cell.day, root.today)
 
                 width: root.width / 7
-                height: 30
+                height: Appearance.m.calendarDay
 
                 Rectangle {
                     anchors.centerIn: parent
-                    width: 26
-                    height: 26
-                    radius: 13
+                    width: Appearance.m.calendarToday
+                    height: width
+                    radius: width / 2
                     visible: cell.isToday
                     color: Appearance.c.accent
                 }

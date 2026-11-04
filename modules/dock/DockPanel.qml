@@ -174,7 +174,7 @@ PanelWindow {
         width: surface.width
         // While the dock is out, the strip stretches up to meet it, so moving
         // between the two never crosses a gap where hover would be lost.
-        height: root.shown ? Appearance.m.screenGap + 3 : 3
+        height: root.shown ? Appearance.m.screenGap + Appearance.m.dockTrigger : Appearance.m.dockTrigger
 
         HoverHandler { id: triggerHover }
     }

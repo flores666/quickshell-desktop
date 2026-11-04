@@ -4,6 +4,7 @@
 #include <hyprland/src/config/shared/animation/AnimationTree.hpp>
 #include <hyprland/src/config/values/types/ColorValue.hpp>
 #include <hyprland/src/config/values/types/IntValue.hpp>
+#include <hyprland/src/config/values/types/FloatValue.hpp>
 #include <hyprland/src/config/values/types/StringValue.hpp>
 
 #include <cmath>
@@ -12,6 +13,7 @@
 namespace {
     using Config::Values::CColorValue;
     using Config::Values::CIntValue;
+    using Config::Values::CFloatValue;
     using Config::Values::CStringValue;
 
     struct SInkValues {
@@ -23,6 +25,9 @@ namespace {
     // On a light bar, on a dark one.
     std::array<SInkValues, 2> g_inks;
     SP<CIntValue>             g_hover, g_fade, g_rollOut, g_rollIn, g_dwell, g_linger;
+    SP<CIntValue>             g_height, g_button, g_gap, g_inset, g_edge, g_fontPoints, g_fontWeight;
+    SP<CFloatValue>           g_widthCap, g_heightCap;
+    SP<CStringValue>          g_fontFamily;
     SP<Style::Config>         g_hoverConfig, g_fadeConfig, g_rollOutConfig, g_rollInConfig;
 
     // A curve the shell pushes, registered with Hyprland's animation manager
@@ -90,6 +95,24 @@ void Style::init(HANDLE handle) {
     const auto MS = [&](const char* name, const char* description, int64_t def) {
         return ADD(makeShared<CIntValue>(name, description, def, ::Config::Values::SIntValueOptions{.min = 0}));
     };
+    const auto SIZE = [&](const char* name, const char* description, int64_t def) {
+        return ADD(makeShared<CIntValue>(name, description, def, ::Config::Values::SIntValueOptions{.min = 1}));
+    };
+    const auto CAP = [&](const char* name, const char* description, float def) {
+        return ADD(makeShared<CFloatValue>(name, description, def, ::Config::Values::SFloatValueOptions{.min = 0.01F, .max = 1.F}));
+    };
+
+    // Fallbacks for a compositor started before the shell pushes its tokens.
+    g_height = SIZE("plugin:windows:height", "Title-bar height in logical pixels", 28);
+    g_button = SIZE("plugin:windows:button_size", "Title-bar button diameter", 12);
+    g_gap = MS("plugin:windows:button_gap", "Gap between title-bar buttons", 8);
+    g_inset = MS("plugin:windows:button_inset", "Title-bar button inset", 12);
+    g_edge = MS("plugin:windows:reveal_edge", "Top edge that reveals an overlaid bar", 4);
+    g_fontPoints = SIZE("plugin:windows:font_size", "Title font size in points", 10);
+    g_fontWeight = SIZE("plugin:windows:font_weight", "Title font weight", 600);
+    g_fontFamily = ADD(makeShared<CStringValue>("plugin:windows:font_family", "Title fontconfig family", "sans-serif"));
+    g_widthCap = CAP("plugin:windows:width_cap", "Initial floating width as a share of the work area", 0.7F);
+    g_heightCap = CAP("plugin:windows:height_cap", "Initial floating height as a share of the work area", 0.8F);
 
     g_bar = COLOR("plugin:windows:bar_color", "The system's title bar, where the application's colour cannot be told", 0xFFFFFFFF);
     // Literals: an option keeps a pointer to its name. Text, glyph, then the
@@ -160,3 +183,11 @@ int Style::dwell() {
 int Style::linger() {
     return g_linger->value();
 }
+
+double Style::height() { return g_height->value(); }
+double Style::button() { return g_button->value(); }
+double Style::gap() { return g_gap->value(); }
+double Style::inset() { return g_inset->value(); }
+double Style::edge() { return g_edge->value(); }
+Vector2D Style::sizeCap() { return {g_widthCap->value(), g_heightCap->value()}; }
+Style::SFont Style::font() { return {g_fontFamily->value(), sc<int>(g_fontPoints->value()), sc<int>(g_fontWeight->value())}; }

@@ -15,7 +15,7 @@ Item {
     readonly property var devices: root.output ? Audio.sinks : Audio.sources
     readonly property PwNode current: root.output ? Audio.sink : Audio.source
 
-    implicitHeight: Math.min(320, list.contentHeight + Appearance.s.md)
+    implicitHeight: Math.min(Appearance.m.qsAudioHeight, list.contentHeight + Appearance.s.md)
 
     ListView {
         id: list
@@ -23,7 +23,7 @@ Item {
         anchors.fill: parent
         clip: true
         model: root.devices
-        spacing: 1
+        spacing: Appearance.m.rowGap
         boundsBehavior: Flickable.StopAtBounds
 
         delegate: MenuRow {
