@@ -22,6 +22,8 @@ QtObject {
     readonly property int base: 260
     /*! A whole popup changing size — a bigger move than any control makes. */
     readonly property int resize: 320
+    /*! The step between notification exits, oldest first, when cleared together. */
+    readonly property int notificationStagger: 60
 
     /*! How much quicker a popup's own motion is than the rest of the shell's:
         its card opening, closing, flying into another's place and changing

@@ -52,10 +52,12 @@ Item {
             driver.after(Appearance.t.resize / 2, () => {
                 for (const entry of root.kept) {
                     check.equal("scrolled clear retains " + entry.summary, entry.card?.notification?.summary, entry.summary);
-                    check.equal("scrolled clear fades " + entry.summary, entry.card?.opacity > 0 && entry.card?.opacity < 1, true);
+                    check.equal("scrolled clear keeps " + entry.summary + " drawn until its turn", entry.card?.opacity > 0 && entry.card?.opacity <= 1, true);
                     check.within("scrolled exit stays in place", entry.card ? root.at(entry.card) : -999, entry.y, 1);
                 }
-                driver.after(Appearance.t.resize / 2 + Appearance.t.grace, () => {
+                check.equal("scrolled clear starts with the oldest visible card",
+                    root.kept[root.kept.length - 1].card.opacity < root.kept[0].card.opacity, true);
+                driver.after(Appearance.t.resize / 2 + root.kept.length * Appearance.t.notificationStagger + Appearance.t.grace, () => {
                     check.equal("scrolled clear removes every card", driver.cards(root.history).length, 0);
                     check.equal("scrolled clear empties real history", Notifs.count, 0);
                     check.near("empty history restores a valid scroll position", root.scroll().contentY, 0);
@@ -101,7 +103,7 @@ Item {
                     view.contentYChanged.disconnect(root.observeScroll);
                     check.equal("scrolled removal leaves no blank tail", view.contentY <= Math.max(0, view.contentHeight - view.height), true);
                     Notifs.clearAll();
-                    driver.after(Appearance.t.resize + Appearance.t.grace, () => check.done());
+                    driver.after(Appearance.t.resize + driver.cards(root.history).length * Appearance.t.notificationStagger + Appearance.t.grace, () => check.done());
                 });
             });
         });

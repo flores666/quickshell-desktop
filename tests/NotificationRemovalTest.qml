@@ -78,7 +78,7 @@ Item {
                     check.near(scenario.name + " leaves unrelated opacity alone", card?.opacity ?? -1, 1);
                 }
                 Notifs.clearAll();
-                driver.after(Appearance.t.resize + Appearance.t.grace, () => {
+                driver.after(Appearance.t.resize + Math.max(0, scenario.count - 2) * Appearance.t.notificationStagger + Appearance.t.grace, () => {
                     if (++root.step < root.cases.length) root.populate();
                     else check.done();
                 });

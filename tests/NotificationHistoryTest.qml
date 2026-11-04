@@ -57,7 +57,13 @@ Item {
                 check.equal("clear fades each card", card.opacity > 0 && card.opacity < 1, true);
                 check.equal("clear slides each card right", card.mapToItem(root.history, 0, 0).x > 0, true);
             }
-            driver.after(Appearance.t.resize / 2 + Appearance.t.grace, () => {
+            const ordered = root.cards().slice().sort((a, b) => b.y - a.y);
+            for (let i = 1; i < ordered.length; i++) {
+                check.equal("older history exits fade first", ordered[i - 1].opacity < ordered[i].opacity, true);
+                check.equal("older history exits slide first",
+                    ordered[i - 1].mapToItem(root.history, 0, 0).x > ordered[i].mapToItem(root.history, 0, 0).x, true);
+            }
+            driver.after(Appearance.t.resize / 2 + (root.kept.length - 1) * Appearance.t.notificationStagger + Appearance.t.grace, () => {
                 check.equal("Clear all releases every card", root.cards().length, 0);
                 check.equal("empty state appears after exits", root.empty()?.visible, true);
                 Notifs.clearAll();
@@ -85,7 +91,7 @@ Item {
     }
     function interrupted(): void {
         Notifs.clearAll();
-        driver.after(Appearance.t.resize + Appearance.t.grace, () => {
+        driver.after(Appearance.t.resize + Appearance.t.notificationStagger + Appearance.t.grace, () => {
             driver.send("Arriving", () => {
                 driver.after(Appearance.t.base / 3, () => {
                     const card = root.cards()[0];

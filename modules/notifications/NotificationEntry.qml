@@ -13,6 +13,7 @@ NotificationCard {
     readonly property bool leaving: root.liveNotifications.indexOf(root.notification) === -1
     property bool ready: false
     property bool released: false
+    signal exitRequested
     signal gone(var notification)
 
     readonly property int expiry: root.standalone ? Notifs.timeoutFor(root.notification) : 0
@@ -25,20 +26,22 @@ NotificationCard {
 
     Component.onCompleted: {
         root.ready = true;
-        if (root.leaving) root.retire();
+        if (root.leaving) root.exitRequested();
         else arrive.start();
     }
-    onLeavingChanged: if (root.ready && root.leaving) root.retire()
+    onLeavingChanged: if (root.ready && root.leaving) root.exitRequested()
 
-    function retire(): void {
-        if (root.released || exit.running) return;
+    function retire(delay: int): bool {
+        if (!root.leaving || root.released || exit.running) return false;
         // Read the same live snapshot that made this card leave. A separate
         // bound eviction flag can still hold its previous value when the
         // leaving binding fires (Clear all of a full, arriving stack).
         const unseen = root.standalone && root.liveNotifications.length === Notifs.maxPopups && arrive.running;
         arrive.stop();
-        if (unseen || !root.visible) root.release();
-        else exit.start();
+        if (unseen || !root.visible) { root.release(); return false; }
+        exit.delay = delay;
+        exit.start();
+        return true;
     }
     function release(): void {
         if (root.released) return;

@@ -72,6 +72,8 @@ Item {
             // just because an arrival or removal makes scrolling necessary.
             width: list.width - scrollbar.footprint
             notifications: Notifs.history
+            viewportY: list.contentY
+            viewportHeight: list.height
         }
     }
 

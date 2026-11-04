@@ -31,7 +31,7 @@ Item {
             driver.after(Appearance.t.base + Appearance.t.grace, () => {
                 check.equal("toast stack respects its live bound", Notifs.popups.length, Notifs.maxPopups);
                 Notifs.clearAll();
-                driver.after(Appearance.t.resize + Appearance.t.grace, root.arriving);
+                driver.after(Appearance.t.resize + (Notifs.maxPopups - 1) * Appearance.t.notificationStagger + Appearance.t.grace, root.arriving);
             });
         }, "{}", "[]", 0);
     }
@@ -64,7 +64,10 @@ Item {
                     check.equal("clearing a full arriving stack retains all visible cards", root.cards().length, Notifs.maxPopups);
                     for (const card of root.cards())
                         check.equal("full arriving stack clears with a fade", card.opacity > 0 && card.opacity < 1, true);
-                    driver.after(Appearance.t.resize / 2 + Appearance.t.grace, () => {
+                    const ordered = root.cards().slice().sort((a, b) => a.y - b.y);
+                    for (let i = 1; i < ordered.length; i++)
+                        check.equal("older toast exits fade first", ordered[i - 1].opacity < ordered[i].opacity, true);
+                    driver.after(Appearance.t.resize / 2 + (Notifs.maxPopups - 1) * Appearance.t.notificationStagger + Appearance.t.grace, () => {
                         check.equal("burst clear releases every slot", root.toasts.shown.length, 0);
                         check.done();
                     });

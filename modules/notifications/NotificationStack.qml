@@ -15,6 +15,8 @@ Column {
     property bool standalone: false
     property var shown: []
     property bool ready: false
+    property real viewportY: 0
+    property real viewportHeight: root.height
 
     spacing: Appearance.s.md
     // Keep the bottom row in the scrollable extent throughout its move.
@@ -37,6 +39,19 @@ Column {
         if (root.notifications.indexOf(n) !== -1) return;
         root.shown = root.shown.filter(item => item && item !== n);
     }
+    function retire(): void {
+        // Coalesced after the service's change: Clear all closes history one
+        // notification at a time, but presentation needs the complete batch.
+        let delay = 0;
+        for (let i = 0; i < entries.count; i++) {
+            // Toasts are oldest first; history is newest first.
+            const entry = entries.itemAt(root.standalone ? i : entries.count - 1 - i) as NotificationEntry;
+            if (entry && entry.retire(delay)
+                    && entry.y + entry.height > root.viewportY
+                    && entry.y < root.viewportY + root.viewportHeight)
+                delay += Appearance.t.notificationStagger;
+        }
+    }
     Component.onCompleted: { root.ready = true; root.reconcile(); }
     onNotificationsChanged: if (root.ready) root.reconcile()
 
@@ -48,6 +63,7 @@ Column {
         }
     }
     Repeater {
+        id: entries
         model: ScriptModel {
             values: root.shown
             comparisonMode: ObjectComparison.Identity
@@ -59,6 +75,7 @@ Column {
             notification: entry.modelData
             standalone: root.standalone
             liveNotifications: root.notifications
+            onExitRequested: Qt.callLater(root.retire)
             onDismissed: {
                 if (root.standalone) Notifs.dismissPopup(entry.modelData);
                 else Notifs.remove(entry.modelData);
