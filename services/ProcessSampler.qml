@@ -20,7 +20,9 @@ import Quickshell.Io
     layer over other disks (dm, md), whose I/O would count twice; each
     interface with a device behind it, in net/dev, which leaves out lo and the
     tunnels; and the first card in /sys/class/drm that reports
-    gpu_busy_percent, with its VRAM, its temperature and its PCI slot.
+    gpu_busy_percent, with its VRAM, its temperature and its PCI slot. Where
+    none does, NVIDIA's optional nvidia-smi (from its driver, nvidia-utils)
+    supplies the same readings, once in this run, never on its own clock.
 
     The extras, each only when asked and only of the user's own processes
     (another's fd directory is unreadable): one `find` over the fd links
@@ -132,6 +134,23 @@ Probe {
     // gone, a GPU asleep) ends that file, where without one gawk stops.
     // A DRM fd's fdinfo is left once its client is known to be counted.
     readonly property string program: `
+        function nvidia(    command, line, f, number, slot, used, total, temp) {
+            command = "nvidia-smi --query-gpu=pci.bus_id,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits 2>/dev/null"
+            number = "^[0-9]+([.][0-9]+)?$"
+            while ((command | getline line) > 0) {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+                if (split(line, f, /[[:space:]]*,[[:space:]]*/) != 5 ||
+                    f[1] !~ /^([[:xdigit:]]{4}|0000[[:xdigit:]]{4}):[[:xdigit:]]{2}:[[:xdigit:]]{2}[.][0-7]$/ ||
+                    f[2] !~ number || f[2] + 0 > 100) continue
+                slot = tolower(length(f[1]) == 16 ? substr(f[1], 5) : f[1])
+                used = f[3] ~ number ? f[3] * 1048576 : 0
+                total = f[3] ~ number && f[4] ~ number ? f[4] * 1048576 : 0
+                temp = f[5] ~ number ? f[5] * 1000 : -1
+                print "gpu\\t" slot "\\t" f[2] "\\t" used "\\t" total "\\t" temp
+                break
+            }
+            close(command)
+        }
         function client(pid, file,    line, f) {
             while ((getline line < file) > 0) {
                 split(line, f)
@@ -229,6 +248,7 @@ Probe {
             if (gpu != "")
                 print "gpu\\t" slot[gpu] "\\t" busy[gpu] "\\t" drm[gpu, "mem_info_vram_used"] + 0 \\
                     "\\t" drm[gpu, "mem_info_vram_total"] + 0 "\\t" (gpu in temp ? temp[gpu] : -1)
+            else nvidia()
             for (pid in gputime) print "g\\t" pid "\\t" gputime[pid]
             for (key in socket) { split(key, at, SUBSEP); if (at[2] in inet) conns[at[1]]++ }
             for (pid in fds) print "n\\t" pid "\\t" conns[pid] + 0

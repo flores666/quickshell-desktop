@@ -275,8 +275,10 @@ Item {
                 }
                 Processes.watch("gpu", true, ["gpu"]);
                 root.same("gpu: asked for beside net", Processes.extras, ["gpu", "net"]);
-                until.until(Processes.listChanged, () => Processes.list.some(p => p.gpu >= 0), read => {
-                    check.equal("gpu: a share read, between two samples", read, true);
+                until.until(Processes.listChanged, () => Processes.fresh >= 2, read => {
+                    check.equal("gpu: sampled twice with the extra", read, true);
+                    check.equal("gpu: a share exactly where clients report time", Processes.list.some(p => p.gpu >= 0),
+                        Processes.lastListed.list.some(p => p.gpuTime >= 0));
                     check.report("gpu: own processes alone, a percentage", Processes.list.every(
                         p => p.gpu === -1 || p.own && p.gpu <= 100), "");
                     root.unwatched();
