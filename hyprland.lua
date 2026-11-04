@@ -83,12 +83,15 @@ hl.bind("SUPER + Tab", function() if hl.plugin.hyprexpo then hl.plugin.hyprexpo.
 -- `bindr = SUPER, SUPER_L` stays out of Super+key — and the submap was never
 -- left. Each pair runs the global first: Hyprland stops collecting a key's
 -- binds at the one that changes submap.
+-- Use XKB keycodes for Alt's release: in 0.57 a sided modifier trigger
+-- (ALT_L/ALT_R) does not match while Tab is still held. A keycode trigger
+-- matches either release order, so letting go of Alt always commits.
 hl.bind("ALT + Tab", hl.dsp.global("shell:switcherNext"))
 hl.bind("ALT + Tab", hl.dsp.submap("switcher"))
-hl.bind("ALT + ALT_L", hl.dsp.global("shell:switcherCommit"), { release = true, transparent = true })
-hl.bind("ALT + ALT_L", hl.dsp.submap("reset"), { release = true, transparent = true })
-hl.bind("ALT + ALT_R", hl.dsp.global("shell:switcherCommit"), { release = true, transparent = true })
-hl.bind("ALT + ALT_R", hl.dsp.submap("reset"), { release = true, transparent = true })
+hl.bind("ALT + code:64", hl.dsp.global("shell:switcherCommit"), { release = true, transparent = true })
+hl.bind("ALT + code:64", hl.dsp.submap("reset"), { release = true, transparent = true })
+hl.bind("ALT + code:108", hl.dsp.global("shell:switcherCommit"), { release = true, transparent = true })
+hl.bind("ALT + code:108", hl.dsp.submap("reset"), { release = true, transparent = true })
 
 hl.define_submap("switcher", function()
 hl.bind("ALT + Tab", hl.dsp.global("shell:switcherNext"))
