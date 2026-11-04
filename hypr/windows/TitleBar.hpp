@@ -51,7 +51,7 @@ class CTitleBar : public IHyprWindowDecoration {
 
     SDecorationPositioningInfo getPositioningInfo() override;
     void                       onPositioningReply(const SDecorationPositioningReply& reply) override;
-    void                       draw(PHLMONITOR monitor, float const& a) override;
+    void                       draw(Render::CRenderContext& ctx, PHLMONITOR monitor, float const& a, const Render::SWindowRenderPresentation& presentation) override;
     eDecorationType            getDecorationType() override;
     void                       updateWindow(PHLWINDOW window) override;
     void                       damageEntire() override;
@@ -94,7 +94,7 @@ class CTitleBar : public IHyprWindowDecoration {
     /*! Out, or coming out, over a fullscreen window on this monitor: painted
         from the render stage, with the monitor kept off its direct path. */
     bool overFullscreen(PHLMONITOR monitor) const;
-    void paint(PHLMONITOR monitor, float alpha);
+    void paint(Render::CRenderContext& ctx, PHLMONITOR monitor, float alpha, const Render::SWindowRenderPresentation& presentation);
     /*! The surface committed since the colour was last read; read again on
         the next frame drawn, unless that was a moment ago. */
     void resample();
@@ -130,7 +130,7 @@ class CTitleBar : public IHyprWindowDecoration {
     void                 act(int button);
     void                 sample(bool opening);
     void                 listen();
-    void                 drawGlyph(int button, const CBox& box, const CBox& clip, const CHyprColor& color, float alpha);
+    void                 drawGlyph(Render::CRenderContext& ctx, int button, const CBox& box, const CBox& clip, const CHyprColor& color, float alpha);
 };
 
 /*! What the pointer is doing to the bars. One pointer, so one of each. */

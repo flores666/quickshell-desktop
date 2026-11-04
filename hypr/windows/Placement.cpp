@@ -1,15 +1,16 @@
 #include "Placement.hpp"
 #include "TitleBar.hpp"
 
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/desktop/rule/Engine.hpp>
 #include <hyprland/src/desktop/rule/windowRule/WindowRule.hpp>
 #include <hyprland/src/desktop/rule/windowRule/WindowRuleApplicator.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/layout/space/Space.hpp>
 #include <hyprland/src/layout/target/Target.hpp>
+#include <hyprland/src/layout/target/WindowTarget.hpp>
 #include <hyprland/src/managers/XWaylandManager.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/output/Monitor.hpp>
@@ -67,8 +68,8 @@ namespace {
         or one that opens fullscreen.
     */
     bool managed(PHLWINDOW window) {
-        if (window->m_initialClass.empty() || window->isX11OverrideRedirect() || window->parent() || window->m_wantsInitialFullscreen ||
-            g_pXWaylandManager->shouldBeFloated(window))
+        if (window->metadata().initialAppID().empty() || window->backend().traits().overrideRedirect || window->backend().parent() || window->backend().traits().fullscreen ||
+            window->suggestsFloat())
             return false;
 
         static constexpr std::array DECIDING = {WINDOW_RULE_EFFECT_FLOAT,  WINDOW_RULE_EFFECT_TILE,       WINDOW_RULE_EFFECT_SIZE,
@@ -109,18 +110,18 @@ void Placement::load() {
     the work area; centred, with its title bar, in the work area.
 */
 static std::optional<CBox> floatingBox(PHLWINDOW window) {
-    if (!window->m_workspace || !window->m_workspace->m_space)
+    if (!window->m_workspace || !window->m_workspace->space())
         return std::nullopt;
 
     // The work area is a cache the space refreshes on its own schedule; a
     // window opened just after the screen changed was placed by the old one.
-    const auto SPACE = window->m_workspace->m_space;
+    const auto SPACE = window->m_workspace->space();
     SPACE->recheckWorkArea();
     const auto AREA = SPACE->workArea(true);
     const auto BAR  = CTitleBar::wanted(window) && !CTitleBar::hiddenFor(window) ? CTitleBar::HEIGHT : 0.0;
 
     Vector2D   size;
-    const auto IT = g_remembered.find(window->m_initialClass);
+    const auto IT = g_remembered.find(window->metadata().initialAppID());
     // Remembered floating but never at a size of its own (it was fullscreen
     // when it closed, or only ever tiled): as for a first launch.
     if (IT != g_remembered.end() && IT->second.size.x > 0 && IT->second.size.y > 0)
@@ -139,9 +140,9 @@ void Placement::place(PHLWINDOW window) {
     if (!managed(window))
         return;
 
-    const auto IT = g_remembered.find(window->m_initialClass);
+    const auto IT = g_remembered.find(window->metadata().initialAppID());
     if (IT != g_remembered.end() && !IT->second.floating) {
-        window->m_isFloating = false;
+        window->windowTarget()->setFloatingInitial(false);
         return;
     }
 
@@ -164,30 +165,30 @@ void Placement::floatingChanged(PHLWINDOW window) {
     // Through the floating layout, which keeps the box: un-maximized or out of
     // fullscreen, the window goes back to it, and set past the layout it went
     // back to Hyprland's own pick, centred without its title bar.
-    if (window->m_isFloating && managed(window) && !Fullscreen::controller()->isFullscreen(window)) {
+    if (window->isFloating() && managed(window) && !Fullscreen::controller()->isFullscreen(window)) {
         if (const auto BOX = floatingBox(window))
             g_layoutManager->setTargetGeom(*BOX, window->layoutTarget());
     }
     // Tiled from floating, the size it had floating is no longer the window's
     // own: Hyprland keeps it on the layout target. Not a tile dropped after a
     // drag, whose floating size was the drag's.
-    else if (!window->m_isFloating && managed(window) && !g_layoutManager->dragController()->wasDraggingWindow()) {
+    else if (!window->isFloating() && managed(window) && !g_layoutManager->dragController()->wasDraggingWindow()) {
         const auto LAST = window->layoutTarget()->lastFloatingSize();
         if (LAST.x > 0 && LAST.y > 0)
-            g_remembered[window->m_initialClass].size = LAST;
+            g_remembered[window->metadata().initialAppID()].size = LAST;
     }
     remember(window);
 }
 
 static bool record(PHLWINDOW window) {
-    if (!window->m_isMapped || !managed(window))
+    if (!window->mapped() || !managed(window))
         return false;
 
-    auto& r    = g_remembered[window->m_initialClass];
-    r.floating = window->m_isFloating;
+    auto& r    = g_remembered[window->metadata().initialAppID()];
+    r.floating = window->isFloating();
     // The size it was left at: not a maximized or fullscreen one, which is
     // not a size of its own, nor a tile's.
-    if (window->m_isFloating && !Fullscreen::controller()->isFullscreen(window))
+    if (window->isFloating() && !Fullscreen::controller()->isFullscreen(window))
         r.size = window->size(Desktop::View::IGeometric::GEOMETRIC_GOAL);
     return true;
 }

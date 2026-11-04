@@ -68,6 +68,9 @@ glow
 nautilus
 firefox
 
+# compositor plugins use Hyprland 0.57's Lua 5.4 API
+lua54
+
 # building the overview plugin, and the tools in tools/
 git
 base-devel

@@ -66,10 +66,10 @@ index 3a1f6eb..5146772 100644
  std::optional<STileHit>    hitTestGlobalTile(const SPoint& point, const std::vector<SGlobalTile>& tiles);
  SOverviewDragTransition    transitionOverviewDrag(const SOverviewDragState& state, const SOverviewDragEvent& event, const std::vector<uint64_t>& liveMonitorKeys);
 diff --git a/Overview.cpp b/Overview.cpp
-index cd2a1f5..f49c044 100644
+index 395dca8..9c8c105 100644
 --- a/Overview.cpp
 +++ b/Overview.cpp
-@@ -26,6 +26,11 @@
+@@ -27,6 +27,11 @@
  #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
  #include <hyprland/src/managers/eventLoop/EventLoopTimer.hpp>
  #include <hyprland/src/managers/input/InputManager.hpp>
@@ -81,7 +81,7 @@ index cd2a1f5..f49c044 100644
  #include <hyprland/src/helpers/time/Time.hpp>
  #include <hyprland/src/helpers/varlist/VarList.hpp>
  #include <hyprland/src/helpers/Format.hpp>
-@@ -945,6 +950,32 @@ void removeOverview(WP<Hyprutils::Animation::CBaseAnimatedVariable> thisptr) {
+@@ -948,6 +953,32 @@ void removeOverview(WP<Hyprutils::Animation::CBaseAnimatedVariable> thisptr) {
      MON->scheduleFrame();
  }
  
@@ -95,11 +95,11 @@ index cd2a1f5..f49c044 100644
 +    const auto MON = State::monitorState()->query().vec(global).run();
 +    if (!MON)
 +        return false;
++    Vector2D local;
++    PHLLS found;
++    if (Desktop::viewState()->hitTest().layerPopupSurfaceAt(global, MON, &local, &found) && found && found->m_layer >= ZWLR_LAYER_SHELL_V1_LAYER_TOP)
++        return true;
 +    for (const auto layer : {ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, ZWLR_LAYER_SHELL_V1_LAYER_TOP}) {
-+        Vector2D local;
-+        PHLLS    found;
-+        if (Desktop::viewState()->hitTest().layerPopupSurfaceAt(global, &MON->m_layerSurfaceLayers[layer], &local, &found))
-+            return true;
 +        if (Desktop::viewState()->hitTest().layerSurfaceAt(global, &MON->m_layerSurfaceLayers[layer], &local, &found))
 +            return true;
 +    }
@@ -114,7 +114,7 @@ index cd2a1f5..f49c044 100644
  static bool shouldShowCursorDuringOverview() {
      auto* const* PSHOWCURSOR = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprexpo:show_cursor")->getDataStaticPtr();
      return **PSHOWCURSOR;
-@@ -1022,13 +1053,47 @@ Hyprexpo::SGridShape COverview::currentGridShape() const {
+@@ -1017,13 +1048,47 @@ Hyprexpo::SGridShape COverview::currentGridShape() const {
      return gridShape;
  }
  
@@ -165,7 +165,7 @@ index cd2a1f5..f49c044 100644
  }
  
  // quickshell-desktop: how far open the overview is, from 0 with the current
-@@ -1038,6 +1103,15 @@ double COverview::currentOuterInset() const {
+@@ -1033,6 +1098,15 @@ double COverview::currentOuterInset() const {
  // first frame, vanished as the fingers lifted and grew back after, and went
  // at once on a swipe that closes. A grid of one tile does not zoom.
  double COverview::openness() const {
@@ -181,7 +181,7 @@ index cd2a1f5..f49c044 100644
      const auto MON = pMonitor.lock();
      if (!MON)
          return 0.0;
-@@ -1047,30 +1121,30 @@ double COverview::openness() const {
+@@ -1042,30 +1116,30 @@ double COverview::openness() const {
      if (std::abs(SHUT - OPEN) <= 1e-6)
          return closing ? 0.0 : 1.0;
  
@@ -223,7 +223,7 @@ index cd2a1f5..f49c044 100644
      const auto box = tileBoxForIndex(id, totalSize, gap, outerInset, centerPartialRows);
      return {box.x, box.y};
  }
-@@ -1366,7 +1440,7 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1381,7 +1455,7 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
              image.hadPinnedWindows = monitorHasPinnedPreviewWindows(owner);
          }
  
@@ -231,8 +231,8 @@ index cd2a1f5..f49c044 100644
 +        image.box = tileBoxForIndex((int)i, pMonitor->m_size, GAP_WIDTH, {}, true);
      }
      PMONITOR->m_activeWorkspace        = startedOn;
-     startedOn->m_visible               = true;
-@@ -1401,6 +1475,15 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+     startedOn->setVisible(true);
+@@ -1416,6 +1490,15 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
              return;
  
          const Vector2D GLOBAL = g_pInputManager->getMouseCoordsInternal();
@@ -248,7 +248,7 @@ index cd2a1f5..f49c044 100644
          for (const auto& session : g_overviews) {
              auto* const OV = dynamic_cast<COverview*>(session.get());
              if (!OV)
-@@ -1440,6 +1523,10 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1455,6 +1538,10 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
          const Vector2D GLOBAL = g_pInputManager->getMouseCoordsInternal();
          auto* const    TARGET = gridOverviewForGlobalPoint(GLOBAL);
          auto* const    SOURCE = gridOverviewForMonitorKey(g_overviewDrag.state.sourceMonitorKey);
@@ -260,10 +260,10 @@ index cd2a1f5..f49c044 100644
              return;
  
 diff --git a/Overview.hpp b/Overview.hpp
-index 07290f8..198dc68 100644
+index 0e1ef05..9cb5ea4 100644
 --- a/Overview.hpp
 +++ b/Overview.hpp
-@@ -21,6 +21,11 @@
+@@ -22,6 +22,11 @@
  // hyprland's fault, but cba to fix.
  constexpr bool ENABLE_LOWRES = false;
  
@@ -275,9 +275,9 @@ index 07290f8..198dc68 100644
  class COverview final : public IOverviewSession {
    public:
      // The monitor is passed in rather than resolved from the cursor: with
-@@ -116,12 +121,15 @@ class COverview final : public IOverviewSession {
+@@ -117,12 +122,15 @@ class COverview final : public IOverviewSession {
      void       onWorkspaceChange();
-     void       fullRender() override;
+     void       fullRender(Render::CRenderContext& ctx) override;
      Hyprexpo::SGridShape currentGridShape() const;
 -    double     currentOuterInset() const;
 +    SOuterInsets currentOuterInset() const;
@@ -297,10 +297,10 @@ index 07290f8..198dc68 100644
      void       updateHoveredFromMouse();
      void       ensureKbFocusInitialized();
 diff --git a/OverviewCapture.cpp b/OverviewCapture.cpp
-index 21c7ac9..6a833d0 100644
+index a82d022..b4306fb 100644
 --- a/OverviewCapture.cpp
 +++ b/OverviewCapture.cpp
-@@ -12,6 +12,9 @@
+@@ -17,6 +17,9 @@
  #include <hyprutils/utils/ScopeGuard.hpp>
  #include <hyprland/src/render/OpenGL.hpp>
  #include <hyprland/src/render/Renderer.hpp>
@@ -310,7 +310,7 @@ index 21c7ac9..6a833d0 100644
  #undef private
  #undef protected
  
-@@ -32,6 +35,41 @@ std::atomic<uint64_t> g_budgetGeneration = 1;
+@@ -45,6 +48,41 @@ std::atomic<uint64_t> g_budgetGeneration = 1;
  std::mutex            g_budgetLogMutex;
  uint64_t              g_lastLoggedBudgetGeneration = 0;
  
@@ -351,17 +351,17 @@ index 21c7ac9..6a833d0 100644
 +
  class CRendererStateGuard {
    public:
-     explicit CRendererStateGuard(Render::IHyprRenderer* renderer) : m_renderer(renderer), m_blockSurfaceFeedback(renderer->m_bBlockSurfaceFeedback),
-@@ -205,6 +243,7 @@ bool captureWorkspacePreview(const SWorkspaceCaptureRequest& original, SP<Render
+     explicit CRendererStateGuard(Render::IHyprRenderer* renderer) : m_renderer(renderer), m_blockSurfaceFeedback(renderer->context().m_blockSurfaceFeedback),
+@@ -214,6 +252,7 @@ bool captureWorkspacePreview(const SWorkspaceCaptureRequest& original, SP<Render
          rendererState.begun();
-         g_pHyprRenderer->m_bBlockSurfaceFeedback = g_pHyprRenderer->m_bBlockSurfaceFeedback || request.blockSurfaceFeedback;
+         g_pHyprRenderer->context().m_blockSurfaceFeedback = g_pHyprRenderer->context().m_blockSurfaceFeedback || request.blockSurfaceFeedback;
          clearWithColor(CHyprColor{0, 0, 0, 1.0});
 +        CShellLayersAside shellAside{request.monitor};
  
          if (request.workspace) {
              PHLWORKSPACE previousWS;
 diff --git a/OverviewInteraction.cpp b/OverviewInteraction.cpp
-index cec624f..b6c1a13 100644
+index 0d3c2b3..343beb7 100644
 --- a/OverviewInteraction.cpp
 +++ b/OverviewInteraction.cpp
 @@ -139,10 +139,12 @@ Vector2D COverview::tilePointToWorkspacePoint(int id, const Vector2D& localPoint
@@ -380,10 +380,10 @@ index cec624f..b6c1a13 100644
  }
  
 diff --git a/OverviewRender.cpp b/OverviewRender.cpp
-index 038fe51..ad5bd5f 100644
+index b7311ac..2342a30 100644
 --- a/OverviewRender.cpp
 +++ b/OverviewRender.cpp
-@@ -344,6 +344,7 @@ void COverview::fullRender() {
+@@ -346,6 +346,7 @@ void COverview::fullRender(Render::CRenderContext& ctx) {
  
      const auto GAPSIZE = openness() * GAP_WIDTH;
      const auto OUTER   = currentOuterInset();
@@ -391,7 +391,7 @@ index 038fe51..ad5bd5f 100644
      const auto SHAPE   = currentGridShape();
  
      clearWithColor(BG_COLOR.stripA());
-@@ -482,6 +483,11 @@ void COverview::fullRender() {
+@@ -484,6 +485,11 @@ void COverview::fullRender(Render::CRenderContext& ctx) {
              if (!closing && target != focus.to)
                  focus = {.from = focusNow(focus), .to = target, .since = FOCUS_NOW};
              const double crop = (1.0 - 1.0 / (1.0 + FOCUS_IMAGE * focusNow(focus) * FOCUS_SETTLE)) / 2.0;
@@ -403,7 +403,7 @@ index 038fe51..ad5bd5f 100644
  
              CRegion damage{0, 0, INT16_MAX, INT16_MAX};
              if (const auto texture = images[id].fb ? images[id].fb->getTexture() : nullptr; texture)
-@@ -491,8 +497,8 @@ void COverview::fullRender() {
+@@ -493,8 +499,8 @@ void COverview::fullRender(Render::CRenderContext& ctx) {
                                                                     .round                       = tileRound,
                                                                     .roundingPower               = ROUND_PWR,
                                                                     .allowCustomUV               = true,
@@ -414,7 +414,7 @@ index 038fe51..ad5bd5f 100644
          }
      }
  
-@@ -834,7 +840,7 @@ void COverview::fullRender() {
+@@ -836,7 +842,7 @@ void COverview::fullRender(Render::CRenderContext& ctx) {
                  .targetValid     = true,
                  .pointerLocal    = {pointerLocal.x, pointerLocal.y},
                  .targetTileLocal = {targetTileBox.x, targetTileBox.y, targetTileBox.w, targetTileBox.h},
@@ -438,7 +438,7 @@ index 66c4f04..235d925 100644
 +// Only once Hyprland's renderLayer is found to draw them with (main.cpp).
 +inline bool g_shellAboveOverview = false;
 diff --git a/main.cpp b/main.cpp
-index 9b30806..4e4f521 100644
+index 12e84fd..c355be0 100644
 --- a/main.cpp
 +++ b/main.cpp
 @@ -6,6 +6,11 @@
@@ -453,19 +453,19 @@ index 9b30806..4e4f521 100644
  
  #include "Dispatchers.hpp"
  #include "globals.hpp"
-@@ -26,14 +31,53 @@ inline CFunctionHook* g_pAddDamageHookB      = nullptr;
- typedef void (*origRenderWorkspace)(void*, PHLMONITOR, PHLWORKSPACE, const Time::steady_tp&, const CBox&);
+@@ -27,14 +32,53 @@ inline CFunctionHook* g_pAddDamageHookB      = nullptr;
+ typedef void (*origRenderWorkspace)(void*, Render::CRenderContext&, PHLMONITOR, PHLWORKSPACE, const Time::steady_tp&, const CBox&);
  typedef void (*origAddDamageA)(void*, const CBox&);
  typedef void (*origAddDamageB)(void*, const pixman_region32_t*);
 +// quickshell-desktop: Hyprland's renderLayer, which is not public, found by name.
-+typedef void (*origRenderLayer)(void*, PHLLS, PHLMONITOR, const Time::steady_tp&, bool, bool);
++typedef void (*origRenderLayer)(void*, Render::CRenderContext&, PHLLS, PHLMONITOR, const Time::steady_tp&, bool, bool, bool);
 +inline origRenderLayer g_pRenderLayer = nullptr;
 +
 +// quickshell-desktop: the top and overlay layers, live and where they stand,
 +// over the overview -- each workspace's picture is taken without them
 +// (OverviewCapture). In the order renderAllClientsForWorkspace draws them:
 +// the surfaces, what is fading out of each layer, then their popups.
-+static void renderShellLayers(void* renderer, PHLMONITOR monitor, const Time::steady_tp& now) {
++static void renderShellLayers(void* renderer, Render::CRenderContext& ctx, PHLMONITOR monitor, const Time::steady_tp& now) {
 +    static constexpr std::array<std::pair<uint32_t, Desktop::eFadeoutPlane>, 2> SHELL = {{
 +        {ZWLR_LAYER_SHELL_V1_LAYER_TOP, Desktop::FADEOUT_PLANE_LAYER_TOP},
 +        {ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, Desktop::FADEOUT_PLANE_LAYER_OVERLAY},
@@ -473,13 +473,13 @@ index 9b30806..4e4f521 100644
 +    for (const auto& [layer, plane] : SHELL) {
 +        for (const auto& ref : monitor->m_layerSurfaceLayers[layer])
 +            if (const auto LS = ref.lock())
-+                g_pRenderLayer(renderer, LS, monitor, now, false, false);
-+        g_pHyprRenderer->renderFadeouts(monitor, plane);
++                g_pRenderLayer(renderer, ctx, LS, monitor, now, false, false, false);
++        g_pHyprRenderer->renderFadeouts(ctx, monitor, plane);
 +    }
 +    for (const auto& [layer, plane] : SHELL)
 +        for (const auto& ref : monitor->m_layerSurfaceLayers[layer])
 +            if (const auto LS = ref.lock())
-+                g_pRenderLayer(renderer, LS, monitor, now, true, false);
++                g_pRenderLayer(renderer, ctx, LS, monitor, now, true, false, false);
 +}
 +
 +// quickshell-desktop: while a shell surface has the keyboard -- the launcher
@@ -494,21 +494,21 @@ index 9b30806..4e4f521 100644
 +    return false;
 +}
  
- static void hkRenderWorkspace(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now, const CBox& geometry) {
+ static void hkRenderWorkspace(void* thisptr, Render::CRenderContext& ctx, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now, const CBox& geometry) {
      auto* const OV = overviewForMonitor(pMonitor);
  
      if (!OV || isRenderingOverview() || Hyprexpo::Capture::isCapturingWorkspacePreview() || OV->blocksOverviewRendering() || !OV->shouldRenderOverviewForMonitor(pMonitor))
-         ((origRenderWorkspace)(g_pRenderWorkspaceHook->m_original))(thisptr, pMonitor, pWorkspace, now, geometry);
+         ((origRenderWorkspace)(g_pRenderWorkspaceHook->m_original))(thisptr, ctx, pMonitor, pWorkspace, now, geometry);
 -    else
 +    else {
-         OV->render();
+         OV->render(ctx);
 +        if (g_shellAboveOverview)
-+            renderShellLayers(thisptr, pMonitor, now);
++            renderShellLayers(thisptr, ctx, pMonitor, now);
 +    }
  }
  
  static void notifyForeignWorkspaceDamage(const PHLMONITOR& monitor) {
-@@ -119,6 +163,18 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+@@ -123,6 +167,18 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
  
      g_pAddDamageHookA = HyprlandAPI::createFunctionHook(PHANDLE, FNS[0].address, (void*)hkAddDamageA);
  
@@ -527,7 +527,7 @@ index 9b30806..4e4f521 100644
      bool success = g_pRenderWorkspaceHook->hook();
      success      = success && g_pAddDamageHookA->hook();
      success      = success && g_pAddDamageHookB->hook();
-@@ -139,6 +195,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+@@ -143,6 +199,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
      });
  
      static auto PKEY = Event::bus()->m_events.input.keyboard.key.listen([](IKeyboard::SKeyEvent event, Event::SCallbackInfo& info) {

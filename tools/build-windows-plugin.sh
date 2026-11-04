@@ -5,7 +5,7 @@
 # Hyprland refuses to load a plugin built against different headers, so it has
 # to be rebuilt after every Hyprland update: with --if-stale this does nothing
 # unless the plugin is missing or was built against another Hyprland or other
-# sources, and hyprland.conf runs that at every login.
+# sources, and hyprland.lua runs that at every login.
 set -euo pipefail
 
 src="$(cd "$(dirname "${BASH_SOURCE[0]}")/../hypr/windows" && pwd)"
@@ -45,8 +45,8 @@ echo "building the window plugin for Hyprland ${hypr_version}"
 
 # shellcheck disable=SC2046 # pkg-config's flags are meant to split
 g++ -shared -fPIC -O2 -std=c++2b --no-gnu-unique -Wall \
-    $(pkg-config --cflags pixman-1 libdrm hyprland libinput libudev wayland-server xkbcommon) \
-    "$src"/*.cpp -o "$work/windows.so"
+    $(pkg-config --cflags pixman-1 libdrm hyprland libinput libudev wayland-server xkbcommon lua5.4) \
+    "$src"/*.cpp -o "$work/windows.so" $(pkg-config --libs lua5.4)
 # A new file rather than one written over: a running Hyprland that has the old
 # one loaded keeps its own copy (see AGENTS.md).
 install -Dm755 "$work/windows.so" "$dest/windows.so"

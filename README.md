@@ -54,11 +54,9 @@ writes the Lua entry point and keeps the old config. Carry any machine-specific
 overrides into Lua after the project's `require` line. The shell's settings
 and window actions use the new Lua IPC API too.
 
-The window plugin's sources and the overview's local patches still target
-Hyprland 0.56. On 0.57 the desktop runs without custom title bars, remembered
-window placement, mixed stacking or the overview until those plugins are
-ported. Incompatible binaries are kept and are never loaded into the new
-compositor. The installer skips their unsupported builds.
+The window plugin and the overview's local patches target Hyprland 0.57.
+The installer and each login rebuild them when the installed headers or local
+sources change. Only binaries stamped for the running release are loaded.
 
 ## What is where
 

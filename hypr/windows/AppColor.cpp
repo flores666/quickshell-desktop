@@ -2,7 +2,7 @@
 
 #define WLR_USE_UNSTABLE
 
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/protocols/XDGShell.hpp>
 #include <hyprland/src/render/Texture.hpp>
@@ -141,8 +141,8 @@ std::optional<CHyprColor> AppColor::top(PHLWINDOW window) {
     // The window's own box within its surface: a frame the client draws
     // itself has its shadow outside it.
     CBox box = {{}, ROOT->m_current.size};
-    if (window->m_xdgSurface && !window->m_xdgSurface->m_current.geometry.empty())
-        box = window->m_xdgSurface->m_current.geometry;
+    if (!window->backend().isX11() && !window->backend().geometry().box.empty())
+        box = window->backend().geometry().box;
 
     // What the window shows along the row: each of its surfaces in the order
     // Hyprland draws them, the main one and its subsurfaces, the opaque

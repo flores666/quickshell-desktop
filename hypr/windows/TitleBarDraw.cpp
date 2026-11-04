@@ -2,8 +2,9 @@
 #include "AppColor.hpp"
 #include "Style.hpp"
 
-#include <hyprland/src/desktop/view/Window.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/output/Monitor.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
@@ -87,26 +88,26 @@ void CTitleBar::listen() {
 // Hyprland draws no decoration on a fullscreen window, the overlay layer
 // included (renderWindow is told not to decorate it): its bar is painted from
 // the render stage instead (paintOverFullscreen).
-void CTitleBar::draw(PHLMONITOR monitor, float const& a) {
+void CTitleBar::draw(Render::CRenderContext& ctx, PHLMONITOR monitor, float const& a, const Render::SWindowRenderPresentation& presentation) {
     const auto W = m_window.lock();
     if (W && Fullscreen::controller()->getFullscreenModes(W).internal != Fullscreen::FSMODE_FULLSCREEN)
-        paint(monitor, a);
+        paint(ctx, monitor, a, presentation);
 }
 
 bool CTitleBar::overFullscreen(PHLMONITOR monitor) const {
     const auto W = m_window.lock();
     return validMapped(W) && Fullscreen::controller()->getFullscreenModes(W).internal == Fullscreen::FSMODE_FULLSCREEN && W->m_monitor == monitor &&
-        W->m_workspace && W->m_workspace->isVisible() && (m_reveal->value() > 0 || m_reveal->goal() > 0);
+        W->m_workspace && W->m_workspace->visible() && (m_reveal->value() > 0 || m_reveal->goal() > 0);
 }
 
-void CTitleBar::paint(PHLMONITOR monitor, float a) {
+void CTitleBar::paint(Render::CRenderContext& ctx, PHLMONITOR monitor, float a, const Render::SWindowRenderPresentation& presentation) {
     // A bar hidden from its application, or by the `decorate` rule, rolls in
     // or fades out as any other goes; only once it is away is it not drawn.
     const auto W    = m_window.lock();
     const bool AWAY = !above() && m_reveal->value() <= 0;
     if (!validMapped(W) || (!usable() && AWAY))
         return;
-    const bool OPENING = W->m_animatingIn;
+    const bool OPENING = W->presentation().animatingIn();
     // Read even while the bar is away, so that it comes out in its colour.
     sample(OPENING);
 
@@ -132,8 +133,8 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
     const float SCALE   = monitor->m_scale;
     const float ALPHA   = a * (above() ? 1.F : m_reveal->value());
     const auto  BAR     = barBox();
-    const auto  ROUND   = W->rounding();
-    const auto  toLocal = [&](CBox box) { return box.translate(-monitor->m_position + W->m_floatingOffset).scale(SCALE).round(); };
+    const auto  ROUND   = W->presentation().rounding();
+    const auto  toLocal = [&](CBox box) { return box.translate(-monitor->m_position + presentation.floatingOffset + presentation.workspaceOffset - W->presentation().renderPresentation().workspaceOffset).scale(SCALE).round(); };
     // What is on the bar, laid out on a whole one from its upper edge, and
     // cut to as much of it as is out.
     const auto CLIP = toLocal(BAR);
@@ -156,8 +157,8 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
         data.clipBox       = clip;
         data.color         = withAlpha(m_color->value(), ALPHA);
         data.round         = std::round(ROUND * SCALE);
-        data.roundingPower = W->roundingPower();
-        g_pHyprRenderer->addPassElement(makeUnique<CRectPassElement>(data));
+        data.roundingPower = W->presentation().roundingPower();
+        g_pHyprRenderer->addPassElement(ctx, makeUnique<CRectPassElement>(data));
     }
 
     // Drawn in the ink of the colour the bar is going to, so the title turns
@@ -173,18 +174,18 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
         data.clipBox = CLIP;
         data.color   = withAlpha(mix(withAlpha(INK.text, 0.2F), INK.buttons[i], LIT), ALPHA);
         data.round   = std::round(BUTTON * SCALE / 2);
-        g_pHyprRenderer->addPassElement(makeUnique<CRectPassElement>(data));
+        g_pHyprRenderer->addPassElement(ctx, makeUnique<CRectPassElement>(data));
         if (m_hover->value() > 0)
-            drawGlyph(i, data.box, CLIP, INK.glyph, ALPHA * m_hover->value());
+            drawGlyph(ctx, i, data.box, CLIP, INK.glyph, ALPHA * m_hover->value());
     }
 
     // Centred on the window, and kept clear of the buttons on both sides.
     const int ROOM = std::floor((BAR.w - 2 * (INSET + Style::BUTTONS * (BUTTON + GAP))) * SCALE);
-    if (W->m_title.empty() || ROOM <= 0)
+    if (W->metadata().title().empty() || ROOM <= 0)
         return;
-    const auto KEY = std::format("{}\n{}\n{}\n{}", W->m_title, SCALE, ROOM, key(INK.text));
+    const auto KEY = std::format("{}\n{}\n{}\n{}", W->metadata().title(), SCALE, ROOM, key(INK.text));
     if (!m_title || KEY != m_titleKey) {
-        m_title    = g_pHyprRenderer->renderText(W->m_title, INK.text, std::round(TITLE_PT * SCALE), false, "sans-serif", ROOM, TITLE_WEIGHT);
+        m_title    = g_pHyprRenderer->renderText(W->metadata().title(), INK.text, std::round(TITLE_PT * SCALE), false, "sans-serif", ROOM, TITLE_WEIGHT);
         m_titleKey = KEY;
     }
     const auto                   LOCAL = toLocal({BAR.x, BAR.y, BAR.w, HEIGHT});
@@ -193,7 +194,7 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
     title.box     = CBox{LOCAL.middle() - m_title->m_size / 2, m_title->m_size}.round();
     title.clipBox = CLIP;
     title.a       = ALPHA * (0.5F + 0.5F * m_focus->value());
-    g_pHyprRenderer->addPassElement(makeUnique<CTexPassElement>(std::move(title)));
+    g_pHyprRenderer->addPassElement(ctx, makeUnique<CTexPassElement>(std::move(title)));
 }
 
 /*
@@ -204,9 +205,9 @@ void CTitleBar::paint(PHLMONITOR monitor, float a) {
     two panes side by side on a floating window, which it tiles, and one on a
     tiled one, which it floats. Every stroke is the same weight.
 */
-void CTitleBar::drawGlyph(int button, const CBox& box, const CBox& clip, const CHyprColor& color, float alpha) {
+void CTitleBar::drawGlyph(Render::CRenderContext& ctx, int button, const CBox& box, const CBox& clip, const CHyprColor& color, float alpha) {
     const auto W     = m_window.lock();
-    const int  SHAPE = button == 3 && W && W->m_isFloating ? 4 : button;
+    const int  SHAPE = button == 3 && W && W->isFloating() ? 4 : button;
     const int  SIZE  = std::max(1, sc<int>(std::round(box.w)));
     auto&      tex   = g_state->glyphs[std::format("{}:{}:{}", SHAPE, SIZE, key(color))];
     if (!tex) {
@@ -269,5 +270,5 @@ void CTitleBar::drawGlyph(int button, const CBox& box, const CBox& clip, const C
     glyph.box     = CBox{box.pos(), {sc<double>(SIZE), sc<double>(SIZE)}};
     glyph.clipBox = clip;
     glyph.a       = alpha;
-    g_pHyprRenderer->addPassElement(makeUnique<CTexPassElement>(std::move(glyph)));
+    g_pHyprRenderer->addPassElement(ctx, makeUnique<CTexPassElement>(std::move(glyph)));
 }

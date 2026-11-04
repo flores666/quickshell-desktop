@@ -27,17 +27,19 @@ QtObject {
 
     /*! The bar's buttons and the dock, as Hyprland dispatches. */
     readonly property var actions: ({
-        "zoom": ["focuswindow %a", "fullscreen 1"],
-        "full": ["focuswindow %a", "fullscreen 0"],
-        "layout": ["togglefloating %a"],
-        "minimize": ["movetoworkspacesilent special:minimized,%a"],
-        "restore": ["movetoworkspacesilent %w,%a", "focuswindow %a", "alterzorder top,%a"],
-        "resize": ["resizewindowpixel exact 600 400,%a"],
-        "hideBar": ["windows:hidden_for %c"],
-        "showBar": ["windows:hidden_for"],
-        // Floating and in no fullscreen mode, set rather than toggled: where
-        // a sequence starts, whatever the one before it left.
-        "reset": ["focuswindow %a", "fullscreenstate 0 0", "setfloating %a"]
+        "zoom": ['hl.dispatch(hl.dsp.window.fullscreen({mode="maximized", window="%a"}))'],
+        "full": ['hl.dispatch(hl.dsp.window.fullscreen({mode="fullscreen", window="%a"}))'],
+        "layout": ['hl.dispatch(hl.dsp.window.float({window="%a"}))'],
+        "minimize": ['hl.dispatch(hl.dsp.window.move({workspace="special:minimized", window="%a", follow=false}))'],
+        "restore": ['hl.dispatch(hl.dsp.window.move({workspace=%w, window="%a", follow=false}))',
+            'hl.dispatch(hl.dsp.focus({window="%a"}))', 'hl.dispatch(hl.dsp.window.alter_zorder({mode="top", window="%a"}))'],
+        "resize": ['hl.dispatch(hl.dsp.window.resize({x=600, y=400, window="%a"}))'],
+        "hideBar": ['hl.plugin.windows.hidden_for("%c")'],
+        "showBar": ['hl.plugin.windows.hidden_for("")'],
+        // Floating and in no fullscreen mode, set rather than toggled.
+        "reset": ['hl.dispatch(hl.dsp.focus({window="%a"}))',
+            'hl.dispatch(hl.dsp.window.fullscreen_state({internal=0, client=0, action="set", window="%a"}))',
+            'hl.dispatch(hl.dsp.window.float({action="enable", window="%a"}))']
     })
 
     property var pending: null
@@ -104,8 +106,8 @@ QtObject {
             then(root.state(clients));
         });
         root.openBound.restart();
-        Quickshell.execDetached(["hyprctl", "dispatch", "exec",
-            `env KITTY_CACHE_DIRECTORY=${cache} kitty --class ${root.appClass}`]);
+        Quickshell.execDetached(["hyprctl", "dispatch",
+            `hl.dsp.exec_cmd("env KITTY_CACHE_DIRECTORY=${cache} kitty --class ${root.appClass}")`]);
     }
 
     /*! Each of `names`, from `actions`, in turn: each one batch, as the bar
@@ -113,17 +115,17 @@ QtObject {
     function act(names: var, then: var): void {
         let script = "";
         for (const name of names) {
-            const batch = root.actions[name].map(d => "dispatch " + d
+            const batch = root.actions[name].map(d => d
                 .replace(/%a/g, "address:" + root.address)
                 .replace(/%w/g, String(root.workspace))
-                .replace(/%c/g, root.appClass)).join(" ; ");
-            script += `hyprctl --batch '${batch}' >/dev/null; sleep 0.5; `;
+                .replace(/%c/g, root.appClass)).join("; ");
+            script += `hyprctl eval '${batch}' >/dev/null; sleep 0.5; `;
         }
         root.run(script + "hyprctl clients -j", text => then(root.state(text)));
     }
 
     function close(then: var): void {
-        root.run(`hyprctl dispatch windows:hidden_for >/dev/null; hyprctl dispatch closewindow address:${root.address} >/dev/null; sleep 0.3; echo`, () => then());
+        root.run(`hyprctl eval 'hl.plugin.windows.hidden_for(""); hl.dispatch(hl.dsp.window.close({window="address:${root.address}"}))' >/dev/null; sleep 0.3; echo`, () => then());
     }
 
     /*! A maximized floating window's box: the work area less its title bar's

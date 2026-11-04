@@ -1,8 +1,8 @@
 diff --git a/Dispatchers.cpp b/Dispatchers.cpp
-index 0df7ff5..45e05a1 100644
+index b3ebb4d..18f512b 100644
 --- a/Dispatchers.cpp
 +++ b/Dispatchers.cpp
-@@ -490,6 +490,19 @@ static SDispatchResult onExpoDispatcher(std::string arg) {
+@@ -501,6 +501,19 @@ static SDispatchResult onExpoDispatcher(std::string arg) {
      }
  
      if (arg == "toggle") {
@@ -23,10 +23,10 @@ index 0df7ff5..45e05a1 100644
              closeOverviews(false);
          else
 diff --git a/IOverviewSession.hpp b/IOverviewSession.hpp
-index 82fa022..aeea08a 100644
+index c85cf6d..2255d37 100644
 --- a/IOverviewSession.hpp
 +++ b/IOverviewSession.hpp
-@@ -30,6 +30,10 @@ class IOverviewSession {
+@@ -34,6 +34,10 @@ class IOverviewSession {
      virtual void setClosing(bool closing) = 0;
      virtual void beginCancelSwipe() = 0;
      virtual bool closeCommitted() const = 0;
@@ -37,7 +37,7 @@ index 82fa022..aeea08a 100644
      virtual bool shouldRenderOverviewForMonitor(const PHLMONITOR& monitor) const = 0;
      virtual void onWindowMoveToWorkspace(const PHLWINDOW& window, const PHLWORKSPACE& workspace) = 0;
  
-@@ -83,6 +87,7 @@ std::vector<uint64_t> liveOverviewMonitorKeys();
+@@ -87,6 +91,7 @@ std::vector<uint64_t> liveOverviewMonitorKeys();
  bool moveOverviewFocusAcrossMonitors(IOverviewSession* source, Hyprexpo::EDirection direction);
  void closeOverviewsSelecting(IOverviewSession* selecting);
  void closeOverviews(bool switchToSelection);
@@ -46,10 +46,10 @@ index 82fa022..aeea08a 100644
  void destroyOverview(IOverviewSession* overview);
  void destroyAllOverviews();
 diff --git a/Overview.cpp b/Overview.cpp
-index f49c044..a75ad52 100644
+index 9c8c105..0a4839c 100644
 --- a/Overview.cpp
 +++ b/Overview.cpp
-@@ -897,6 +897,21 @@ void closeOverviewsSelecting(IOverviewSession* selecting) {
+@@ -900,6 +900,21 @@ void closeOverviewsSelecting(IOverviewSession* selecting) {
      forEachOverview([selecting](IOverviewSession& overview) { overview.close(&overview == selecting); });
  }
  
@@ -71,7 +71,7 @@ index f49c044..a75ad52 100644
  void closeOverviews(bool switchToSelection) {
      resetOverviewDrag(Hyprexpo::EOverviewDragEventType::AllClose);
      g_keyboardOverviewMonitor.reset();
-@@ -1453,12 +1468,9 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1468,12 +1483,9 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
      size->setUpdateCallback(damageMonitor);
      pos->setUpdateCallback(damageMonitor);
  
@@ -88,10 +88,10 @@ index f49c044..a75ad52 100644
      openedID = currentid;
  
 diff --git a/Overview.hpp b/Overview.hpp
-index 198dc68..2b3efd5 100644
+index 9cb5ea4..34a9659 100644
 --- a/Overview.hpp
 +++ b/Overview.hpp
-@@ -54,6 +54,8 @@ class COverview final : public IOverviewSession {
+@@ -55,6 +55,8 @@ class COverview final : public IOverviewSession {
      bool closeCommitted() const override {
          return m_closeCommitted;
      }
@@ -100,7 +100,7 @@ index 198dc68..2b3efd5 100644
      bool shouldRenderOverviewForMonitor(const PHLMONITOR& monitor) const;
      // Animation callbacks are handed the variable that fired, not the owner.
      // With several overviews alive the owner has to be resolved from it.
-@@ -185,11 +187,23 @@ class COverview final : public IOverviewSession {
+@@ -186,11 +188,23 @@ class COverview final : public IOverviewSession {
  
      PHLWORKSPACE                 startedOn;
  
@@ -125,7 +125,7 @@ index 198dc68..2b3efd5 100644
      bool                         externalWorkspaceMoveDuringClose = false;
  
 diff --git a/OverviewInteraction.cpp b/OverviewInteraction.cpp
-index b6c1a13..5a0c480 100644
+index 343beb7..5dad35c 100644
 --- a/OverviewInteraction.cpp
 +++ b/OverviewInteraction.cpp
 @@ -14,6 +14,8 @@
@@ -245,7 +245,7 @@ index b6c1a13..5a0c480 100644
  
  // The submap is compositor-global, but every overview enters and leaves it
 diff --git a/OverviewRender.cpp b/OverviewRender.cpp
-index ad5bd5f..dccaead 100644
+index 2342a30..ae58f7c 100644
 --- a/OverviewRender.cpp
 +++ b/OverviewRender.cpp
 @@ -225,8 +225,7 @@ void COverview::close(bool switchToSelection) {

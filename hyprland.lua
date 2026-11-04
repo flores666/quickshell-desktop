@@ -25,9 +25,8 @@ hl.on("hyprland.start", function()
 end)
 
 -- ------------------------------------------------------------------ plugins
--- The 0.56 binaries cannot be loaded into 0.57. Load only a build stamped
--- for the running release; the existing sources/overview patches still need
--- their 0.57 API port. Keep old binaries intact for rollback.
+-- Load only a build stamped for the running release. The login checks rebuild
+-- after a Hyprland update or a change to the sources/overview patches.
 local data = os.getenv("XDG_DATA_HOME") or (os.getenv("HOME") .. "/.local/share")
 local function loadPlugin(directory, binary)
     local stamp = io.open(data .. "/" .. directory .. "/built-for", "r")
@@ -41,6 +40,9 @@ end
 -- The overview owns input first, then the window decorations.
 loadPlugin("hyprexpo", "hyprexpo.so")
 loadPlugin("hypr-windows", "windows.so")
+hl.on("hyprland.start", function()
+    hl.exec_cmd("systemd-cat -t hyprexpo ~/.config/quickshell/shell/tools/build-overview-plugin.sh --if-stale; systemd-cat -t hypr-windows ~/.config/quickshell/shell/tools/build-windows-plugin.sh --if-stale")
+end)
 
 if hl.plugin.hyprexpo then
     hl.config({ plugin = { hyprexpo = {

@@ -6,7 +6,7 @@
 # the installed Hyprland. Hyprland refuses to load a plugin built against
 # different headers, so it has to be rebuilt after every Hyprland update:
 # with --if-stale this does nothing unless the plugin is missing or was built
-# against another Hyprland or other patches, and hyprland.conf runs that at
+# against another Hyprland or other patches, and hyprland.lua runs that at
 # every login.
 set -euo pipefail
 

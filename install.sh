@@ -127,11 +127,10 @@ link "$repo" "$shell_dir"
 # from other sources; hyprland.lua runs the same check at every login.
 "$repo/tools/build-native-module.sh" --if-stale
 
-# The compositor plugins (overview, title bars, placement and stacking) still
-# target 0.56. Their existing sources/patches need porting; the Lua desktop runs on
-# 0.57 without them; do not let a plugin build failure prevent config setup.
+# The compositor plugins (overview, title bars, placement and stacking) use
+# Hyprland 0.57's API. Rebuild when missing or built from other headers/sources.
 if pkg-config --exists hyprland 2>/dev/null \
-    && [[ "$(pkg-config --modversion hyprland)" == 0.56.* ]]; then
+    && [[ "$(pkg-config --modversion hyprland)" == 0.57.* ]]; then
     "$repo/tools/build-overview-plugin.sh" --if-stale
     "$repo/tools/build-windows-plugin.sh" --if-stale
 fi

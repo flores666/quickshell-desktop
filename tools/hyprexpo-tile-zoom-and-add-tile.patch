@@ -1,8 +1,8 @@
 diff --git a/Overview.cpp b/Overview.cpp
-index 736e79f..e3f1d12 100644
+index f5ad87e..101574b 100644
 --- a/Overview.cpp
 +++ b/Overview.cpp
-@@ -1276,6 +1276,30 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1291,6 +1291,30 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
              }
          }
  
@@ -22,7 +22,7 @@ index 736e79f..e3f1d12 100644
 +            for (WORKSPACEID id = 1; id <= LAST && NEWID == WORKSPACE_INVALID; ++id) {
 +                if (std::find(visibleWorkspaceIDs.begin(), visibleWorkspaceIDs.end(), id) != visibleWorkspaceIDs.end())
 +                    continue;
-+                const auto it = std::find_if(ALL.begin(), ALL.end(), [&](const auto& ws) { return ws && ws->m_id == id; });
++                const auto it = std::find_if(ALL.begin(), ALL.end(), [&](const auto& ws) { return ws && workspaceHasID(ws, id); });
 +                if (it == ALL.end() || ((*it)->m_monitor == MON && (*it)->getWindowCount() == 0))
 +                    NEWID = id;
 +            }
@@ -33,7 +33,7 @@ index 736e79f..e3f1d12 100644
          gridShape = Hyprexpo::computeDynamicGridShape((int)visibleWorkspaceIDs.size());
          images.resize(visibleWorkspaceIDs.size());
          for (size_t i = 0; i < visibleWorkspaceIDs.size(); ++i)
-@@ -1350,7 +1374,9 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1365,7 +1389,9 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
  
      lastMousePosLocal = g_pInputManager->getMouseCoordsInternal() - pMonitor->m_position;
      updateHoveredFromMouse();
@@ -44,7 +44,7 @@ index 736e79f..e3f1d12 100644
  
      auto onCursorMove = [this](Event::SCallbackInfo& info) {
          if (closing)
-@@ -1364,7 +1390,16 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
+@@ -1379,7 +1405,16 @@ COverview::COverview(PHLWORKSPACE startedOn_, PHLMONITOR monitor_, bool swipe_,
              const auto MON = OV->monitor();
              if (!MON || OV->closing)
                  continue;
@@ -63,10 +63,10 @@ index 736e79f..e3f1d12 100644
          }
  
 diff --git a/Overview.hpp b/Overview.hpp
-index af42450..002df99 100644
+index f224797..874786f 100644
 --- a/Overview.hpp
 +++ b/Overview.hpp
-@@ -155,6 +155,16 @@ class COverview final : public IOverviewSession {
+@@ -156,6 +156,16 @@ class COverview final : public IOverviewSession {
      int                          closeOnID = -1;
      int                          kbFocusID = -1;
      int                          hoveredID = -1;
@@ -84,7 +84,7 @@ index af42450..002df99 100644
  
      std::vector<int>             queuedRedrawIDs;
 diff --git a/OverviewRender.cpp b/OverviewRender.cpp
-index 2354a3a..d73305f 100644
+index e852689..290e2a8 100644
 --- a/OverviewRender.cpp
 +++ b/OverviewRender.cpp
 @@ -21,6 +21,7 @@
@@ -95,7 +95,7 @@ index 2354a3a..d73305f 100644
  #undef private
  #undef protected
  #include <algorithm>
-@@ -410,6 +411,42 @@ void COverview::fullRender() {
+@@ -412,6 +413,42 @@ void COverview::fullRender(Render::CRenderContext& ctx) {
      bool              entryAnimationPending = false;
      const double      entryElapsed = entryAnimationActive ? std::chrono::duration<double>(std::chrono::steady_clock::now() - createdAt).count() : 0.0;
  
@@ -138,7 +138,7 @@ index 2354a3a..d73305f 100644
      for (size_t y = 0; y < (size_t)SHAPE.rows; ++y) {
          for (size_t x = 0; x < (size_t)SHAPE.cols; ++x) {
              const int id = x + y * SHAPE.cols;
-@@ -440,9 +477,22 @@ void COverview::fullRender() {
+@@ -442,9 +479,22 @@ void COverview::fullRender(Render::CRenderContext& ctx) {
                      entryAnimationPending = true;
              }
  
@@ -150,8 +150,8 @@ index 2354a3a..d73305f 100644
 +
              CRegion damage{0, 0, INT16_MAX, INT16_MAX};
              if (const auto texture = images[id].fb ? images[id].fb->getTexture() : nullptr; texture)
--                Render::GL::g_pHyprOpenGL->renderTextureInternal(texture, texbox, {.damage = &damage, .a = alpha, .round = tileRound, .roundingPower = ROUND_PWR});
-+                Render::GL::g_pHyprOpenGL->renderTextureInternal(texture, texbox,
+-                Render::GL::g_pHyprOpenGL->renderTextureInternal(ctx, texture, texbox, {.damage = &damage, .a = alpha, .round = tileRound, .roundingPower = ROUND_PWR});
++                Render::GL::g_pHyprOpenGL->renderTextureInternal(ctx, texture, texbox,
 +                                                                  {.damage                      = &damage,
 +                                                                   .a                           = alpha,
 +                                                                   .round                       = tileRound,
@@ -162,7 +162,7 @@ index 2354a3a..d73305f 100644
          }
      }
  
-@@ -813,6 +863,6 @@ void COverview::fullRender() {
+@@ -815,6 +865,6 @@ void COverview::fullRender(Render::CRenderContext& ctx) {
          }
      }
  

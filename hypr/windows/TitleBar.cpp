@@ -2,11 +2,11 @@
 #include "Style.hpp"
 
 #include <hyprland/src/animation/AnimationManager.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/desktop/rule/windowRule/WindowRuleApplicator.hpp>
-#include <hyprland/src/managers/KeybindManager.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/config/shared/actions/ConfigActions.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
@@ -39,7 +39,7 @@ CTitleBar::CTitleBar(PHLWINDOW window) : IHyprWindowDecoration(window), m_window
 }
 
 CTitleBar* CTitleBar::of(PHLWINDOW window) {
-    for (const auto& deco : window->m_windowDecorations)
+    for (const auto& deco : window->presentation().decorations())
         if (const auto BAR = dynamic_cast<CTitleBar*>(deco.get()))
             return BAR;
     return nullptr;
@@ -67,7 +67,7 @@ static bool maximized(PHLWINDOW window) {
 bool CTitleBar::goesAbove() const {
     // Fullscreen, a floating window's bar is over it as a tiled one's is.
     const auto W = m_window.lock();
-    return W && W->m_isFloating && decorated() && !fullscreen(W);
+    return W && W->isFloating() && decorated() && !fullscreen(W);
 }
 
 bool CTitleBar::above() const {
@@ -121,7 +121,7 @@ void CTitleBar::reposition() {
 void CTitleBar::restoreUnder(const Vector2D& pointer) {
     const auto W      = m_window.lock();
     const auto TARGET = W ? W->layoutTarget() : nullptr;
-    if (!TARGET || !W->m_isFloating || !Fullscreen::controller()->isFullscreen(W))
+    if (!TARGET || !W->isFloating() || !Fullscreen::controller()->isFullscreen(W))
         return;
     Fullscreen::controller()->setFullscreenMode(W, Fullscreen::FSMODE_NONE, Fullscreen::FSMODE_NONE);
     // The size Hyprland kept as it maximized it, the bar above the window
@@ -156,7 +156,7 @@ CBox CTitleBar::windowBox() const {
     if (!validMapped(W))
         return {};
     auto box = W->getWindowMainSurfaceBox();
-    if (W->m_workspace && !W->m_pinned)
+    if (W->m_workspace && !(W->m_state & Desktop::View::WINDOW_STATE_PINNED))
         box.translate(W->m_workspace->m_renderOffset->value());
     return box;
 }
@@ -241,7 +241,7 @@ bool CTitleBar::onInputOnDeco(const eInputType type, const Vector2D& pos, std::a
     if (E.state == WL_POINTER_BUTTON_STATE_PRESSED) {
         if (!Desktop::focusState()->isWindowActive(W))
             Desktop::focusState()->rawWindowFocus(W, Desktop::FOCUS_REASON_CLICK);
-        if (W->m_isFloating)
+        if (W->isFloating())
             Desktop::windowState()->raise(W);
 
         g_state->hover(W, buttonAt(pos) != -1);
@@ -270,9 +270,7 @@ void CTitleBar::act(int button) {
         case 1: {
             // Hyprland has no minimized state; a special workspace is the
             // idiom, and the dock brings a window back from it.
-            const auto MOVE = g_pKeybindManager->m_dispatchers.find("movetoworkspacesilent");
-            if (MOVE != g_pKeybindManager->m_dispatchers.end())
-                MOVE->second(std::format("special:minimized,address:0x{:x}", rc<uintptr_t>(W.get())));
+            (void)Config::Actions::moveToWorkspace("special:minimized", true, W);
             break;
         }
         case 2: (void)Config::Actions::fullscreenWindow(Fullscreen::FSMODE_MAXIMIZED, true, W); break;
@@ -295,7 +293,7 @@ void CTitleBar::damageEntire() {
         return;
     // Above the window and over its top, and the corners under a bar above.
     const auto WINDOW = windowBox();
-    g_pHyprRenderer->damageBox({WINDOW.x, WINDOW.y - HEIGHT, WINDOW.w, 2 * HEIGHT + W->rounding()});
+    g_pHyprRenderer->damageBox({WINDOW.x, WINDOW.y - HEIGHT, WINDOW.w, 2 * HEIGHT + W->presentation().rounding()});
 }
 
 eDecorationLayer CTitleBar::getDecorationLayer() {

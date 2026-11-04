@@ -3,7 +3,8 @@
 #include "Style.hpp"
 #include "TitleBar.hpp"
 
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
@@ -13,6 +14,7 @@
 #include <hyprland/src/output/Monitor.hpp>
 
 #include <ranges>
+#include <lua.hpp>
 
 /*
     The desktop's own window behaviour, on the compositor's side: the title
@@ -29,7 +31,7 @@ APICALL EXPORT std::string PLUGIN_API_VERSION() {
 static void onOpen(PHLWINDOW window) {
     if (CTitleBar::of(window) || !CTitleBar::wanted(window))
         return;
-    auto       bar = makeUnique<CTitleBar>(window);
+    auto       bar = makeShared<CTitleBar>(window);
     const auto BAR = bar.get();
     HyprlandAPI::addWindowDecoration(PHANDLE, window, std::move(bar));
     std::erase_if(g_state->decorated, [](const auto& w) { return w.expired(); });
@@ -40,7 +42,7 @@ static void onOpen(PHLWINDOW window) {
 
 static void forEachBar(const std::function<void(CTitleBar*)>& fn) {
     for (const auto& ref : g_state->decorated)
-        if (const auto W = ref.lock(); W && W->m_isMapped)
+        if (const auto W = ref.lock(); W && W->mapped())
             if (const auto BAR = CTitleBar::of(W))
                 fn(BAR);
 }
@@ -64,14 +66,15 @@ static void keepRendered(PHLMONITOR monitor) {
     });
 }
 
-static void paintOverFullscreen(eRenderStage stage) {
-    const auto MONITOR = g_pHyprRenderer->m_renderData.pMonitor.lock();
-    if (stage != RENDER_LAST_MOMENT || !MONITOR)
+static void paintOverFullscreen(const Event::SRenderStageEvent& event) {
+    if (event.stage != RENDER_LAST_MOMENT || !event.monitor || !event.context)
         return;
-    forEachBar([&](CTitleBar* bar) {
-        if (bar->overFullscreen(MONITOR))
-            bar->paint(MONITOR, 1.F);
-    });
+    for (const auto& ref : g_state->decorated) {
+        const auto W = ref.lock();
+        const auto BAR = W ? CTitleBar::of(W) : nullptr;
+        if (BAR && BAR->overFullscreen(event.monitor))
+            BAR->paint(event.context->get(), event.monitor, 1.F, W->presentation().renderPresentation());
+    }
 }
 
 static void animate(PHLWINDOW window) {
@@ -97,11 +100,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     g_pEventLoopManager->addTimer(g_state->resample);
 
     // The applications the bar is hidden for, comma-separated, from the
-    // dock's menu (services/TitleBars.qml). A dispatcher rather than an
-    // option: a `hyprctl keyword` tells no plugin its option changed, and
+    // dock's menu (services/TitleBars.qml). A Lua callback rather than an
+    // option: a config write tells no plugin its option changed, and
     // every bar has to be placed again — one hidden above a floating window
     // still held the room it reserved, under the window's shadow.
-    HyprlandAPI::addDispatcherV2(PHANDLE, "windows:hidden_for", [](std::string ids) {
+    if (!HyprlandAPI::addLuaFunction(PHANDLE, "windows", "hidden_for", [](lua_State* L) {
+        const std::string ids = luaL_optstring(L, 1, "");
         g_state->hiddenFor.clear();
         for (const auto ID : std::views::split(ids, ','))
             if (!std::ranges::empty(ID))
@@ -110,8 +114,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             bar->reposition();
             bar->animate();
         });
-        return SDispatchResult{};
-    });
+        return 0;
+    }))
+        throw std::runtime_error("[windows] could not register hidden_for");
 
     auto& events = Event::bus()->m_events;
     g_state->listeners = {
@@ -151,13 +156,13 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         }),
         events.config.reloaded.listen([] { Style::reloaded(); }),
         events.render.preChecks.listen([](PHLMONITOR m) { keepRendered(m); }),
-        events.render.stage.listen([](eRenderStage s) { paintOverFullscreen(s); }),
+        events.render.stage.listen(paintOverFullscreen),
         events.input.mouse.move.listen([](Vector2D pos, Event::SCallbackInfo& info) { Pointer::move(pos, info); }),
         events.input.mouse.button.listen([](IPointer::SButtonEvent e, Event::SCallbackInfo&) { Pointer::button(e); }),
     };
 
     for (const auto& w : Desktop::windowState()->windows())
-        if (w->m_isMapped && !w->isHidden())
+        if (w->mapped() && !w->isHidden())
             onOpen(w);
 
     // Hyprland reads the plugin's options from the config only on a reload,
@@ -173,22 +178,14 @@ APICALL EXPORT void PLUGIN_EXIT() {
     g_pEventLoopManager->removeTimer(g_state->resample);
 
     // Every bar goes now, while its code is still loaded. Hyprland removes a
-    // plugin's decorations after this returns, but only from the windows it
-    // lists, and from a closing or hidden one only queues the removal
-    // (updateWindowDecos skips it): such a bar was destroyed later, through a
-    // vtable into the unloaded library, and took the compositor with it.
+    // plugin's decorations after this returns, but only from windows it still
+    // lists. The presentation removes them even from closed or hidden windows;
+    // none may outlive dlclose and later call into this library's vtable.
     for (const auto& ref : g_state->decorated) {
         const auto W   = ref.lock();
         const auto BAR = W ? CTitleBar::of(W) : nullptr;
         if (!BAR)
             continue;
-        g_pDecorationPositioner->uncacheDecoration(BAR);
-        std::erase_if(W->m_windowDecorations, [BAR](const auto& d) { return d.get() == BAR; });
-        if (!W->m_isMapped)
-            continue;
-        g_pDecorationPositioner->forceRecalcFor(W);
-        W->updateWindowDecos();
-        if (W->layoutTarget())
-            W->layoutTarget()->recalc();
+        W->presentation().removeDecoration(BAR);
     }
 }

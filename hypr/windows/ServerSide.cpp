@@ -1,14 +1,25 @@
 #include "TitleBar.hpp"
 
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#include <hyprland/src/desktop/view/window/X11Backend.hpp>
 #include <hyprland/src/protocols/XDGDecoration.hpp>
 #include <hyprland/src/protocols/XDGShell.hpp>
+#include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/xwayland/XSurface.hpp>
 #include <hyprland/src/xwayland/XWayland.hpp>
 
 #include <algorithm>
 
 namespace {
+    // X11's backend owns its surface; read it without a new Xwayland request.
+    using CX11Backend = Desktop::View::CX11Backend;
+    WP<CXWaylandSurface> CX11Backend::* surfaceMember();
+    template <WP<CXWaylandSurface> CX11Backend::* MEMBER>
+    struct SSurfaceAccess {
+        friend WP<CXWaylandSurface> CX11Backend::* surfaceMember() { return MEMBER; }
+    };
+    template struct SSurfaceAccess<&CX11Backend::m_xwaylandSurface>;
+
     using CDecorations = std::unordered_map<wl_resource*, UP<CXDGDecoration>>;
 
     // The protocol keeps its decoration objects private and has no accessor.
@@ -41,17 +52,18 @@ namespace {
     not a window to the user: a menu, a tooltip, a splash screen.
 */
 bool CTitleBar::wanted(PHLWINDOW window) {
-    if (window->m_isX11) {
-        const auto SURFACE = window->m_xwaylandSurface.lock();
-        if (!SURFACE || window->isX11OverrideRedirect() || window->m_X11DoesntWantBorders)
+    if (window->backend().isX11()) {
+        const auto SURFACE = (static_cast<CX11Backend&>(window->backend()).*surfaceMember()).lock();
+        if (!SURFACE || window->backend().traits().overrideRedirect || window->backend().traits().suggestsNoBorder)
             return false;
         const auto& TYPES = SURFACE->m_atoms;
         return TYPES.empty() || std::ranges::contains(TYPES, HYPRATOMS["_NET_WM_WINDOW_TYPE_NORMAL"]) ||
             std::ranges::contains(TYPES, HYPRATOMS["_NET_WM_WINDOW_TYPE_DIALOG"]);
     }
-    if (!window->m_xdgSurface)
-        return false;
-    const auto TOPLEVEL = window->m_xdgSurface->m_toplevel.lock();
+    const auto SURFACE = window->resource();
+    const auto ROLE = SURFACE ? dynamicPointerCast<CXDGSurfaceRole>(SURFACE->m_role) : nullptr;
+    const auto XDG = ROLE ? ROLE->m_xdgSurface.lock() : nullptr;
+    const auto TOPLEVEL = XDG ? XDG->m_toplevel.lock() : nullptr;
     if (!TOPLEVEL)
         return false;
     if (!PROTO::xdgDecoration)
@@ -67,9 +79,9 @@ bool CTitleBar::wanted(PHLWINDOW window) {
 /*
     The applications the user took the bar from in the dock's menu, by app id,
     handed over by the shell (services/TitleBars.qml) through the
-    windows:hidden_for dispatcher. A window keeps its bar hidden rather than
+    hl.plugin.windows.hidden_for callback. A window keeps its bar hidden rather than
     losing it, so the choice can be undone while it is open.
 */
 bool CTitleBar::hiddenFor(PHLWINDOW window) {
-    return std::ranges::contains(g_state->hiddenFor, window->m_class);
+    return std::ranges::contains(g_state->hiddenFor, window->metadata().appID());
 }

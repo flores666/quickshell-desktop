@@ -1,8 +1,9 @@
 #include "Stacking.hpp"
 
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
 #include <hyprland/src/desktop/rule/windowRule/WindowRuleApplicator.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/state/ViewHitTester.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
@@ -11,31 +12,36 @@
 #include <hyprland/src/output/Monitor.hpp>
 #include <hyprland/src/plugins/HookSystem.hpp>
 #include <hyprland/src/render/Renderer.hpp>
+#include <hyprland/src/render/scene/SceneSelection.hpp>
 
 #include <algorithm>
 #include <vector>
 
 namespace {
-    using RenderWorkspaceWindows = void (*)(void*, PHLMONITOR, PHLWORKSPACE, const Time::steady_tp&);
-    using RenderWindow           = void (*)(void*, PHLWINDOW, PHLMONITOR, const Time::steady_tp&, bool, Render::eRenderPassMode, bool, bool);
+    using RenderWorkspaceWindows = void (*)(void*, Render::CRenderContext&, PHLMONITOR, PHLWORKSPACE, const Time::steady_tp&, Render::eSceneMode);
+    using RenderWindow = void (*)(void*, Render::CRenderContext&, PHLWINDOW, PHLMONITOR, const Render::SWindowRenderPresentation&, const Time::steady_tp&, bool, Render::eRenderPassMode, bool, bool);
+    using ShouldRender = bool (*)(void*, PHLWINDOW, PHLMONITOR, PHLWORKSPACE, Render::eSceneMode);
+    using RenderFadeouts = void (*)(void*, Render::CRenderContext&, PHLMONITOR, Desktop::eFadeoutPlane, PHLWORKSPACE, Render::eSceneMode);
     using WindowAt               = PHLWINDOW (*)(const void*, const Vector2D&, uint16_t, PHLWINDOW);
 
     CFunctionHook* g_drawHook     = nullptr;
     CFunctionHook* g_hitHook      = nullptr;
-    RenderWindow   g_renderWindow = nullptr;
+    RenderWindow g_renderWindow = nullptr;
+    ShouldRender g_shouldRender = nullptr;
+    RenderFadeouts g_renderFadeouts = nullptr;
 
     // What renderWorkspaceWindows draws of this workspace, bottom to top, as
     // it chooses them: pinned windows are drawn after every workspace, and a
     // special workspace's floating windows on another monitor with its base.
-    std::vector<PHLWINDOW> drawn(void* renderer, const PHLMONITOR& monitor, const PHLWORKSPACE& workspace) {
+    std::vector<PHLWINDOW> drawn(void* renderer, const PHLMONITOR& monitor, const PHLWORKSPACE& workspace, Render::eSceneMode mode) {
         std::vector<PHLWINDOW> out;
         for (const auto& w : Desktop::windowState()->windows()) {
-            if (w->isHidden() || !w->m_isMapped || !sc<Render::IHyprRenderer*>(renderer)->shouldRenderWindow(w, monitor))
+            if (w->isHidden() || !w->mapped() || !g_shouldRender(renderer, w, monitor, workspace, mode))
                 continue;
-            const bool IGNORE_SPECIAL = w->m_monitorMovedFrom != -1 && w->m_workspace && !w->m_workspace->isVisible();
-            if (!IGNORE_SPECIAL && workspace->m_isSpecialWorkspace != w->onSpecialWorkspace())
+            const bool IGNORE_SPECIAL = w->presentation().movingFromMonitor() && w->m_workspace && !w->m_workspace->visible();
+            if (!IGNORE_SPECIAL && (workspace->type() == Workspace::eWorkspaceType::SPECIAL) != w->onSpecialWorkspace())
                 continue;
-            if (w->m_isFloating && (w->m_pinned || (workspace->m_isSpecialWorkspace && w->m_monitor != workspace->m_monitor)))
+            if (w->isFloating() && ((w->m_state & Desktop::View::WINDOW_STATE_PINNED) || ((workspace->type() == Workspace::eWorkspaceType::SPECIAL) && w->m_monitor != workspace->m_monitor)))
                 continue;
             out.push_back(w);
         }
@@ -51,40 +57,40 @@ namespace {
         above a floating one that is exactly Hyprland's order, so Hyprland
         draws it.
     */
-    void hkRenderWorkspaceWindows(void* renderer, PHLMONITOR monitor, PHLWORKSPACE workspace, const Time::steady_tp& time) {
-        const auto WINDOWS = drawn(renderer, monitor, workspace);
-        const auto FLOAT   = std::ranges::find_if(WINDOWS, [](const auto& w) { return w->m_isFloating; });
-        if (std::none_of(FLOAT, WINDOWS.end(), [](const auto& w) { return !w->m_isFloating; })) {
-            ((RenderWorkspaceWindows)g_drawHook->m_original)(renderer, monitor, workspace, time);
+    void hkRenderWorkspaceWindows(void* renderer, Render::CRenderContext& ctx, PHLMONITOR monitor, PHLWORKSPACE workspace, const Time::steady_tp& time, Render::eSceneMode mode) {
+        const auto WINDOWS = drawn(renderer, monitor, workspace, mode);
+        const auto FLOAT   = std::ranges::find_if(WINDOWS, [](const auto& w) { return w->isFloating(); });
+        if (std::none_of(FLOAT, WINDOWS.end(), [](const auto& w) { return !w->isFloating(); })) {
+            ((RenderWorkspaceWindows)g_drawHook->m_original)(renderer, ctx, monitor, workspace, time, mode);
             return;
         }
 
-        Event::bus()->m_events.render.stage.emit(RENDER_PRE_WINDOWS);
+        Event::bus()->m_events.render.stage.emit({RENDER_PRE_WINDOWS, monitor, ctx});
         const auto FOCUSED    = Desktop::focusState()->window();
         bool       fadedTiled = false;
         for (auto run = WINDOWS.begin(); run != WINDOWS.end();) {
-            const bool TILED = !(*run)->m_isFloating;
-            const auto END   = std::find_if(run, WINDOWS.end(), [TILED](const auto& w) { return w->m_isFloating == TILED; });
+            const bool TILED = !(*run)->isFloating();
+            const auto END   = std::find_if(run, WINDOWS.end(), [TILED](const auto& w) { return w->isFloating() == TILED; });
             if (!TILED) {
                 for (auto it = run; it != END; ++it)
-                    g_renderWindow(renderer, *it, monitor, time, true, Render::RENDER_PASS_ALL, false, false);
+                    g_renderWindow(renderer, ctx, *it, monitor, (*it)->presentation().renderPresentation(mode), time, true, Render::RENDER_PASS_ALL, false, false);
             } else {
                 const auto LAST = std::find(run, END, FOCUSED);
                 for (auto it = run; it != END; ++it)
                     if (it != LAST)
-                        g_renderWindow(renderer, *it, monitor, time, true, Render::RENDER_PASS_MAIN, false, false);
+                        g_renderWindow(renderer, ctx, *it, monitor, (*it)->presentation().renderPresentation(mode), time, true, Render::RENDER_PASS_MAIN, false, false);
                 if (LAST != END)
-                    g_renderWindow(renderer, *LAST, monitor, time, true, Render::RENDER_PASS_MAIN, false, false);
+                    g_renderWindow(renderer, ctx, *LAST, monitor, (*LAST)->presentation().renderPresentation(mode), time, true, Render::RENDER_PASS_MAIN, false, false);
                 // Below whatever floats above the first run, as below every floating window.
                 if (!fadedTiled)
-                    g_pHyprRenderer->renderFadeouts(monitor, Desktop::FADEOUT_PLANE_WINDOW_TILED, workspace);
+                    g_renderFadeouts(renderer, ctx, monitor, Desktop::FADEOUT_PLANE_WINDOW_TILED, workspace, mode);
                 fadedTiled = true;
                 if (LAST != END)
-                    g_renderWindow(renderer, *LAST, monitor, time, true, Render::RENDER_PASS_POPUP, false, false);
+                    g_renderWindow(renderer, ctx, *LAST, monitor, (*LAST)->presentation().renderPresentation(mode), time, true, Render::RENDER_PASS_POPUP, false, false);
             }
             run = END;
         }
-        g_pHyprRenderer->renderFadeouts(monitor, Desktop::FADEOUT_PLANE_WINDOW_FLOATING, workspace);
+        g_renderFadeouts(renderer, ctx, monitor, Desktop::FADEOUT_PLANE_WINDOW_FLOATING, workspace, mode);
     }
 
     /*
@@ -96,35 +102,37 @@ namespace {
     */
     PHLWINDOW hkWindowAt(const void* tester, const Vector2D& pos, uint16_t properties, PHLWINDOW ignore) {
         const auto FOUND = ((WindowAt)g_hitHook->m_original)(tester, pos, properties, ignore);
-        if (!FOUND || !FOUND->m_isFloating || FOUND->m_pinned || !FOUND->m_workspace || (properties & Desktop::View::FLOATING_ONLY) ||
+        if (!FOUND || !FOUND->isFloating() || (FOUND->m_state & Desktop::View::WINDOW_STATE_PINNED) || !FOUND->m_workspace || (properties & Desktop::View::FLOATING_ONLY) ||
             Fullscreen::controller()->hasFullscreen(FOUND->m_workspace))
             return FOUND;
         const auto& ALL = Desktop::windowState()->windows();
         for (auto it = ALL.rbegin(); it != ALL.rend() && *it != FOUND; ++it) {
             const auto& W = *it;
-            if (W->m_isFloating || !W->m_isMapped || W->isHidden() || W->m_workspace != FOUND->m_workspace || W == ignore || !W->acceptsInput() ||
+            if (W->isFloating() || !W->mapped() || W->isHidden() || W->m_workspace != FOUND->m_workspace || W == ignore || !W->acceptsInput() ||
                 W->m_ruleApplicator->noFocus().valueOrDefault() || ((properties & Desktop::View::FOCUS_PRIORITY) && !W->priorityFocus()))
                 continue;
-            if (W->getWindowBoxUnified(properties).containsPoint(pos) || (!W->m_isX11 && W->hasPopupAt(pos)))
+            if (W->getWindowBoxUnified(properties).containsPoint(pos) || (!W->backend().isX11() && W->hasPopupAt(pos)))
                 return W;
         }
         return FOUND;
     }
 
-    void* find(HANDLE handle, const std::string& name, const std::string& demangled) {
+    void* find(HANDLE handle, const std::string& name, const std::string& demangled, const std::string& suffix = "") {
         for (const auto& fn : HyprlandAPI::findFunctionsByName(handle, name))
-            if (fn.demangled.starts_with(demangled))
+            if (fn.demangled.starts_with(demangled) && fn.demangled.ends_with(suffix))
                 return fn.address;
         return nullptr;
     }
 }
 
 void Stacking::init(HANDLE handle) {
-    const auto DRAW = find(handle, "renderWorkspaceWindows", "Render::IHyprRenderer::renderWorkspaceWindows(");
+    const auto DRAW = find(handle, "renderWorkspaceWindows", "Render::IHyprRenderer::renderWorkspaceWindows(", "Render::eSceneMode)");
     const auto HIT  = find(handle, "windowAt", "Desktop::CViewHitTester::windowAt(");
-    g_renderWindow  = (RenderWindow)find(handle, "renderWindow", "Render::IHyprRenderer::renderWindow(");
+    g_renderWindow = (RenderWindow)find(handle, "renderWindow", "Render::IHyprRenderer::renderWindow(");
+    g_shouldRender = (ShouldRender)find(handle, "shouldRenderWindowInScene", "Render::IHyprRenderer::shouldRenderWindowInScene(");
+    g_renderFadeouts = (RenderFadeouts)find(handle, "renderFadeouts", "Render::IHyprRenderer::renderFadeouts(", "Render::eSceneMode)");
     // Both or neither: drawn one way and hit the other, a covered window would take the clicks.
-    if (DRAW && HIT && g_renderWindow) {
+    if (DRAW && HIT && g_renderWindow && g_shouldRender && g_renderFadeouts) {
         g_drawHook = HyprlandAPI::createFunctionHook(handle, DRAW, (void*)hkRenderWorkspaceWindows);
         g_hitHook  = HyprlandAPI::createFunctionHook(handle, HIT, (void*)hkWindowAt);
         if (g_drawHook->hook() && g_hitHook->hook())
