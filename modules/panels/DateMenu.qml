@@ -30,7 +30,7 @@ ShellOverlay {
         Column {
             id: leftColumn
 
-            width: 352
+            width: Appearance.m.mediaWidth
             height: parent.height
             spacing: Appearance.s.lg
 

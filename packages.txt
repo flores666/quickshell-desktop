@@ -86,3 +86,5 @@ base-devel
 cmake
 pkgconf
 python
+# real MPRIS protocol fixtures on a private bus (tests/Media*Test)
+python-gobject

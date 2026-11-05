@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build and install the shell's native QML module from native/: the little the
-# shell needs that QML cannot do, which is to have Qt read the icon themes
-# again when an install changes them (services/IconThemes.qml).
+# shell needs that QML cannot do: have Qt read icon themes again after an
+# install, and recover Quickshell's failed initial MPRIS registrations.
 #
 # The unit finds it through QML_IMPORT_PATH (hyprland.conf). Qt loads a plugin
 # built against its own version or an older one: with --if-stale this does

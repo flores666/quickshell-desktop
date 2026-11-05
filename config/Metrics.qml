@@ -172,6 +172,13 @@ QtObject {
     readonly property int calendarDay: 30
     readonly property int calendarToday: 26
 
+    /*! Date menu's media player. The artwork is decoded at twice its box. */
+    readonly property int mediaWidth: 352
+    readonly property int mediaArt: 64
+    readonly property int mediaFallback: 26
+    readonly property int mediaSeek: root.sliderKnob
+    readonly property int mediaButton: 30
+
     /*! Quick-settings tiles, rows and detail pages. */
     readonly property int qsTileWidth: 168
     readonly property int qsTileHeight: 58

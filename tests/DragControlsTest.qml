@@ -49,6 +49,10 @@ Item {
         check.equal("keyboard focus has a ring", slider.focusVisible, true);
         input.keyClick(Qt.Key_Right, Qt.NoModifier, -1);
         check.near("arrow uses the slider step", slider.value, slider.stepSize);
+        slider.interactive = false;
+        check.equal("unavailable slider releases keyboard focus", slider.activeFocus, false);
+        check.equal("unavailable slider leaves tab order", slider.activeFocusOnTab, false);
+        slider.interactive = true;
         const plane = picker.children[0], strip = picker.children[1];
         input.mousePress(plane, 100, 56, Qt.LeftButton, Qt.NoModifier, -1);
         check.equal("picker press uses Clickable", plane.pressed && picker.dragging, true);

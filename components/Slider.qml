@@ -8,9 +8,9 @@ import "root:/services"
     A continuous slider. Dragged with the pointer, or moved with the arrow keys
     when it has focus.
 
-    Emits moved() while dragging and committed() when the interaction ends, so
-    callers can throttle expensive work (like writing to a device) to the end of
-    a gesture if they need to.
+    Emits started() before a pointer gesture or key adjustment, moved() as its
+    value changes and committed() when it ends. Callers can capture a subject
+    before moving it and defer expensive writes until the gesture ends.
 
     No wheel handler, deliberately: a wheel belongs to whatever surface is
     scrolling, and a slider that took it would change a value under a pointer
@@ -25,6 +25,7 @@ Clickable {
     property color fillColor: Appearance.c.accent
     property bool interactive: true
 
+    signal started()
     signal moved(real value)
     signal committed(real value)
 
@@ -104,7 +105,10 @@ Clickable {
         }
     }
 
-    onPointerPressed: event => root.setFromX(event.x)
+    onPointerPressed: event => {
+        root.started();
+        root.setFromX(event.x);
+    }
     onPointerMoved: event => {
         if (root.pressed)
             root.setFromX(event.x);
@@ -126,6 +130,7 @@ Clickable {
 
         InputMode.keyboardUsed();
         v = Math.max(0, Math.min(1, v));
+        root.started();
         root.moved(v);
         root.committed(v);
         event.accepted = true;

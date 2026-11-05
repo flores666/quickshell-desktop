@@ -11,7 +11,7 @@ import Quickshell
     its own icon once the install has rebuilt the theme's cache.
 
     Qt reads each theme once per process, and only native code can have it read
-    them again: that is the native module's one job (native/, built by
+    them again: that is the native module's icon-theme hook (native/, built by
     tools/build-native-module.sh, found through the unit's QML_IMPORT_PATH).
     Without it the themes stay as they were when the shell started, and a new
     icon shows after a restart.

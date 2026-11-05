@@ -69,7 +69,10 @@ Item {
         onTriggered: root.hoverReady = true
     }
 
-    activeFocusOnTab: root.focusable && root.enabled
+    // Qt refuses to clear activeFocusOnTab on the active item. Relinquish
+    // focus first when a control stops accepting keyboard interaction.
+    activeFocusOnTab: root.activeFocus || (root.focusable && root.enabled)
+    onFocusableChanged: if (!root.focusable) root.focus = false
     opacity: root.enabled ? 1 : Appearance.m.disabledOpacity
 
     Behavior on opacity {
