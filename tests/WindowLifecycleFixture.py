@@ -36,8 +36,8 @@ def clients():
     return json.loads(run("hyprctl", "-j", "clients"))
 
 
-def target(app_id="", address="", screen="ANIM-1"):
-    row = '{x=1040,y=730,width=43,height=43'
+def target(app_id="", address="", screen="ANIM-1", pinned=True):
+    row = '{x=1040,y=730,width=43,height=43,pinned=' + str(pinned).lower()
     if app_id:
         row += ',appId=' + json.dumps(app_id)
     if address:
@@ -88,7 +88,8 @@ def capture(name, delay, window):
     row = data[cy * 1280 * 3:(cy + 1) * 1280 * 3]
     tinted = [x for x in range(1280) if row[3*x] - row[3*x+1] > 15 and row[3*x+2] - row[3*x+1] > 15]
     return dict(count=data.count(color), rows=rows, span=(tinted[-1] - tinted[0] + 1) if tinted else 0,
-                center=tuple(row[cx * 3:cx * 3 + 3]))
+                center=tuple(row[cx * 3:cx * 3 + 3]),
+                shadow=sum(g > r + 20 and g > b + 20 for r, g, b in zip(data[::3], data[1::3], data[2::3])))
 
 
 def tapered(frame):
@@ -106,6 +107,8 @@ try:
     ctl('hl.config({animations={enabled=true}}); hl.dispatch(hl.dsp.focus({workspace=1})); '
         'hl.config({["plugin.windows.minimize_duration"]=900,["plugin.windows.minimize_exposure"]=0,'
         '["plugin.windows.fade_duration"]=900,["plugin.windows.close_duration"]=900}); hl.plugin.windows.restyle()')
+    # A distinctive shadow separates it from both the client and wallpaper.
+    ctl('hl.config({decoration={shadow={color="rgba(00ff00cc)"}}})')
     events = socket.socket(socket.AF_UNIX)
     events.connect(str(Path(os.environ["XDG_RUNTIME_DIR"], "hypr", os.environ["HYPRLAND_INSTANCE_SIGNATURE"], ".socket2.sock")))
 
@@ -118,6 +121,7 @@ try:
     opening = capture("dock-open-middle", 0.30, window)
     report("launch from a preexisting icon has an intermediate image", 1000 < opening["count"] < 240000, opening["count"])
     report("launch reverses the dock Genie", tapered(opening), opening["rows"][::100])
+    report("launch carries the window shadow", opening["shadow"] > 200, opening["shadow"])
     full = capture("dock-open-done", 0.65, window)
     report("launch ends with one sharp full-size window", full["count"] > 245000, full["count"])
     current = next(c for c in clients() if c["address"] == window["address"])
@@ -128,6 +132,7 @@ try:
     report("close removes the real client immediately", not any(c["address"] == window["address"] for c in clients()))
     report("close retains its image after the client is gone", 1000 < closing["count"] < full["count"] * 0.98, closing["count"])
     report("close uses the dock Genie", tapered(closing), closing["rows"][::100])
+    report("close carries the window shadow", closing["shadow"] > 200, closing["shadow"])
     done = capture("dock-close-done", 0.65, window)
     report("close releases its detached image", done["count"] == 0, done["count"])
 
@@ -144,9 +149,12 @@ try:
     report("a fade hands later resizing back to the movement timing", resizing["span"] > (window["size"][0] + 800) / 2, resizing["span"])
     time.sleep(0.35)  # Finish this one resize before checking close geometry.
     window = next(c for c in clients() if c["address"] == window["address"])
+    # Running adds a temporary icon, which remains a minimize target. Only
+    # a persistent pin may turn this application's close into a Genie.
+    target(address=window["address"], pinned=False)
     action(window, "close")
     closing = capture("fade-close-middle", 0.30, window)
-    report("without a local icon close fades at full width", abs(closing["span"] - window["size"][0]) <= 2, closing["span"])
+    report("an unpinned application's close fades at full width", abs(closing["span"] - window["size"][0]) <= 2, closing["span"])
     done = capture("fade-close-done", 0.65, window)
     def opacity(frame):
         delta = [f - b for f, b in zip(full["center"], done["center"])]

@@ -16,6 +16,7 @@ results = []
 directory = Path(os.environ["TEST_BIN"])
 source = Path(__file__).resolve().parent
 address = ""
+shadows = {}
 
 
 def run(*args):
@@ -52,6 +53,7 @@ def capture(name, delay=0):
     path = directory / (name + ".png")
     subprocess.run(["grim", "-o", "ANIM-1", str(path)], check=True, timeout=3, stderr=subprocess.PIPE)
     data = subprocess.check_output(["magick", str(path), "-depth", "8", "rgb:-"], timeout=3)
+    shadows[name] = sum(g > r + 20 and g > b + 20 for r, g, b in zip(data[::3], data[1::3], data[2::3]))
     color = bytes((224, 20, 207))
     rows = []
     for y in range(800):
@@ -91,6 +93,7 @@ try:
     subprocess.run(["cc", str(source / "WindowPointer.c"), "-o", str(directory / "window-pointer"), *flags], check=True, stderr=subprocess.PIPE)
     ctl('hl.config({animations={enabled=true}}); hl.dispatch(hl.dsp.focus({workspace=1}))')
     ctl('if hl.get_config("plugin.windows.minimize_duration") then hl.config({["plugin.windows.minimize_duration"]=900}) end')
+    ctl('hl.config({decoration={shadow={color="rgba(00ff00cc)"}}})')
     event_socket = socket.socket(socket.AF_UNIX)
     event_socket.connect(str(Path(os.environ["XDG_RUNTIME_DIR"], "hypr", os.environ["HYPRLAND_INSTANCE_SIGNATURE"], ".socket2.sock")))
     argv = ["env", "KITTY_CACHE_DIRECTORY=" + str(directory / "kitty"), "kitty", "--config", "NONE",
@@ -122,6 +125,7 @@ try:
     middle, rows = capture("minimize-middle", 0.30)
     report("minimize retains a visible intermediate window image", 1000 < middle < before * 0.98, middle)
     report("minimize tapers toward the dock instead of uniformly scaling", tapered(rows), rows[::100])
+    report("minimize carries the window shadow", shadows["minimize-middle"] > 200, shadows["minimize-middle"])
     gone, _ = capture("minimize-done", 0.65)
     report("finished minimize leaves no window image", gone == 0, gone)
 
@@ -129,6 +133,7 @@ try:
     middle, rows = capture("restore-middle", 0.30)
     report("dock restore has a visible intermediate image", 1000 < middle < before * 0.98, middle)
     report("dock restore reverses the Genie taper", tapered(rows), rows[::100])
+    report("restore carries the window shadow", shadows["restore-middle"] > 200, shadows["restore-middle"])
     restored, _ = capture("restore-done", 0.65)
     current = client()
     report("restore returns to the saved floating box", current["at"] == original["at"] and current["size"] == original["size"])

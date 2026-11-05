@@ -2,6 +2,8 @@
 #include "DockTargets.hpp"
 #include "Genie.hpp"
 
+#include <hyprland/src/animation/AnimationManager.hpp>
+#include <hyprland/src/config/shared/animation/AnimationTree.hpp>
 #include <hyprland/src/config/shared/actions/ConfigActions.hpp>
 #include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
@@ -79,6 +81,19 @@ namespace {
         return result;
     }
 
+    void finishShadow(PHLWINDOW window) {
+        const auto CONFIG = Config::animationTree()->getAnimationPropertyConfig("fadeShadow");
+        // Like geometry and startup dimming, the shadow must be at its final
+        // appearance in the retained image. Its native map fade starts at zero.
+        // Warping disconnects variables, so iterate a copy of the active list.
+        const auto ACTIVE = Animation::mgr()->m_vActiveAnimatedVariables;
+        for (const auto& weak : ACTIVE) {
+            const auto VAR = weak.get();
+            if (!VAR || VAR->m_Type != AVARTYPE_FLOAT || VAR->getConfig().lock() != CONFIG) continue;
+            if (sc<CAnimatedVariable<float>*>(VAR)->m_Context.pWindow == window) VAR->warp();
+        }
+    }
+
     void launch(PHLWINDOW window, const CBox& target) {
         // Capture on the first render, after map has finished mapping the
         // surface tree too. Neutralize the initial fade for the snapshot;
@@ -92,6 +107,7 @@ namespace {
         // geometry, so the retained image does not stay dark until hand-back.
         if (window == Desktop::focusState()->window()) window->presentation().warpDimPercent(0.F);
         FADE->setValueAndWarp(1.F);
+        finishShadow(window);
         if (auto effect = CGenie::capture(window, target, 1.F)) {
             effect->toward(false);
             g_effects.insert_or_assign(window.get(), std::move(effect));
@@ -105,11 +121,12 @@ namespace {
 
     void closed(PHLWINDOW window) {
         g_opening.erase(window.get());
+        const auto TARGET = DockTargets::find(window, true);
         UP<CGenie> effect;
         if (const auto IT = g_effects.find(window.get()); IT != g_effects.end()) {
-            effect = std::move(IT->second);
+            if (TARGET) effect = std::move(IT->second);
             g_effects.erase(IT);
-        } else if (const auto TARGET = DockTargets::find(window)) {
+        } else if (TARGET) {
             effect = CGenie::capture(window, *TARGET, 0.F);
         }
         if (effect && Style::motionEnabled() && effect->valid()) {

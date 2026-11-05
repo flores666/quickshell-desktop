@@ -130,9 +130,9 @@ Singleton {
             Hyprland.dispatch(`hl.dsp.window.close({ window = ${root.luaString(`address:0x${toplevel.address}`)} })`);
     }
 
-    /*! Each dock owns one monitor's resting artwork, keyed by window address
-        and application identity (pins have no window yet). Publish whole
-        snapshots serially: late writes cannot resurrect removed targets. */
+    /*! Each dock owns one monitor's resting artwork and pin membership, keyed
+        by window address and application identity (pins have no window yet).
+        Publish whole snapshots serially: late writes cannot resurrect removed targets. */
     property var dockTargets: ({})
     property bool dockTargetsDirty: false
 
@@ -153,7 +153,7 @@ Singleton {
         const monitors = Object.entries(root.dockTargets).map(([screen, targets]) => {
             const rows = targets.map(t => {
                 const key = t.address ? `address=${root.luaString(t.address)}` : `appId=${root.luaString(t.appId)}`;
-                return `{${key},x=${t.x},y=${t.y},width=${t.width},height=${t.height}}`;
+                return `{${key},pinned=${Boolean(t.pinned)},x=${t.x},y=${t.y},width=${t.width},height=${t.height}}`;
             });
             return `[${root.luaString(screen)}]={${rows.join(",")}}`;
         });

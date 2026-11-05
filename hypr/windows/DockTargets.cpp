@@ -10,9 +10,13 @@
 #include <unordered_map>
 
 namespace {
+    struct STarget {
+        CBox box;
+        bool pinned;
+    };
     struct STargets {
-        std::unordered_map<uintptr_t, CBox> windows;
-        std::unordered_map<std::string, CBox> apps;
+        std::unordered_map<uintptr_t, STarget> windows;
+        std::unordered_map<std::string, STarget> apps;
     };
     std::unordered_map<std::string, STargets> g_targets;
 
@@ -63,8 +67,12 @@ namespace {
                     if (!NUMBER || !std::isfinite(*values[j])) return 0;
                 }
                 if (box.w <= 0 || box.h <= 0) return 0;
-                if (ADDRESS) entries.windows.emplace(key, box);
-                else entries.apps.emplace(app, box);
+                lua_getfield(L, -1, "pinned");
+                if (!lua_isnil(L, -1) && !lua_isboolean(L, -1)) return 0;
+                const bool PINNED = lua_toboolean(L, -1);
+                lua_pop(L, 1);
+                if (ADDRESS) entries.windows.emplace(key, STarget{box, PINNED});
+                else entries.apps.emplace(app, STarget{box, PINNED});
                 lua_pop(L, 1);
             }
             lua_pop(L, 1);
@@ -79,15 +87,16 @@ void DockTargets::init(HANDLE handle) {
         throw std::runtime_error("[windows] could not register dock_targets");
 }
 
-std::optional<CBox> DockTargets::find(PHLWINDOW window) {
+std::optional<CBox> DockTargets::find(PHLWINDOW window, bool pinnedOnly) {
     const auto MONITOR = window->m_monitor.lock();
     if (!MONITOR) return std::nullopt;
     const auto SCREEN = g_targets.find(MONITOR->m_name);
     if (SCREEN == g_targets.end()) return std::nullopt;
     const auto& ENTRIES = SCREEN->second;
-    if (const auto RECT = ENTRIES.windows.find(rc<uintptr_t>(window.get())); RECT != ENTRIES.windows.end()) return RECT->second;
-    const auto APP = ENTRIES.apps.find(identity(window->metadata().appID()));
-    return APP == ENTRIES.apps.end() ? std::nullopt : std::make_optional(APP->second);
+    const STarget* target = nullptr;
+    if (const auto RECT = ENTRIES.windows.find(rc<uintptr_t>(window.get())); RECT != ENTRIES.windows.end()) target = &RECT->second;
+    else if (const auto APP = ENTRIES.apps.find(identity(window->metadata().appID())); APP != ENTRIES.apps.end()) target = &APP->second;
+    return target && (!pinnedOnly || target->pinned) ? std::make_optional(target->box) : std::nullopt;
 }
 
 void DockTargets::forget(PHLWINDOW window) {

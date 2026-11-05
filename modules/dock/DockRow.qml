@@ -55,12 +55,12 @@ Row {
         return targets;
     }
     readonly property var windowTargets: root.iconTargets.reduce((out, t) => out.concat(t.item.windows
-        .filter(w => w?.address).map(w => Object.assign({ address: w.address }, t.rect))), [])
+        .filter(w => w?.address).map(w => Object.assign({ address: w.address, pinned: t.item.pinned }, t.rect))), [])
     /*! Publish identities before a pin has a window. These are the desktop
         entry's own identities, not a second application lookup in native code. */
     readonly property var appTargets: root.iconTargets.reduce((out, t) => out.concat(
         [...new Set([t.item.appId, t.item.entry?.id, t.item.entry?.startupClass].filter(id => id))]
-            .map(appId => Object.assign({ appId }, t.rect))), [])
+            .map(appId => Object.assign({ appId, pinned: t.item.pinned }, t.rect))), [])
     readonly property var animationTargets: root.windowTargets.concat(root.appTargets)
     readonly property var magnifications: {
         // Distances use the resting centres, so an icon's animated artwork
