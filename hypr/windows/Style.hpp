@@ -48,6 +48,10 @@ namespace Style {
     void        init(HANDLE handle);
     /*! The config reloaded: Hyprland dropped the curve with every other one. */
     void        reloaded();
+    /*! Apply window motion after the shell's style batch, alongside geometry. */
+    void        restyle();
+    SP<Config>  minimize();
+    bool        motionEnabled();
 
     /*! The system's bar, for an application whose colour cannot be told. */
     CHyprColor  system();

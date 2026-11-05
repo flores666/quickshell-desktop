@@ -38,6 +38,24 @@ Row {
         centers.push(width + Appearance.m.dockSlot / 2);
         return { centers, width: width + Appearance.m.dockSlot };
     }
+    /*! Resting artwork in monitor-local coordinates, also while the dock is
+        hidden. The native owner chooses the window's monitor. Hover and drag
+        transforms never feed back into the destination of a window's Genie. */
+    readonly property var windowTargets: {
+        const targets = [];
+        const size = Appearance.m.dockIcon;
+        const y = (root.screen?.height ?? 0) - Appearance.m.screenGap
+            - Appearance.m.dockBase - Appearance.m.dockInset - size;
+        root.drawn.forEach((entry, index) => {
+            if (entry.leaving) return;
+            const x = ((root.screen?.width ?? 0) - root.original.width) / 2
+                + root.original.centers[index] - size / 2;
+            for (const window of entry.item.windows)
+                if (window?.address)
+                    targets.push({ address: window.address, x, y, width: size, height: size });
+        });
+        return targets;
+    }
     readonly property var magnifications: {
         // Distances use the resting centres, so an icon's animated artwork
         // never feeds back into its own magnification target.

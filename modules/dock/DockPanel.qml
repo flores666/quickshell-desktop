@@ -43,8 +43,13 @@ PanelWindow {
         already be gone, and the entry built from it then could not be cleared.
     */
     property string pointerKey: ""
+    property string targetScreen: ""
 
-    Component.onCompleted: root.pointerKey = "dock:" + root.modelData.name
+    Component.onCompleted: {
+        root.targetScreen = root.modelData.name;
+        root.pointerKey = "dock:" + root.targetScreen;
+        Compositor.setDockTargets(root.targetScreen, layout.windowTargets);
+    }
 
     readonly property HyprlandMonitor monitor: Compositor.monitorFor(root.modelData)
     readonly property bool suppressed: Compositor.isFullscreenOn(root.monitor)
@@ -118,7 +123,10 @@ PanelWindow {
 
     onHeldChanged: if (!root.held && !root.pointerNear) hideTimer.restart()
 
-    Component.onDestruction: Overlay.setPointerOver(root.pointerKey, false)
+    Component.onDestruction: {
+        Overlay.setPointerOver(root.pointerKey, false);
+        Compositor.setDockTargets(root.targetScreen, null);
+    }
 
     Timer {
         id: hideTimer
@@ -266,6 +274,7 @@ PanelWindow {
             panel: surface
             pointerX: dockHover.point.scenePosition.x
             magnifying: dockHover.hovered && root.shown
+            onWindowTargetsChanged: Compositor.setDockTargets(root.targetScreen, layout.windowTargets)
             onActivated: (item, x) => root.activate(item, x)
             onChildHover: (key, label, x, entered) => root.onChildHover(key, label, x, entered)
         }

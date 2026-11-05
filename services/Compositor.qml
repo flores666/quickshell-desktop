@@ -130,6 +130,39 @@ Singleton {
             Hyprland.dispatch(`hl.dsp.window.close({ window = ${root.luaString(`address:0x${toplevel.address}`)} })`);
     }
 
+    /*! Each dock owns one monitor's resting artwork. Publish whole snapshots
+        serially: late writes cannot resurrect a removed window or screen. */
+    property var dockTargets: ({})
+    property bool dockTargetsDirty: false
+
+    function setDockTargets(screen: string, targets: var): void {
+        if (screen === "") return;
+        const next = Object.assign({}, root.dockTargets);
+        if (targets === null) delete next[screen];
+        else next[screen] = targets;
+        if (JSON.stringify(next) === JSON.stringify(root.dockTargets)) return;
+        root.dockTargets = next;
+        root.dockTargetsDirty = true;
+        Qt.callLater(root.pushDockTargets);
+    }
+
+    function pushDockTargets(): void {
+        if (dockPush.running || !root.dockTargetsDirty) return;
+        root.dockTargetsDirty = false;
+        const monitors = Object.entries(root.dockTargets).map(([screen, targets]) => {
+            const rows = targets.map(t => `{address=${root.luaString(t.address)},x=${t.x},y=${t.y},width=${t.width},height=${t.height}}`);
+            return `[${root.luaString(screen)}]={${rows.join(",")}}`;
+        });
+        dockPush.command = ["hyprctl", "eval", "if hl.plugin.windows and hl.plugin.windows.dock_targets then "
+            + `hl.plugin.windows.dock_targets({${monitors.join(",")}}) end`];
+        dockPush.running = true;
+    }
+
+    Process {
+        id: dockPush
+        onExited: root.pushDockTargets()
+    }
+
     /*! Silent: the window moves, the workspace you are looking at does not. */
     function moveWindowToWorkspace(toplevel: HyprlandToplevel, id: int): void {
         if (toplevel && toplevel.address !== "")
@@ -223,6 +256,10 @@ Singleton {
         // a foreign one has them all read; the shell's own, which open with
         // every popup and toast, are skipped.
         function onRawEvent(event: HyprlandEvent): void {
+            if (event.name === "configreloaded") {
+                root.dockTargetsDirty = true;
+                Qt.callLater(root.pushDockTargets);
+            }
             if ((event.name === "openlayer" || event.name === "closelayer") && !event.data.startsWith("shell-"))
                 root.readLayers();
         }

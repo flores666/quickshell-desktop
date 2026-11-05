@@ -2,6 +2,7 @@
 #include "Stacking.hpp"
 #include "Style.hpp"
 #include "TitleBar.hpp"
+#include "WindowMotion.hpp"
 
 #include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
@@ -72,7 +73,7 @@ static void paintOverFullscreen(const Event::SRenderStageEvent& event) {
     for (const auto& ref : g_state->decorated) {
         const auto W = ref.lock();
         const auto BAR = W ? CTitleBar::of(W) : nullptr;
-        if (BAR && BAR->overFullscreen(event.monitor))
+        if (BAR && !WindowMotion::suppressed(W) && BAR->overFullscreen(event.monitor))
             BAR->paint(event.context->get(), event.monitor, 1.F, W->presentation().renderPresentation());
     }
 }
@@ -96,6 +97,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     Style::init(PHANDLE);
     Pointer::init();
     Stacking::init(PHANDLE);
+    WindowMotion::init(PHANDLE);
     g_state->resample = makeShared<CEventLoopTimer>(std::nullopt, [](SP<CEventLoopTimer>, void*) { forEachBar([](CTitleBar* bar) { bar->retry(); }); }, nullptr);
     g_pEventLoopManager->addTimer(g_state->resample);
 
@@ -122,6 +124,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     // not re-place decorations. Drawing, hit testing and reserved space
     // must all take the new geometry in the same compositor step.
     if (!HyprlandAPI::addLuaFunction(PHANDLE, "windows", "restyle", [](lua_State*) {
+        Style::restyle();
         forEachBar([](CTitleBar* bar) { bar->reposition(); });
         return 0;
     }))
@@ -182,6 +185,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 }
 
 APICALL EXPORT void PLUGIN_EXIT() {
+    WindowMotion::exit();
     g_state->listeners.clear();
     Pointer::exit();
     g_pEventLoopManager->removeTimer(g_state->resample);

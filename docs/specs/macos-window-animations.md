@@ -112,3 +112,28 @@ tokens are absent. The real minimize button still moves the window to the
 hidden workspace, but the intermediate image has already disappeared; restore
 shows a full rectangle with no taper. Fixture input, capture, state, cleanup
 and reduced-motion guards pass. These missing behaviors are the red baseline.
+
+## Verification
+
+- Built the final plugin with `tools/build-windows-plugin.sh` into a scratch
+  data directory and loaded that binary in nested Hyprland 0.57.
+- `./tools/test.sh`: **55 suites, 55 successful, zero failed checks**. The
+  acceptance tests remain unchanged from commit `4684fec`.
+- `./tools/lint.sh`: exit 0, with only the documented Quickshell type warnings.
+- Seventeen additional native checks used virtual-pointer input and captured
+  frames: intermediate maximize and tile geometry; restored floating boxes;
+  the revealed tiled layout button; convergence on actual dock artwork;
+  centered close shrink and fade with no final window image; missing-anchor
+  fallback; fullscreen Genie and mode preservation; monitor removal during
+  Genie; unload during Genie; ordinary restore without the plugin; reload.
+- Installed the tested binary and restarted `quickshell.service`. Motion
+  options read back as the design tokens, the runtime log has no new warnings
+  or errors, Hyprland reports no config errors, and existing client geometry
+  and modes are unchanged.
+
+The rendered fixture requires two private headless outputs, `ANIM-1` and
+`ANIM-2`, at 1280×800, with workspace 1 on `ANIM-1`. Create those outputs
+before disabling the nested parent output. Keep the parent's disabled rule
+in the scratch Lua config too: `HyprlandLuaTest` reloads it, and a runtime-only
+disable would let the hidden parent reclaim workspace 1. The compositor and
+the test shells must each have private state/cache directories.

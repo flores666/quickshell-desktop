@@ -2,6 +2,7 @@
 
 #include <hyprland/src/animation/AnimationManager.hpp>
 #include <hyprland/src/config/shared/animation/AnimationTree.hpp>
+#include <hyprland/src/config/ConfigValue.hpp>
 #include <hyprland/src/config/values/types/ColorValue.hpp>
 #include <hyprland/src/config/values/types/IntValue.hpp>
 #include <hyprland/src/config/values/types/FloatValue.hpp>
@@ -25,10 +26,11 @@ namespace {
     // On a light bar, on a dark one.
     std::array<SInkValues, 2> g_inks;
     SP<CIntValue>             g_hover, g_fade, g_rollOut, g_rollIn, g_dwell, g_linger;
+    SP<CIntValue>             g_minimize, g_move, g_close;
     SP<CIntValue>             g_height, g_button, g_gap, g_inset, g_edge, g_fontPoints, g_fontWeight;
-    SP<CFloatValue>           g_widthCap, g_heightCap;
+    SP<CFloatValue>           g_widthCap, g_heightCap, g_closeScale;
     SP<CStringValue>          g_fontFamily;
-    SP<Style::Config>         g_hoverConfig, g_fadeConfig, g_rollOutConfig, g_rollInConfig;
+    SP<Style::Config>         g_hoverConfig, g_fadeConfig, g_rollOutConfig, g_rollInConfig, g_minimizeConfig;
 
     // A curve the shell pushes, registered with Hyprland's animation manager
     // by name.
@@ -38,7 +40,7 @@ namespace {
         std::string      added = {};
     };
     // Fades and colour; a title bar rolling out.
-    SCurve                    g_standard{"windowsStandard"}, g_emphasized{"windowsEmphasized"};
+    SCurve                    g_standard{"windowsStandard"}, g_emphasized{"windowsEmphasized"}, g_motion{"windowsMotion"};
 
     CHyprColor                color(const SP<CColorValue>& value) {
         return CHyprColor{sc<uint64_t>(value->value())};
@@ -66,14 +68,14 @@ namespace {
 
     // On or off with Hyprland's own fades, and with all its animations — the
     // shell's Animations setting, which the animation manager warps through.
-    SP<Style::Config> config(SP<Style::Config>& config, const SP<CIntValue>& ms, SCurve& curve) {
+    SP<Style::Config> config(SP<Style::Config>& config, const SP<CIntValue>& ms, SCurve& curve, const char* leaf = "fade") {
         addCurve(curve);
         if (!config) {
             config             = makeShared<Style::Config>();
             config->overridden = true;
             config->pValues    = config;
         }
-        const auto FADE           = ::Config::animationTree()->getAnimationPropertyConfig("fade");
+        const auto FADE           = ::Config::animationTree()->getAnimationPropertyConfig(leaf);
         const auto VALUES         = FADE ? FADE->pValues.lock() : nullptr;
         config->internalBezier    = curve.name;
         config->internalEnabled   = VALUES ? VALUES->internalEnabled : 1;
@@ -113,6 +115,11 @@ void Style::init(HANDLE handle) {
     g_fontFamily = ADD(makeShared<CStringValue>("plugin:windows:font_family", "Title fontconfig family", "sans-serif"));
     g_widthCap = CAP("plugin:windows:width_cap", "Initial floating width as a share of the work area", 0.7F);
     g_heightCap = CAP("plugin:windows:height_cap", "Initial floating height as a share of the work area", 0.8F);
+    g_minimize = MS("plugin:windows:minimize_duration", "Genie minimize/restore duration in ms", 560);
+    g_move = MS("plugin:windows:move_duration", "Window geometry transition duration in ms", 479);
+    g_close = MS("plugin:windows:close_duration", "Window close duration in ms", 180);
+    g_closeScale = CAP("plugin:windows:close_scale", "Window scale at the end of close", 0.96F);
+    g_motion.value = ADD(makeShared<CStringValue>("plugin:windows:move_curve", "Window geometry curve: x1 y1 x2 y2", "0.25 0.1 0.25 1"));
 
     g_bar = COLOR("plugin:windows:bar_color", "The system's title bar, where the application's colour cannot be told", 0xFFFFFFFF);
     // Literals: an option keeps a pointer to its name. Text, glyph, then the
@@ -141,10 +148,33 @@ void Style::init(HANDLE handle) {
 }
 
 void Style::reloaded() {
-    for (auto* curve : {&g_standard, &g_emphasized}) {
+    for (auto* curve : {&g_standard, &g_emphasized, &g_motion}) {
         curve->added.clear();
         addCurve(*curve);
     }
+    restyle();
+}
+
+void Style::restyle() {
+    addCurve(g_motion);
+    addCurve(g_standard);
+    const auto SET = [](const char* name, const SP<CIntValue>& ms, const char* curve, const std::string& style = "") {
+        const auto VALUES = ::Config::animationTree()->getAnimationPropertyConfig(name)->pValues.lock();
+        ::Config::animationTree()->setConfigForNode(name, (!VALUES || VALUES->internalEnabled) && ms->value() > 0,
+            std::max(0.1F, ms->value() / 100.F), curve, style);
+    };
+    SET("windowsMove", g_move, g_motion.name);
+    SET("windowsOut", g_close, g_standard.name, std::format("popin {}%", std::lround(g_closeScale->value() * 100)));
+    SET("fadeOut", g_close, g_standard.name);
+}
+
+SP<Style::Config> Style::minimize() {
+    return config(g_minimizeConfig, g_minimize, g_standard, "windowsMove");
+}
+
+bool Style::motionEnabled() {
+    static auto ENABLED = CConfigValue<::Config::INTEGER>("animations:enabled");
+    return *ENABLED && g_minimize->value() > 0 && minimize()->internalEnabled;
 }
 
 CHyprColor Style::system() {

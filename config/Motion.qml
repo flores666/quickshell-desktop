@@ -22,6 +22,12 @@ QtObject {
     readonly property int base: 260
     /*! A whole popup changing size — a bigger move than any control makes. */
     readonly property int resize: 320
+    /*! Native windows: preserve the compositor's move/overview pace, but
+        ease window geometry at both ends. Genie needs time to form its neck. */
+    readonly property int windowMove: 479
+    readonly property int windowMinimize: 560
+    readonly property int windowClose: 180
+    readonly property var windowCurve: [0.25, 0.1, 0.25, 1]
     /*! The step between notification exits, oldest first, when cleared together. */
     readonly property int notificationStagger: 60
     readonly property int spinner: 900
