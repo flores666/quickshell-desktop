@@ -21,9 +21,74 @@ Scope {
     readonly property real length: root.track.length
     readonly property bool canSeek: root.player !== null && root.player.canSeek
         && root.player.positionSupported && root.length > 0 && !root.changing
+    property var pendingSeek: null
+    property bool writingPosition: false
+    property bool readingPosition: false
     readonly property real position: {
-        const seconds = root.player && root.player.positionSupported ? root.player.position : 0;
+        // Keep the native dependency even while a requested position is held:
+        // the visible clock still advances by notifying that property locally.
+        const reported = root.player && root.player.positionSupported ? root.player.position : 0;
+        const seconds = root.pendingSeek ? root.intendedPosition(root.pendingSeek, Date.now()) : reported;
         return Number.isFinite(seconds) ? Math.max(0, Math.min(root.length || Infinity, seconds)) : 0;
+    }
+    onPendingKeyChanged: if (root.pendingSeek && root.pendingKey !== root.pendingSeek.key) root.cancelSeek()
+
+    function intendedPosition(seek: var, now: real): real {
+        return seek.position + (seek.playing ? (now - seek.at) / 1000 * seek.rate : 0);
+    }
+
+    function requestSeek(seconds: real): void {
+        // Players validated the live subject, raw track identity and capability
+        // in this event. Hold its latest intent across older Seeked replies.
+        const now = Date.now();
+        const requests = root.pendingSeek
+            ? root.pendingSeek.requests.filter(request => now - request.at < seekBound.interval) : [];
+        root.pendingSeek = { position: seconds, at: now, key: root.track.key,
+            playing: root.player.playbackState === MprisPlaybackState.Playing, rate: root.player.rate,
+            requests: requests.concat([{ target: seconds, at: now }]) };
+        root.writingPosition = true;
+        root.player.position = seconds;
+        root.writingPosition = false;
+        seekBound.restart();
+    }
+
+    function refreshPosition(): void {
+        root.readingPosition = true;
+        root.player.positionChanged();
+        root.readingPosition = false;
+    }
+
+    function cancelSeek(): void {
+        seekBound.stop();
+        root.pendingSeek = null;
+    }
+
+    function rebaseSeek(): void {
+        if (!root.pendingSeek) return;
+        const now = Date.now();
+        root.pendingSeek = Object.assign({}, root.pendingSeek, {
+            position: root.intendedPosition(root.pendingSeek, now), at: now,
+            playing: root.player.playbackState === MprisPlaybackState.Playing, rate: root.player.rate
+        });
+    }
+
+    function acceptPosition(): void {
+        const seek = root.pendingSeek;
+        if (!seek || root.writingPosition || root.readingPosition) return;
+        const position = root.player.position;
+        const index = seek.requests.findIndex(request => Math.abs(position - request.target) < 0.001);
+        if (index < 0) return;
+        // A target can be requested again: the first A reply in A/B/A cannot
+        // acknowledge the last A. Coalesced replies remain bounded by timeout.
+        if (index === seek.requests.length - 1) root.cancelSeek();
+        else root.pendingSeek = Object.assign({}, seek, { requests: seek.requests.slice(index + 1) });
+    }
+
+    Timer {
+        id: seekBound
+        // A bound on an unconfirmed backend write, not presentation timing.
+        interval: 1000
+        onTriggered: root.cancelSeek()
     }
 
     function describe(): var {
@@ -68,6 +133,13 @@ Scope {
     Connections {
         target: root.player
         function onMetadataChanged(): void { root.collect(); }
+        function onPositionChanged(): void {
+            root.acceptPosition();
+        }
+        function onCanSeekChanged(): void { if (!root.player?.canSeek) root.cancelSeek(); }
+        function onPositionSupportedChanged(): void { if (!root.player?.positionSupported) root.cancelSeek(); }
+        function onPlaybackStateChanged(): void { root.rebaseSeek(); }
+        function onRateChanged(): void { root.rebaseSeek(); }
     }
     Component.onCompleted: if (root.player) root.collect()
 }

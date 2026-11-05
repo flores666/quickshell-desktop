@@ -1,10 +1,12 @@
 """Event-driven MPRIS players, confined to the test runner's private bus."""
 import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import struct
 import sys
 import time
+import threading
 import zlib
 
 from gi.repository import Gio, GLib
@@ -73,6 +75,7 @@ class Player:
         self.reads = 0
         self.get_all = 0
         self.missing = 0
+        self.seek_ack = True
         self.registrations = []
         self.bus.add_filter(self.filter, None)
         for key in ["CanControl", "CanPlay", "CanPause", "CanSeek", "CanGoNext", "CanGoPrevious"]:
@@ -114,7 +117,8 @@ class Player:
     def call(self, connection, sender, path, interface, method, args, invocation):
         values = args.unpack()
         actions.append([self.name, method, *values])
-        if method in ("SetPosition", "Seek"):
+        print(json.dumps({"called": actions[-1]}), flush=True)
+        if method in ("SetPosition", "Seek") and self.seek_ack:
             position = values[-1] + (self.values["Position"].unpack() if method == "Seek" else 0)
             self.values["Position"] = GLib.Variant("x", position)
             self.position_at = time.monotonic()
@@ -155,6 +159,49 @@ def cover(name, rgb):
 
 
 loop = GLib.MainLoop()
+pending_art = {}
+art_serial = 0
+
+
+class Artwork(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        ready = threading.Event()
+
+        def register():
+            global art_serial
+            art_serial += 1
+            self.art_id = art_serial
+            pending_art[self.art_id] = ready
+            print(json.dumps({"artRequested": self.art_id}), flush=True)
+
+        GLib.idle_add(register)
+        ready.wait()
+        data = Path(os.environ["TEST_BIN"], "other.png").read_bytes()
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except OSError:
+            pass  # The image may already have cancelled the request.
+        GLib.idle_add(lambda: print(json.dumps({"artFinished": self.art_id}), flush=True))
+
+
+artwork = ThreadingHTTPServer(("127.0.0.1", 0), Artwork)
+
+
+def serve_artwork():
+    # timeout=None blocks on a connection; serve_forever's periodic wakeup
+    # is deliberately not used.
+    while True:
+        artwork.handle_request()
+
+
+threading.Thread(target=serve_artwork, daemon=True).start()
 
 
 def command(channel, condition):
@@ -180,6 +227,12 @@ def command(channel, condition):
         players[name].bus.emit_signal(None, PATH, PLAYER, "Seeked", GLib.Variant("(x)", (position,)))
     elif action == "unlink":
         Path(os.environ["TEST_BIN"], request["file"]).unlink()
+    elif action == "cover":
+        cover(request["file"], (64, 128, 192))
+    elif action == "release-art":
+        pending_art.pop(request["id"]).set()
+    elif action == "seek-ack":
+        players[name].seek_ack = request["enabled"]
     elif action != "actions":
         raise ValueError(action)
     print(json.dumps({"serial": request["serial"], "actions": actions,
@@ -190,5 +243,6 @@ def command(channel, condition):
 
 GLib.io_add_watch(sys.stdin, GLib.PRIORITY_DEFAULT, GLib.IO_IN | GLib.IO_HUP, command)
 print(json.dumps({"ready": True, "cover": cover("cover.png", (64, 128, 192)),
-                  "otherCover": cover("other.png", (192, 128, 64))}), flush=True)
+                  "otherCover": cover("other.png", (192, 128, 64)),
+                  "deferredCover": f"http://127.0.0.1:{artwork.server_port}/cover.png"}), flush=True)
 loop.run()

@@ -1,8 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
-import Quickshell.Widgets
 import "root:/config"
 import "root:/components"
 import "root:/services"
@@ -35,10 +33,7 @@ Surface {
         root.scrubbing = false;
         root.scrubSubject = null;
     }
-    onTrackingChanged: {
-        if (root.tracking) Players.refreshPosition();
-        else root.cancelScrub();
-    }
+    onTrackingChanged: if (!root.tracking) root.cancelScrub()
     Connections {
         target: Players
         function onCurrentChanged(): void { root.cancelScrub(); }
@@ -53,16 +48,6 @@ Surface {
     elevation: 0
     bordered: false
 
-    // Time passing has no event, so while a track plays in view a clock on
-    // the second has the bindings read the position again. Reading it asks
-    // the player nothing — Quickshell works it out from the last position it
-    // reported — so this is a clock, as Time's minute is, not a poll.
-    SystemClock {
-        enabled: root.visible && root.tracking && root.hasLength && Players.playing
-        precision: SystemClock.Seconds
-        onDateChanged: Players.refreshPosition()
-    }
-
     Row {
         id: layout
 
@@ -72,31 +57,13 @@ Surface {
         anchors.margins: Appearance.s.lg
         spacing: Appearance.s.lg
 
-        ClippingRectangle {
+        MediaArtwork {
             width: Appearance.m.mediaArt
             height: Appearance.m.mediaArt
-            radius: Appearance.r.sm
-            color: Appearance.c.sunken
-
-            Icon {
-                anchors.centerIn: parent
-                visible: art.status !== Image.Ready
-                name: "music"
-                size: Appearance.m.mediaFallback
-                color: Appearance.c.textFaint
-            }
-
-            Image {
-                id: art
-                anchors.fill: parent
-                source: Players.artUrl
-                fillMode: Image.PreserveAspectCrop
-                sourceSize.width: Appearance.m.mediaArt * 2
-                sourceSize.height: Appearance.m.mediaArt * 2
-                asynchronous: true
-                cache: true
-                retainWhileLoading: true
-            }
+            source: Players.artUrl
+            subject: Players.selected
+            trackKey: Players.trackKey
+            animate: root.tracking && root.visible
         }
 
         Column {
@@ -122,13 +89,14 @@ Surface {
                 height: Appearance.m.mediaSeek
                 visible: root.hasLength
 
-                Slider {
+                MediaTimeline {
                     id: seek
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width
                     implicitHeight: Appearance.m.mediaSeek
                     value: root.shownValue
                     interactive: Players.canSeek
+                    tracking: root.tracking
                     onStarted: {
                         root.scrubCancelled = false;
                         root.scrubSubject = Players.selected;
@@ -183,7 +151,7 @@ Surface {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.hasLength
-                    text: Players.formatTime(root.shownValue * Players.length)
+                    text: Players.formatTime((seek.holding ? seek.displayed : root.shownValue) * Players.length)
                         + " / " + Players.formatTime(Players.length)
                     role: Label.Role.Caption
                     faint: true

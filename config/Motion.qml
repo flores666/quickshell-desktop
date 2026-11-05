@@ -22,6 +22,11 @@ QtObject {
     readonly property int base: 260
     /*! A whole popup changing size — a bigger move than any control makes. */
     readonly property int resize: 320
+    /*! Player transitions, 1.5 times faster than the previous 360 ms. */
+    readonly property int mediaChange: 240
+    readonly property int mediaEasing: Easing.InOutSine
+    /*! Short acceleration/deceleration ramps while a seek follows new targets. */
+    readonly property int mediaEasingTime: Math.round(root.mediaChange / 5)
     /*! Native windows: preserve the compositor's move/overview pace, but
         ease window geometry at both ends. Genie needs time to form its neck. */
     readonly property int windowMove: 479

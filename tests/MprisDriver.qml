@@ -12,8 +12,12 @@ Item {
     property bool ready: false
     property string cover: ""
     property string otherCover: ""
+    property string deferredCover: ""
+    property int artRequests: 0
+    property int artFinished: 0
     property int serial: 0
     property int missing: 0
+    property var calls: []
     property var pending: null
     property var delayed: null
 
@@ -28,9 +32,16 @@ Item {
                 if (response.ready) {
                     root.cover = response.cover;
                     root.otherCover = response.otherCover;
+                    root.deferredCover = response.deferredCover;
                     root.ready = true;
+                } else if (response.artRequested) {
+                    root.artRequests = response.artRequested;
+                } else if (response.artFinished) {
+                    root.artFinished = response.artFinished;
                 } else if (response.missing) {
                     root.missing = response.missing;
+                } else if (response.called) {
+                    root.calls = root.calls.concat([response.called]);
                 } else {
                     const then = root.pending;
                     root.pending = null;

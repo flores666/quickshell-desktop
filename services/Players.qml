@@ -100,13 +100,13 @@ Singleton {
         if (player && subject && subject === root.selected && Number.isFinite(fraction)
             && player.canSeek && player.positionSupported && subject.track.length > 0
             && key === subject.track.key && subject.describe().key === key)
-            player.position = Math.max(0, Math.min(1, fraction)) * subject.track.length;
+            subject.requestSeek(Math.max(0, Math.min(1, fraction)) * subject.track.length);
     }
 
     function refreshPosition(): void {
         // Quickshell extrapolates locally. This reads no D-Bus property.
         if (root.hasPlayer && root.current.positionSupported)
-            root.current.positionChanged();
+            root.selected.refreshPosition();
     }
 
     function formatTime(seconds: real): string {

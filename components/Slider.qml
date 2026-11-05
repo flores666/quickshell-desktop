@@ -46,6 +46,8 @@ Clickable {
     readonly property real leading: root.icon !== "" ? Appearance.m.iconLg + Appearance.s.lg : 0
     readonly property real spanX: root.width - root.leading - root.knobSize
     readonly property real clamped: Math.max(0, Math.min(1, root.value))
+    // Presentation can transition independently of the value a gesture uses.
+    property real displayed: root.clamped
 
     function setFromX(px: real): void {
         if (root.spanX <= 0)
@@ -73,7 +75,7 @@ Clickable {
         color: Appearance.c.sunken
 
         Rectangle {
-            width: Math.max(parent.height, root.knobSize / 2 + root.clamped * root.spanX)
+            width: Math.max(parent.height, root.knobSize / 2 + root.displayed * root.spanX)
             height: parent.height
             radius: height / 2
             // Disabled reads as off, not as a faded accent: the same grey a
@@ -84,7 +86,7 @@ Clickable {
 
     Rectangle {
         id: knob
-        x: root.leading + root.clamped * root.spanX
+        x: root.leading + root.displayed * root.spanX
         width: root.knobSize
         height: root.knobSize
         anchors.verticalCenter: parent.verticalCenter

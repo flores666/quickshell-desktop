@@ -21,7 +21,7 @@ Item {
     property int timelineDrops: 0
     property bool watching: false
     readonly property var seek: driver.find(card, item => item instanceof Slider)[0]
-    readonly property var art: driver.find(card, item => item instanceof Image)[0]
+    readonly property var art: driver.find(card, item => item instanceof MediaArtwork)[0]?.current
     readonly property var observed: [Players.title, Players.canSeek, Players.position, card.hasLength,
         root.art?.status, Players.selected?.changing]
 
@@ -135,6 +135,7 @@ Item {
                 const before = Players.position;
                 driver.send({ action: "actions" }, initial => {
                     root.until("visible timeline advances", () => Players.position > before + 0.05, () => {
+                        check.equal("playback clock does not animate the timeline", root.seek.animating, false);
                         driver.send({ action: "actions" }, response => {
                             check.equal("clock does not query MPRIS", response.reads, initial.reads);
                             root.reopen();

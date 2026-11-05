@@ -59,7 +59,7 @@ how it looks is still checked on screen. Run them inside a nested Hyprland
 *Testing*): a test that needs a window opens one.
 
 In the session the shell is the user unit `quickshell.service` (see
-`hyprland.conf`: capped at 1.5 GB with no swap, restarted on failure). To check
+`hyprland.lua`: capped at 1.5 GB with no swap, restarted on failure). To check
 the runtime log, `systemctl --user restart quickshell`, then read
 `journalctl --user -u quickshell -o cat` and grep out the `INFO` lines plus the
 environmental warnings (`sni.watcher`, from tray applications; `bluez` on a
@@ -84,6 +84,12 @@ compositor do the right thing". Use the real session:
 
 1. **Nothing outside `config/` hardcodes a colour, size, duration or font.** If
    you need a value that does not exist, add it to the right token file.
+   This includes effective native/plugin styling: pass the tokens through
+   `CompositorTheme`, not a second set of C++ design constants. A fixed token
+   does not need a setting; algorithm, artwork and protocol constants are not
+   design tokens. Service-owned behavioural timing ranges stay with the service.
+   Native defaults may remain as fallbacks before the shell synchronizes the
+   options; the effective design values must come through the existing bridge.
 2. **No full-screen surfaces that take input.** Ever. See *Popups* below.
 3. **Events only: nothing in the project polls.** Not the shell, the
    plugins, the scripts, the tools or the tests. Nothing asks on a schedule
@@ -116,7 +122,9 @@ compositor do the right thing". Use the real session:
    single wait for what sends no event
    when it is done (a window's animation settling) is a delay, not a poll.
 4. **Every widget's interaction states come from `Clickable`.** Do not
-   re-implement hover/press/selected/disabled/focus.
+   re-implement hover/press/selected/disabled/focus. Drag controls use its
+   `pointerPressed`, `pointerMoved` and `pointerReleased`; value mapping stays
+   in the control. Use `focusRingTarget` for a moving knob, not another ring.
 5. **Degrade, never fake.** If hardware or a service is absent, the control is
    absent. No placeholder rows, no mock data. The one exception is quick
    settings' front page (`panels/qs/FrontPage`), whose tiles and sliders keep
@@ -137,6 +145,10 @@ compositor do the right thing". Use the real session:
    depend on goes into the project in the same change that brings it in,
    with what `install.sh` needs to put it in place. Nothing is set up on this
    machine by hand alone. See *The rest of the desktop*.
+9. **One owner per invariant.** Trace the existing caller path before adding
+   another implementation. Extend the responsible widget, service or native
+   helper; do not make a parallel state machine, option writer or command
+   policy. Use the reuse map below before introducing an abstraction.
 
 ## Architecture
 
@@ -180,7 +192,7 @@ native/              the shell's native QML module, Desktop.Native, in C++:
                      IconThemeWatch, which IconThemes loads. Built by
                      tools/build-native-module.sh into
                      ~/.local/share/quickshell-desktop/qml, the unit's
-                     QML_IMPORT_PATH (hyprland.conf)
+                     QML_IMPORT_PATH (hyprland.lua)
 tests/               *Test.qml, run by tools/test.sh, and Check, what they
                      report through; FileWait, Settle and Until, a wait on a
                      file, on a service's step and on a service's state;
@@ -189,14 +201,14 @@ tests/               *Test.qml, run by tools/test.sh, and Check, what they
                      gsettings, pkill and notify-send they run with
 docs/specs/          what a change set out to do, item by item, with the
                      checks its tests encode
-hyprland.conf        the shell's Hyprland integration, sourced from
-                     hypr/conf.d/90-quickshell.conf: the plugins, the shell's
-                     global binds, the bindn dismissal binds
+hyprland.lua         the shell's Hyprland integration, required by
+                     hypr/conf.d/90-quickshell.lua: the plugins, the shell's
+                     global binds and non-consuming dismissal binds
 
 install.sh           sets a computer up as this desktop. Safe to re-run
 packages.txt         every package from the official repositories
 packages-aur.txt     every package from the AUR
-hypr/                the Hyprland config (hyprland.conf sources conf.d/*.conf
+hypr/                the Hyprland config (hyprland.lua requires conf.d/*.lua
                      in name order) and hyprpaper.conf; windows/ is the
                      window plugin's source (see *The window plugin*)
 terminal/            kitty.conf (the whole kitty config, in the Soft Surface
@@ -224,6 +236,80 @@ UI code never talks to D-Bus, PipeWire or Hyprland directly. If you find
 yourself reaching for a system API inside `modules/`, the derivation belongs in
 a service.
 
+## Choosing owners and reusing code
+
+Before editing, trace **user action / IPC → surface → component → service →
+native or external owner**, as far as the behaviour reaches. Identify the
+source of truth, stable identity, lifetime, failure path and observable result.
+Read the caller and the callee; a locally simpler function can break its
+caller's lifecycle. Choose the smallest proof of the behaviour; add regression
+coverage for state/lifecycle bugs rather than tests that mirror a token move.
+
+Choose in order: reuse what already works; extend its owner; use a fitting Qt,
+Quickshell or platform facility; then add a small implementation at the owner.
+If the structure prevents clear ownership, refactor that structure coherently.
+Do not trade duplicated rules for fewer changed lines, or add a generic
+service/interface with one consumer and no current need. Split a large file
+by responsibility into the existing owner first; moving code is not deleting it.
+
+| Need | Reuse / owner | Keep the invariant |
+|---|---|---|
+| Button, row, tile, drag interaction | `Clickable`; compose existing `Slider`, `ColorPicker`, `IconButton`, `MenuRow`, `FieldWell` | One implementation of state, focus and disabled presentation; no wheel value changes. `FieldWell` shows how to compose a button-free hover target. |
+| Scrolling or a strip of choices | `ThinScrollBar`, `Filmstrip` | Drawing and dragging share one progress/travel mapping, including the actual minimum thumb, zero travel and Flickable origin. |
+| Popup lifecycle and motion | `Overlay`, `ShellOverlay`, `OverlayCard`, `Door` | Route opening/closing through the arbiter; preserve hand-off, fade retention and the shared masked surface. |
+| Collections whose records are replaced | `ScriptModel` for stable object identities; `Chart`'s count/index model for stable positional series | Do not feed changing array literals to a Repeater when its delegates must survive. Index identity is not suitable for notifications or reorderable windows. |
+| Usage presentation | `Chart`, `StatCard`; tasks' `EntityPane`, `ChartCard`, `RankedList` | Reuse mapped points for fill/outline. Gate hidden presentation bindings/delegates while preserving `Processes`/`Usage` history and watcher lifetimes. |
+| System state, availability or desired hardware state | The existing source singleton in `services/` | Services own intent, backend transitions and actions; surfaces consume their flags and methods. An open page must not lose its request because hardware was off. |
+| Reading or watching an external source | `Probe`, `Process`, `FileView.watchChanges`, existing event streams | `Probe` coalesces another read while busy; it does not validate stale replies for its caller. Do not introduce a polling loop or repeating Timer. |
+| Application lookup, search and launch | `Apps.byId/byAppId/search/launch/launchAction`, `Compositor.exec` | Keep ranking/frequency and compositor launch tracking in their owners; no per-surface desktop-entry index or launch path. |
+| A design value | `config/Metrics`, `Motion`, `Typography`, `Radii`; `Tuning` for existing user overrides | Reuse a token when its meaning matches, not just its number; `r.panel` is the popup/toast corner. Keep fixed values as tokens without inventing new preferences. |
+| Styling drawn by Hyprland/plugins | `CompositorTheme` → `CompositorOptions.derived` → native `Style` / overview options | No second option pipeline or service importing UI/config to recover tokens. Read back new options; preserve absent-plugin guards and the batched `restyle` geometry refresh. |
+| Terminal dispatch in the help command | `bin/nvim-help`'s `launch_terminal` | Keep supported argv forms in one local helper. Do not copy its case into another help flow or create a service for this script. |
+| A test's assertions, waits or backend stand-ins | `Check`, `Until`, `FileWait`, `Settle`, `WindowDriver`, `ServiceFixtures.py`, `HyprlandIntegration.lua` | Wait on events and replace only the external boundary. Keep the production logic under test and all writes/commands inside the runner's isolation. |
+
+### State, lifetime and work rules
+
+- **A snapshot is not a live model.** Keep a stable subject key, resolve the
+  current record for actions, and hold only the presentation needed to finish
+  a fade. `DockMenu.currentItem` / `heldItem` is the pattern. Do not close or
+  move windows from an array captured when a menu opened.
+- **Intent and availability are separate.** A service retains the page's
+  request and synchronizes it on backend/enable events; the page releases it
+  when its lifetime ends (`Bt.setDiscovering`). In a source's change handler,
+  guard the actual source object: derived flags may still describe the old
+  object (`Bt.syncDiscovery` handles adapter removal this way).
+- **Reject answers for obsolete request identities.** When an endpoint or
+  subject can change while an operation runs, capture it and a generation;
+  accept the reply only if both are current (`V2rayn`'s mode reader).
+  Invalidate queued work and clear stale availability when the source goes
+  away. Cancellation alone does not prove that a late callback cannot arrive;
+  off/on can reuse the same endpoint.
+- **Validate at real boundaries, then reuse the decision within that event.**
+  `Placement.floatingChanged` checks eligibility once and uses private
+  `recordManaged`; standalone `remember`/`rememberAll` still check. Do not
+  repeat a full rule scan in every helper or trust an old check across an
+  asynchronous boundary where its inputs may have changed.
+- **Reserve outputs atomically and clean up every exit.** Use platform
+  `mktemp`, not a timestamp or existence check, for concurrent captures. Install
+  cleanup before fallible setup, release the freeze even when reservation
+  fails, remove only this operation's unfinished file, announce only success.
+- **Hoist work to the lifetime that owns it.** A query's matcher is built
+  once in `Apps.search`, not per entry. A chart retains its series delegates
+  and shares its mapped points. Hidden means no presentation work is needed;
+  it does not mean QML stopped evaluating its bindings. Preserve the explicit
+  sampling/clock exceptions in hard rule 3.
+- **Prove an API is unused before deleting it.** Search production, tests,
+  native code and explicit IPC dispatch, including indirect consumers; update
+  its documentation. `ShellIpc.run` has an explicit whitelist, not generic
+  singleton method lookup. `install.sh` publishes every `bin/` command;
+  absence of an in-repository caller does not make a command private or dead.
+- **Measure the claim, not the line count.** Separate delegate/allocation/rule
+  counts from elapsed time, and a search microbenchmark from desktop CPU/GPU,
+  frame pacing or battery use. Compare identical inputs/results, warm up and
+  alternate timing order, and record the scope. Shared state machinery and
+  native option lookups also have costs; token extraction and dead-method
+  removal alone prove no speedup. Do not change VFR on accounting noise.
+
 ## The rest of the desktop
 
 Everything outside the QML that makes this desktop is in the project too, so
@@ -240,10 +326,10 @@ something new, the change also records it here.** Concretely:
 | a system service's options, a file under `/etc` | its own directory (`earlyoom/`), the file starting with the `# quickshell-desktop` marker | installs it with sudo where the machine's lacks the marker, keeping the old one; what the shell has written since keeps it |
 | a desktop entry, a user systemd unit | `applications/`, `systemd/` | links it into `~/.local/share/applications`, `~/.config/systemd/user` |
 | a script a config or bind runs | `bin/`; refer to it by bare name (kitty finds `~/.local/bin` itself; Hyprland binds use `~/.local/bin/<name>`) | links every file in `bin/` into `~/.local/bin` |
-| a system or user service | the package; enabling it is a line in `install.sh` — or, for one that needs the graphical session, an `exec-once` in `hypr/conf.d/20-autostart.conf` (hyprpaper) | enables it if it is off |
+| a system or user service | the package; enabling it is a line in `install.sh` — or, for one that needs the graphical session, a `hyprland.start` callback in `hypr/conf.d/20-autostart.lua` (hyprpaper) | enables it if it is off |
 | a setting that lives in dconf | its directory in `tools/save-profile.sh`'s `gtk` list, then run that | writes each key the machine still has at its default |
 | a colour in the terminal, the prompt or neovim | `terminal/palette.conf`, by name; the accent taken from the wallpaper is this machine's state, laid over it from `~/.local/state/quickshell-desktop/palette.conf` (*Wallpaper accent*) | nothing: all three read it |
-| a setting for one particular monitor or input device | nothing in the project: screens are detected (`highres, auto, auto`) and a touchpad by the shell. One machine's arrangement or tuning goes in its own `~/.config/hypr/hyprland.conf`, after the `source` line, keyed by the device (`desc:`, a `device` block's `name`) | nothing |
+| a setting for one particular monitor or input device | nothing in the project: screens are detected (`highres`, automatic position/scale) and a touchpad by the shell. One machine's arrangement or tuning goes in its own `~/.config/hypr/hyprland.lua`, after the `require`, keyed by the monitor (`hl.monitor`, `desc:`) or device (`hl.device`, `name`) | nothing |
 | the shell's preferences | nothing new: run `tools/save-profile.sh` and commit `profile/`; it keeps only pins and dock places of applications the package lists install | `Settings` starts from `profile/settings.json` on a machine with none |
 
 How it fits together:
@@ -252,7 +338,7 @@ How it fits together:
   `~/.config/quickshell/shell`, the one link to the checkout, so editing a
   config on any machine edits the project, and moving the checkout takes only
   a re-run. Hyprland's and kitty's own files are the exception: they stay the
-  machine's, hold a single `source`/`include` of the project, and take what
+  machine's, hold a single `require`/`include` of the project, and take what
   only that machine needs after it (kitty's font size, which
   `bin/kitty-font-size` writes there, is one).
 - **State is saved, not linked.** dconf and the shell's `settings.json`
@@ -345,7 +431,7 @@ flies its rest (`liveX`, `liveHeight`) does not glide as well: the flight
 carries it there on the same clock and curve, and the two together slowed
 the start and hurried the end. Quick settings' gear opens the settings
 panel over it, not after closing it, so that is a flight too. The popups' surface maps without Hyprland's
-layer animation (`hyprland.conf`'s `shell-popups` rule): the cards draw their
+layer animation (`hyprland.lua`'s `shell-popups` rule): the cards draw their
 own coming and going.
 
 **Card** — the visible rounded panel of a popup, in the popups' window. The
@@ -445,7 +531,7 @@ service that acts on them, range and all (`Notifs.timeoutRange`,
 options (`hyprGapsIn`, `hyprBlur`, …) are overrides too, with the same
 arrangement in `CompositorOptions.spec`: Hyprland's name for each, its range,
 and how the integer maps onto it (a 0–1 float is a percentage, a −1..1
-sensitivity is 0–200 with 100 neutral). `hyprland.conf` stays the source of
+sensitivity is 0–200 with 100 neutral). `hyprland.lua` stays the source of
 every default and is never rewritten.
 
 **Seed** — a preference chosen from a list rather than measured: the accent and
@@ -509,7 +595,7 @@ as they start.
 as hyprpolkitagent's was, can never come above the overlay layer, and what
 asks is often a popup — the task manager applying earlyoom's options. **Not a
 popup**: a surface of its own, `shell-auth`, on the overlay layer and ordered
-above the popups' (`hyprland.conf`'s `shell-auth` rule), spanning the screen
+above the popups' (`hyprland.lua`'s `shell-auth` rule), spanning the screen
 with input masked to its card and the keyboard on demand. It is mapped
 exactly while there is a request or its card fades out, on the screen that
 had focus, and its card is drawn as a popup's. It shows the action's message,
@@ -556,7 +642,7 @@ writes (`qs-task-<id>.service` and `.timer`, `TaskUnits`), the task held in
 their `X-QsTask-*` keys; systemd does the waiting, so it runs with the shell
 down, and a run missed while the machine was off happens at the next start. A
 task "At login" is wanted by `quickshell-login.target`, which Hyprland restarts
-as it starts (`20-autostart.conf`, after importing the display into the user
+as it starts (`20-autostart.lua`, after importing the display into the user
 manager so a task can open a window). A "once" task stays listed with its
 result after it ran, until deleted.
 
@@ -585,7 +671,7 @@ Only that workspace's: the focused one, and a special one shown over it while
 the window with focus is there — never the workspace of a window that last
 had focus (an empty workspace offers nothing), nor the minimized.
 **Not a popup**: it takes no keyboard focus, Hyprland holds every key of it
-(`hyprland.conf`: Alt+Tab enters a `switcher` submap, Alt's release commits),
+(`hyprland.lua`: Alt+Tab enters a `switcher` submap, Alt's release commits),
 and it closes whatever popup is open. `services/Switcher` keeps the order and
 the choice, `modules/switcher` draws it, after `t.glance`: its card fades and
 slides into place and back out at the popups' pace, 1.5 times quicker still
@@ -619,12 +705,12 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `ColorMath` (in `config/`) | colour in OKLab: what the wallpaper accent is made with and matched by | `lab`, `rgb`, `tone(seed, like, enough)`, `most` (the chroma sRGB holds at a lightness and hue), `nearest` |
 | `Appearance.m` / `Appearance.r` (in `config/`) | sizes and radii, resolved through `Tuning.pick` | `barHeight`, `barItemHeight`, `barFootprint`, `dockIcon`, `dockSlot` (one round slot for every dock item, its highlight included), `dockHeight`, `dockFootprint`, `border`, `navRowHeight`; `r.panel` is **the** radius of every popup card and toast — nothing picks its own — and `r.capsule(height)` is the bar's, the dock's and the OSD's, and their controls': fully round at the tuned roundness, squarer below it. With `r.followsWindows` every radius scales from Hyprland's window rounding instead of the roundness setting |
 | `Settings` | the only persisted state, JSON under the Quickshell state dir, its keys and defaults in `SettingsStore.qml`, read and written by `SettingsFile` (at once, a moment after a burst of changes, never before it is read; see the QML gotchas); a machine without the file starts from `profile/settings.json` | `effectiveDark`, `doNotDisturb`, `pinnedApps`, `dockOrder`, `hiddenTitleBars` (app ids, from the dock's menu), `isTitleBarHidden/toggleTitleBar`, `accentColor`, `background{Light,Dark}`, `recentColors`, `pinnedColors`, `rememberColor`, `togglePinnedColor`, `fontFamily`, `systemFontBefore`, `wallpaper`, `roundnessFollowsWindows`, `dockAutoHide`, `dockOpacityFollowsBar`, `accentFollowsWallpaper`, `wallpaperAccent` and `gtkAccentBefore` (this machine's, saved empty in `profile/`), `vpnConnections` (the NetworkManager profiles the VPN menu offers, set by hand), `pin/unpin`, `forgetColor`, `toggleTheme`, `setFontFamily`, `setWallpaper`, `overrideKeys`, `pick`, `setOverride/isOverridden/resetOverrides` |
-| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option with `hyprctl keyword` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `pushing` (falling as what was set is in: Hyprland says nothing itself), `derived` (options that follow the design system — the overview's, the title bars', the windows' shadow and, while the accent follows the wallpaper, the active border — set by `CompositorTheme`; one that goes away is put back by a reload, as a cleared override is) |
+| `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option through `hyprctl eval` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `pushing` (falling as what was set is in: Hyprland says nothing itself), `derived` (options that follow the design system — the overview's, the title bars', the windows' shadow and, while the accent follows the wallpaper, the active border — set by `CompositorTheme`; one that goes away is put back by a reload, as a cleared override is) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorXOf` (each popup's anchor, by name, set only as that popup opens: one anchor for all slid the card being taken over from towards the next popup's button), `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `authorizing` (set by `AuthWindow` while it is drawn; neither dismissal acts meanwhile), `flight` (`{ from, to, rect, strength, contents, away }`, and `at` and `subject` for a popup taking over from itself; see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
 | `DesktopScheme` | the shell's light or dark handed to every other application: GNOME's `color-scheme`, which xdg-desktop-portal-gtk serves as the portal's `org.freedesktop.appearance color-scheme` — what browsers read for their look and `prefers-color-scheme`, and libadwaita follows | `scheme` (`prefer-dark` or `prefer-light`), `setting` (falling as it is set) |
 | `DesktopAccent` | the accent handed outside the shell while it follows the wallpaper: GTK's `accent-color` and the terminal's palette file, each put back when it stops; nothing before `Settings.ready` | `gtk` (a libadwaita name), `settingGtk` (falling as it is set and the one before kept), `terminal` (`{ accent, accent_bright }`), `palette` (`terminal/palette.conf`), `stateFile` |
-| `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`windows:hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
+| `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`hl.plugin.windows.hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
 | `Switcher` | Alt+Tab: the windows in order of focus since the shell started, and, while it is open, what it goes round and which is chosen | `recent`, `active`, `entries` (taken as it opens: the dock's windows on the workspace in front), `index`, `current`, `step`, `point`, `commit`, `choose`, `cancel` |
 | `Processes` | every process (kernel threads aside), memory and the machine's counters — CPU ticks and frequency, whole disks, the root filesystem, physical interfaces, the first GPU reporting `gpu_busy_percent` — sampled from `/proc` and `/sys` by one gawk run (`ProcessSampler`, whose empty `ENDFILE {}` keeps a read failing part way from ending the run): the counters always, each process only while anything watches (see hard rule 3), a sample without them leaving `list` as it was; a process's CPU and disk I/O between two samples that read it; with a watcher's extras, each own process's GPU time (its DRM fds' fdinfo, a client once a process) and open inet sockets (fd links matched against /proc/net's tcp/tcp6 not listening, udp/udp6), from one `find` into the same gawk run | `watch(key, on, extras)` (`extras`: `"gpu"`, `"net"`; on again, a key asks anew), `watched` (any key on: the processes read), `extras` (the union over the keys on), `sampleInterval`, `samples`, `sampled(previous, current)`, `listed` (samples with the processes in this watch), `list` (`{ pid, uid, ppid, ticks, rss, oomScore, oomAdj, readBytes, writeBytes, gpuTime, connections, name, cpu, io, gpu, own, user }`; `io`, `gpu` and `connections` -1 for another user's or unasked), `byPid`, `memory` (KiB), `uid`, `parse` (`ProcessSampler.parse`; also `cpuTicks`, `cpuFreq`, `disks`, `fs`, `nets`, `gpu`), `cpu`, `io`, `gpu`, `terminate`/`forceKill` (own processes only), `formatSize` |
@@ -663,7 +749,7 @@ implemented.
 
 | Component | Purpose |
 |---|---|
-| `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation (Space/Enter click; Menu or Shift+F10 right-click). Everything clickable derives from it. `scheme` is the `ColorScheme` its state layer and ring are drawn in, `Appearance.c` unless it stands on thinned glass |
+| `Clickable` | **the interaction primitive.** Hover, press, selected, disabled, focus ring, keyboard activation (Space/Enter click; Menu or Shift+F10 right-click). Everything clickable derives from or composes it. Drag controls reuse `pressed`, `pointerPressed/pointerMoved/pointerReleased` and `focusRingTarget/focusRingRadius/focusRingGap`. `scheme` is the `ColorScheme` its state layer and ring are drawn in, `Appearance.c` unless it stands on thinned glass |
 | `Surface` | a glass panel: `c.chrome` (the surface at `c.glass` opacity), a hairline and a `Shadow`; the compositor blurs what is behind it. `glass` fades all three together, eased, and leaves the content alone. Given its `screen` and where it rests there (`placedAt`), as the bar and the dock are, its `scheme` (the tint) and `schemeOver(item)` (the colours for anything on it, from where that rests: parents' positions read one by one so a binding hears each move) follow the wallpaper behind it (see *Backdrop*) |
 | `Backdrop` | the wallpaper's mean colour under any rectangle of a screen (`colorUnder`), from a summed-area table per screen; `measured`, `measure`, `gauge` (one pixel per `cell`, 8 logical px); and the picture's main colour (`mainColor`), kept as `Settings.wallpaperAccent` |
 | `BackdropProbe` | measures one screen's picture for `Backdrop` whenever it or the screen's size changes: decoded off the main thread, already shrunk, into a canvas nobody sees (a canvas needs a window; the bar holds it) |
@@ -693,7 +779,7 @@ implemented.
 | `OverlayCard` | the card inside it: the door (`door`, `rolled`) and the fade (as one flattened layer), clipping, hover reporting to `Overlay` (under the card's own key, `popup:<overlayId>`, as hover or `shown` changes: with one key for every card, the card flown from cleared it after the one flown to had set it, and every click on that one closed it), swallowing Escape (the global bind acts on it), and the flight: `rest`, `from`, `flown`, `flying`, `outgoing`/`incoming` (the two contents' strengths), `holding`, `renewing` (taking over from itself, for a new subject), `depart()`, `arrive()` |
 | `CardMenu` | a context menu inside the open popup — whatever `Overlay.menu` asks for — drawn over the card's content so the content's clipping cannot cut it off; a press anywhere else on the card closes it |
 | `ShellIpc` | the external control surface. Every action exists once in `run(action)`; the IPC handler and the global shortcuts both dispatch to it |
-| `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, the title bars' colours and timings, the window shadow, and the active border while the accent follows the wallpaper |
+| `CompositorTheme` | pushes the design system's share of Hyprland's options: the shell's colours into the hyprexpo plugin so the overview matches the theme, the title bars' geometry, typography, colours and timings, the window shadow, and the active border while the accent follows the wallpaper |
 | `DesktopTheme` | the design system's share of other applications' settings, handed to `DesktopAccent`: while the accent follows the wallpaper, the libadwaita accent nearest it and the terminal's accents (the wallpaper's colour at palette.conf's own accents' lightness) |
 | `MenuItemRow` | one row of a popup menu |
 
@@ -701,14 +787,19 @@ implemented.
 
 # Platform gotchas
 
-These were verified on this machine under Hyprland 0.56.2, Quickshell 0.3.1
-and Qt 6.11.2; it now runs Quickshell 0.3.2 and Qt 6.12, and the two that
-0.3.2 fixed are marked so. Several of them are the reason code looks the way
-it does; if you "simplify" past one you will reintroduce a bug that was
-expensive to find.
+Most of these were verified on this machine under Hyprland 0.56.2, Quickshell
+0.3.1 and Qt 6.11.2; it now runs Hyprland 0.57, Quickshell 0.3.2 and Qt 6.12.
+The current Lua integration is described separately below; legacy config/bind
+syntax in the historical gotchas explains the original diagnosis, not an API
+to copy into new code. The two Quickshell 0.3.2 fixes are marked so. Several
+of these explain code that otherwise looks unnecessary; preserve the invariant.
 
 ### QML / Qt
 
+- **Typed parameters cannot also have defaults in this QML engine.**
+  `function run(step: string, frozen: int = 0)` fails to load on Qt 6.12.
+  Keep typed parameters explicit and pass `0` at callers that need no freeze;
+  the repository lint wrapper and a runtime load catch this.
 - **`escape` is an illegal QML method name**, as are other JS globals
   (`unescape` too). This has bitten four times (`Apps.escapeRegExp`,
   `ShellIpc.escapeKey`, `Overlay.dismissOnEscape`, `EarlyOomArgs.quote`). Symptom: `Illegal method name` at load, and the
@@ -791,6 +882,11 @@ expensive to find.
   the failed read before it has finished (measured with `writeAdapter()` and
   `setText()` alike, in a bare `qs -p` test). `Settings` defers the write with
   `Qt.callLater`; the adapter still picks up what is written.
+- **Replacing a `FileView` read from its own completion can drop that read
+  too.** Chained waits once warned during screenshot cancellation checks.
+  `tests/FileWait.answer` captures the completed text and defers its callback
+  with `Qt.callLater`, so a callback can safely start another wait. Preserve
+  that deferral; do not reload or replace the path inside the old completion.
 - **A `FileView`'s write on a thread takes back what was set meanwhile.** A
   write started while another is under way waits for that one, whose data is
   then read back into the adapter (0.3.2's `saveAsync` → `cancelAsync` →
@@ -935,6 +1031,32 @@ expensive to find.
 - Use `required property` in every delegate; the codebase sets
   `pragma ComponentBehavior: Bound` everywhere.
 
+### Current Hyprland 0.57 integration
+
+- **The project config is Lua.** `hypr/hyprland.lua` requires
+  `hypr/conf.d/*.lua`; `90-quickshell.lua` requires the root `hyprland.lua`.
+  Autostart is `20-autostart.lua`, window rules `80-window-rules.lua`.
+  The removed project `.conf` files are not integration test inputs. Inspect
+  live rules/binds in a nested compositor or reuse `HyprlandIntegration.lua`
+  to execute the real registration against a recording API; never run its
+  startup callbacks against the user's session merely to inspect a bind.
+- **Use the existing Lua boundary.** `Compositor` owns actions and Lua string
+  quoting; `CompositorOptions.assignment/encode/decode` owns typed option
+  writes and bool/gap replies. New code uses `hyprctl eval`, `hl.dsp.*` and
+  guarded `hl.plugin.*`, not legacy dispatch/keyword strings copied from the
+  historical notes. `HyprlandLuaTest` covers that boundary.
+- **An option write is not a geometry refresh.** Keep all derived options in
+  one `CompositorOptions` batch. Its final guarded `hl.plugin.windows.restyle()`
+  re-places and damages bars after style changes, keeping drawing, hit testing
+  and reserved space together. Native option defaults are startup fallbacks;
+  verify effective values through `hyprctl getoption`, not only an `ok` reply.
+- **Runtime-only plugin loads can disappear on a config reload.** This was
+  observed when the Lua integration test reloaded a nested compositor: the
+  manually loaded overview was gone. Declare both scratch plugin loads in its
+  Lua config, overview before windows; check `hyprctl plugin list` after a
+  reload. Never infer which binary is running from the `.so` that exists on
+  disk; process mappings identify the loaded scratch path.
+
 ### Hyprland / Wayland
 
 - **`WlrKeyboardFocus.Exclusive` captures the pointer too**, not just the
@@ -947,7 +1069,7 @@ expensive to find.
 - **`bindn` is non-consuming and is how dismissal works.** A `bindn` mouse or
   key bind reports the press to the shell *and* still delivers it to the
   application. See the `shell:dismiss` / `shell:escapeKey` binds in
-  `hyprland.conf`.
+  `hyprland.lua`.
 - **So Escape reaches a focused popup twice**: once through that bind, once as
   the key event. Only the bind acts (`Overlay.dismissOnEscape`); `OverlayCard`
   swallows the key. Acting on both took two steps per press — a card menu
@@ -958,7 +1080,7 @@ expensive to find.
   shell's focus handling: Qt disables text input for each window it hides,
   and Hyprland never gave that surface text input. Nothing is lost. A
   `//@ pragma Env QT_LOGGING_RULES=…` does nothing (Quickshell installs its
-  own log filter), so the unit's command line in `hyprland.conf` passes
+  own log filter), so the unit's command line in `hyprland.lua` passes
   `--log-rules qt.qpa.wayland.textinput.warning=false`; a `qs` started by
   hand shows the warning.
 - **`mask: Region { item: null }` is genuinely click-through** (verified with a
@@ -1110,11 +1232,19 @@ expensive to find.
   the runner's fixture directory; without that isolation or the screen it fails
   immediately.
 - **No test reaches the machine's dconf or the user's terminals**:
-  `tools/test.sh` puts `tests/bin` first on their `PATH` — a `gsettings` that
-  keeps what is set in a file of the run's own (`TEST_GSETTINGS`) and a
-  `pkill` that only notes what it was asked (`TEST_SIGNALS`). A test that
+  `tools/test.sh` puts its stand-ins ahead of system commands on `PATH`: a
+  `gsettings` that keeps what is set in a file of the run's own
+  (`TEST_GSETTINGS`) and a `pkill` that only notes what it was asked
+  (`TEST_SIGNALS`). A test that
   would set either checks that they are the stand-ins first, and fails
   rather than run without them.
+- **Per-test command fixtures belong in `TEST_BIN`.** The runner creates a
+  separate directory per suite before `tests/bin` on its `PATH`.
+  `ServiceFixtures.py` supplies delayed curl/FIFO responses, capture commands
+  and a private wallpaper; its backend stand-ins keep the branch's service
+  logic. Verify the runner marker before writing fixtures and fail promptly
+  when the required isolation, backend or second screen is absent. Tests must
+  not depend on the user's wallpaper, installed VPN data or real Bluetooth.
 - **Notification tests use a private session bus.** `tools/test.sh` runs each
   `Notification*Test` in `setsid dbus-run-session` and kills its whole group
   at the closing marker. Killing only the bus wrapper leaves qs running.
@@ -1143,12 +1273,12 @@ expensive to find.
   shell started outside the unit has no memory cap.
 - **Test a plugin build in a nested Hyprland, not the session.** A plugin
   that crashes takes the compositor and every open window with it. Run
-  `hyprctl dispatch exec "[workspace special:x silent] Hyprland -c <conf>"`
-  with a minimal config whose `plugin =` names the new `.so`. A nested
-  compositor on a hidden workspace gets no frame callbacks and never renders,
-  so give it its own screen: `hyprctl -i <instance> output create headless
+  `hyprctl dispatch 'hl.dsp.exec_cmd("[workspace special:x silent] Hyprland -c /tmp/nested.lua")'`
+  with a minimal Lua config whose `hl.plugin.load` names the scratch `.so`s.
+  A nested compositor on a hidden workspace gets no frame callbacks and never
+  renders, so give it its own screen: `hyprctl -i <instance> output create headless
   <name>`, move its workspaces there, and capture with
-  `WAYLAND_DISPLAY=<its socket> grim -o <name>`. `hyprexpo:kb_selecti N`
+  `WAYLAND_DISPLAY=<its socket> grim -o <name>`. `hl.plugin.hyprexpo.kb_selecti(N)`
   chooses a tile and closes the overview onto it without any input; inside
   the nested instance `hyprctl -i <instance> dispatch movecursor` does move
   the overview's hover. Kill it by PID — the PID of the instance just
@@ -1159,6 +1289,13 @@ expensive to find.
   plugin's own. `debug:disable_logs` is on by default and the log only
   opens at startup, so a nested instance to be traced needs it off in its
   config.
+- **A full-output `grim` can hang on the hidden nested Wayland output.**
+  Headless outputs render, but the hidden parent can still be listed and
+  never deliver its capture frame. Prefer `grim -o <headless>` for visual
+  checks. To test actual full-output captures, create the headless outputs
+  first and disable only the nested parent with
+  `hl.monitor({ output = "WAYLAND-1", disabled = true })`; confirm the nested
+  output names first. Never apply that test setup to the user's compositor.
 - **Trackpad gestures can be synthesised, but only in the session**: a
   nested compositor gets no touchpad. A `/dev/uinput` device with
   `BTN_TOOL_FINGER`…`BTN_TOOL_TRIPLETAP`, MT slots, axis resolutions and
@@ -1258,9 +1395,9 @@ and is absent from its `v0.56.0` release. The build script uses the maintained
 [sandwichfarm fork](https://github.com/sandwichfarm/hyprexpo), picking the tag
 matching the installed Hyprland. **Hyprland refuses to load a plugin built
 against different headers**, so it must be rebuilt after every Hyprland update,
-and `hyprland.conf` does that by itself: an `exec-once` runs the build script
-with `--if-stale` at every login, which compares what the plugin was built
-from (`built-for`, written beside it: the Hyprland and a hash of the patches)
+and `hyprland.lua` does that by itself: a `hyprland.start` callback runs the
+build script with `--if-stale` at every login, which compares what the plugin
+was built from (`built-for`, written beside it: the Hyprland and a hash of the patches)
 with what is installed and checked out, and only on a difference rebuilds,
 loads the result into the running Hyprland (unless one is loaded — a patch
 change then takes effect at the next login — or the binary was replaced on
@@ -1291,7 +1428,7 @@ lowest-numbered workspace this monitor can take — one no workspace has yet,
 or one it holds empty and does not show; never another monitor's — drawn as
 the empty workspace it is (a missing workspace captures as the bare monitor)
 and chosen through the same `ensureWorkspaceForTile` path as any tile.
-`gaps_out` in `hyprland.conf` keeps the grid off the screen's edges on every
+`gaps_out` in `hyprland.lua` keeps the grid off the screen's edges on every
 side; tiles keep the screen's shape, so only the axis the grid fills first
 gets exactly that.
 
@@ -1380,7 +1517,7 @@ The sixth passes the focus zoom's duration, curve, strength and current-workspac
 share from `config/` through `CompositorTheme`, with the same defaults; it keeps
 the frame-driven damage and the reduced-motion guard. Title-bar geometry,
 typography and initial window-size caps use that option pipeline too; after a
-style batch, `windows.restyle()` places and damages every bar together.
+style batch, `hl.plugin.windows.restyle()` places and damages every bar together.
 
 ### The window plugin
 
@@ -1399,9 +1536,9 @@ after `PLUGIN_EXIT`, but only from the windows it still lists, and from a
 closing or hidden one only queues the removal (`updateWindowDecos` skips it),
 while a closed window can stay alive in the last frame's render pass. So the
 plugin keeps a weak reference to every window it gave a bar and strips the
-bars itself in `PLUGIN_EXIT`. A plugin loaded with `hyprctl plugin load` is not
-unloaded by a config reload that drops its line, so changing the `.so`'s path
-in a running session loads the new one beside it.
+bars itself in `PLUGIN_EXIT`. In Hyprland 0.57, runtime-only plugin loads may
+not survive a Lua config reload (see above). Keep one declared scratch path
+per plugin in the nested config, and explicitly unload before switching builds.
 
 #### Title bars
 
@@ -1431,11 +1568,11 @@ the window maps.
 **Hidden per application.** The dock's menu offers *Hide Title Bar* (then
 *Show Title Bar*) on an application whose windows have one; the choice is
 `Settings.hiddenTitleBars`, by app id. `TitleBars` hands the list to the
-plugin with the `windows:hidden_for` dispatcher, comma-separated, whenever it
+plugin with `hl.plugin.windows.hidden_for`, comma-separated, whenever it
 changes and after every config reload (loading the plugin raises one), and the
-plugin places every bar again. A dispatcher, not an option: `hyprctl keyword`
-tells no plugin its option changed, and a bar hidden above a floating window
-kept the 28 px it had reserved, which the window's shadow — solid over the
+plugin places every bar again. A Lua function, not an option write: changing
+an option alone does not re-place decorations, and a bar hidden above a
+floating window kept the 28 px it had reserved, which the window's shadow — solid over the
 window's box with its decorations — filled as a dark band. A hidden bar is
 kept, not removed, so it can come back while the window is open. Whether a
 window has one only the plugin knows, so the menu asks as it opens:
@@ -1609,7 +1746,7 @@ the plugin unloaded and loaded again, mid-roll.
 #### Placement
 
 **Floating by default** is a window rule, not code: `float-by-default`, first
-in `hypr/conf.d/80-window-rules.conf`, so any later rule overrides it. It has
+in `hypr/conf.d/80-window-rules.lua`, so any later rule overrides it. It has
 to be a rule. Hyprland sends a new Wayland window its predicted *tiled* size
 in the first configure unless a float rule already applies
 (`CWindow::commitWindow`), so a window floated any later had drawn its first
