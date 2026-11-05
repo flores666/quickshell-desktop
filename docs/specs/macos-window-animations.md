@@ -158,3 +158,15 @@ Files: `config/Motion.qml`, `modules/common/CompositorTheme.qml`,
 `hypr/windows/Style.{hpp,cpp}`, `hypr/windows/Genie.{hpp,cpp}`,
 `tests/WindowBlurTest.qml`, and this specification. One dependent native
 change, implemented on the same branch; original acceptance tests stay frozen.
+
+Follow-up verification: the new timing/exposure test was red before code, then
+passed. The final full run passed 55 of 56 suites; the existing notification
+burst-timing check passed on an isolated rerun. All animation, window-mode and
+reduced-motion checks pass, with the original test files unchanged. Pixel A/B
+captures measured a 17 px moving-edge transition with exposure versus 0 px
+without it; the restored image is sharp and its box unchanged. Six additional
+checks cover visible blur, sharp restoration, geometry, faster completion,
+unloading while blurred, and reload.
+The official plugin build and lint pass. The tested build is enabled in the
+session with native duration 373 ms and exposure 22 ms; the restarted shell's
+runtime log is clean and existing window geometry/modes are unchanged.

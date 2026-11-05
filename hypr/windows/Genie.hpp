@@ -28,7 +28,8 @@ class CGenie {
     PHLMONITORREF m_monitor;
     PHLWORKSPACEREF m_workspace;
     CBox m_source, m_frame, m_target, m_windowBox;
-    SP<Render::IFramebuffer> m_snapshot;
+    SP<Render::IFramebuffer> m_snapshot, m_blur;
     SP<Style::Config> m_config;
     PHLANIMVAR<float> m_progress;
+    float m_from = 0.F;
 };

@@ -51,6 +51,7 @@ namespace Style {
     /*! Apply window motion after the shell's style batch, alongside geometry. */
     void        restyle();
     SP<Config>  minimize();
+    int         minimizeExposure();
     bool        motionEnabled();
 
     /*! The system's bar, for an application whose colour cannot be told. */

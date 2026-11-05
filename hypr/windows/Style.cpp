@@ -26,7 +26,7 @@ namespace {
     // On a light bar, on a dark one.
     std::array<SInkValues, 2> g_inks;
     SP<CIntValue>             g_hover, g_fade, g_rollOut, g_rollIn, g_dwell, g_linger;
-    SP<CIntValue>             g_minimize, g_move, g_close;
+    SP<CIntValue>             g_minimize, g_exposure, g_move, g_close;
     SP<CIntValue>             g_height, g_button, g_gap, g_inset, g_edge, g_fontPoints, g_fontWeight;
     SP<CFloatValue>           g_widthCap, g_heightCap, g_closeScale;
     SP<CStringValue>          g_fontFamily;
@@ -115,7 +115,8 @@ void Style::init(HANDLE handle) {
     g_fontFamily = ADD(makeShared<CStringValue>("plugin:windows:font_family", "Title fontconfig family", "sans-serif"));
     g_widthCap = CAP("plugin:windows:width_cap", "Initial floating width as a share of the work area", 0.7F);
     g_heightCap = CAP("plugin:windows:height_cap", "Initial floating height as a share of the work area", 0.8F);
-    g_minimize = MS("plugin:windows:minimize_duration", "Genie minimize/restore duration in ms", 560);
+    g_minimize = MS("plugin:windows:minimize_duration", "Genie minimize/restore duration in ms", 373);
+    g_exposure = MS("plugin:windows:minimize_exposure", "Genie motion blur exposure in ms", 22);
     g_move = MS("plugin:windows:move_duration", "Window geometry transition duration in ms", 479);
     g_close = MS("plugin:windows:close_duration", "Window close duration in ms", 180);
     g_closeScale = CAP("plugin:windows:close_scale", "Window scale at the end of close", 0.96F);
@@ -171,6 +172,8 @@ void Style::restyle() {
 SP<Style::Config> Style::minimize() {
     return config(g_minimizeConfig, g_minimize, g_standard, "windowsMove");
 }
+
+int Style::minimizeExposure() { return g_exposure->value(); }
 
 bool Style::motionEnabled() {
     static auto ENABLED = CConfigValue<::Config::INTEGER>("animations:enabled");

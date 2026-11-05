@@ -6,6 +6,7 @@
 #include <hyprland/src/output/Monitor.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
+#include <hyprutils/animation/BezierCurve.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -50,18 +51,44 @@ namespace {
 
     class CGeniePass : public IPassElement {
       public:
-        CGeniePass(SP<Render::IFramebuffer> snapshot, const CBox& source, const CBox& frame, const CBox& target, const Vector2D& output, float progress, bool privateContent) :
-            m_snapshot(snapshot), m_output(output), m_vertices(mesh(source, frame, target, output, progress)), m_private(privateContent) {}
+        CGeniePass(SP<Render::IFramebuffer> snapshot, SP<Render::IFramebuffer> blur, const CBox& source, const CBox& frame, const CBox& target,
+            const Vector2D& output, const std::vector<float>& poses, bool privateContent) :
+            m_snapshot(snapshot), m_blur(blur), m_output(output), m_private(privateContent) {
+            for (float pose : poses) m_meshes.push_back(mesh(source, frame, target, output, pose));
+        }
 
         std::vector<UP<IPassElement>> draw(Render::CRenderContext& ctx) override {
             // The renderer owns this backend uniquely. Its weak reference
             // can be used during this draw, but cannot become a shared owner.
             const auto GL = g_pHyprRenderer->glBackend();
-            if (GL && ctx.shouldRenderContent(m_private)) {
-                const auto MONITOR = ctx.m_data.pMonitor.lock();
-                if (MONITOR)
-                    GL->renderTextureMesh(ctx, m_snapshot->getTexture(), {0, 0, MONITOR->m_transformedSize.x, MONITOR->m_transformedSize.y},
-                        m_vertices, {.damage = &ctx.m_data.damage, .allowDim = false});
+            const auto MONITOR = ctx.m_data.pMonitor.lock();
+            if (!GL || !MONITOR || !ctx.shouldRenderContent(m_private)) return {};
+            const CBox BOX{0, 0, MONITOR->m_transformedSize.x, MONITOR->m_transformedSize.y};
+            if (m_blur && m_meshes.size() > 1) {
+                {
+                    auto state = ctx.saveDrawState();
+                    auto framebuffer = g_pHyprRenderer->bindTempFB(ctx, m_blur);
+                    // Average premultiplied poses on transparent pixels,
+                    // then composite once. Repeated source-over draws would
+                    // fade the window and brighten/darken overlapping edges.
+                    ctx.m_data.renderModif = {};
+                    ctx.m_data.clipBox = {};
+                    CRegion damage{BOX};
+                    g_pHyprRenderer->draw(ctx, CClearPassElement::SClearData{CHyprColor{0, 0, 0, 0}}, damage);
+                    const bool BLEND = GL->blendEnabled();
+                    const Render::CScopeGuard restoreBlend([GL, BLEND] {
+                        GL->blendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                        GL->blend(BLEND);
+                    });
+                    GL->blend(true);
+                    GL->blendFunc(GL_ONE, GL_ONE);
+                    for (const auto& vertices : m_meshes)
+                        GL->renderTextureMesh(ctx, m_snapshot->getTexture(), BOX, vertices,
+                            {.damage = &damage, .a = 1.F / m_meshes.size(), .allowDim = false});
+                }
+                GL->renderTexture(ctx, m_blur->getTexture(), BOX, {.damage = &ctx.m_data.damage, .allowDim = false});
+            } else {
+                GL->renderTextureMesh(ctx, m_snapshot->getTexture(), BOX, m_meshes.front(), {.damage = &ctx.m_data.damage, .allowDim = false});
             }
             return {};
         }
@@ -72,9 +99,9 @@ namespace {
         std::optional<CBox> boundingBox(Render::CRenderContext&) override { return CBox{0, 0, m_output.x, m_output.y}; }
 
       private:
-        SP<Render::IFramebuffer> m_snapshot;
+        SP<Render::IFramebuffer> m_snapshot, m_blur;
         Vector2D m_output;
-        std::vector<SMeshRenderVertex> m_vertices;
+        std::vector<std::vector<SMeshRenderVertex>> m_meshes;
         bool m_private;
     };
 }
@@ -94,6 +121,13 @@ UP<CGenie> CGenie::capture(PHLWINDOW window, const CBox& target, float from) {
     // nothing to deform until both its image and its frame have an extent.
     if (effect->m_source.empty() || effect->m_frame.empty())
         return nullptr;
+    if (Style::minimizeExposure() > 0 && g_pHyprRenderer->fp16Supported()) {
+        auto buffer = g_pHyprRenderer->createFB("Genie motion exposure");
+        if (buffer->alloc(SNAPSHOT->m_size.x, SNAPSHOT->m_size.y, DRM_FORMAT_ABGR16161616F)) {
+            buffer->setImageDescription(SNAPSHOT->imageDescription());
+            effect->m_blur = buffer;
+        }
+    }
     return effect;
 }
 
@@ -116,6 +150,7 @@ CGenie::~CGenie() {
 }
 
 void CGenie::toward(bool minimized) {
+    m_from = m_progress->value();
     m_config = makeShared<Style::Config>(*Style::minimize());
     m_config->pValues = m_config;
     const float GOAL = minimized ? 1.F : 0.F;
@@ -129,9 +164,25 @@ void CGenie::toward(bool minimized) {
 void CGenie::paint(Render::CRenderContext& ctx) const {
     const auto W = m_window.lock();
     const auto MONITOR = monitor();
-    if (W && MONITOR)
-        Render::IHyprRenderer::addPassElement(ctx, makeUnique<CGeniePass>(m_snapshot, m_source, m_frame, m_target, MONITOR->m_size, m_progress->value(),
+    if (W && MONITOR) {
+        const float CURRENT = m_progress->value();
+        std::vector<float> poses{CURRENT};
+        if (m_blur && Style::minimizeExposure() > 0) {
+            // Sample the native animation's own clock/curve. A reversal starts
+            // a new exposure at m_from, so no old-direction image can linger.
+            constexpr int SAMPLES = 16;
+            const auto CURVE = Animation::mgr()->getBezier(m_progress->getBezierName());
+            const float PHASE = m_progress->getPercent();
+            const float SHUTTER = Style::minimizeExposure() / (m_config->internalSpeed * 100.F);
+            for (int i = 1; i < SAMPLES; ++i) {
+                const float T = std::clamp(PHASE - SHUTTER * i / (SAMPLES - 1), 0.F, 1.F);
+                const float VALUE = std::lerp(m_from, m_progress->goal(), CURVE ? CURVE->getYForPoint(T) : T);
+                poses.push_back(std::clamp(VALUE, std::min(m_from, CURRENT), std::max(m_from, CURRENT)));
+            }
+        }
+        Render::IHyprRenderer::addPassElement(ctx, makeUnique<CGeniePass>(m_snapshot, m_blur, m_source, m_frame, m_target, MONITOR->m_size, poses,
             W->m_ruleApplicator->noScreenShare().valueOrDefault()));
+    }
 }
 
 bool CGenie::finished() const { return !m_progress->isBeingAnimated(); }

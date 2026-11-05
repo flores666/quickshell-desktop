@@ -25,7 +25,10 @@ QtObject {
     /*! Native windows: preserve the compositor's move/overview pace, but
         ease window geometry at both ends. Genie needs time to form its neck. */
     readonly property int windowMove: 479
-    readonly property int windowMinimize: 560
+    /*! Genie: 1.5 times faster than its original 560 ms. */
+    readonly property int windowMinimize: 373
+    /*! Motion exposure while Genie moves; resting windows stay sharp. */
+    readonly property int windowExposure: 22
     readonly property int windowClose: 180
     readonly property var windowCurve: [0.25, 0.1, 0.25, 1]
     /*! The step between notification exits, oldest first, when cleared together. */

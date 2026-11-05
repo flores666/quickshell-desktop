@@ -92,6 +92,7 @@ Binding {
             "plugin:windows:width_cap": String(Appearance.m.windowWidthCap),
             "plugin:windows:height_cap": String(Appearance.m.windowHeightCap),
             "plugin:windows:minimize_duration": String(Appearance.t.windowMinimize),
+            "plugin:windows:minimize_exposure": String(Appearance.t.windowExposure),
             "plugin:windows:move_duration": String(Appearance.t.windowMove),
             "plugin:windows:close_duration": String(Appearance.t.windowClose),
             "plugin:windows:close_scale": String(Appearance.m.windowCloseScale),
