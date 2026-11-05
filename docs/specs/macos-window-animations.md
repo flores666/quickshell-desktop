@@ -137,3 +137,24 @@ before disabling the nested parent output. Keep the parent's disabled rule
 in the scratch Lua config too: `HyprlandLuaTest` reloads it, and a runtime-only
 disable would let the hidden parent reclaim workspace 1. The compositor and
 the test shells must each have private state/cache directories.
+
+## Follow-up: blur and faster Genie
+
+The user requested blur and a 1.5× faster transition after accepting the
+original feature. Minimize/restore now takes 373 ms (560 / 1.5, rounded).
+Add a short motion exposure to the existing native mesh presentation: average
+poses on its own animation curve into a reusable floating-point framebuffer,
+then composite once. Keep colors and opacity, reset the exposure on reversal,
+and release it with the existing transition; ordinary windows stay sharp.
+
+Acceptance: native duration is 373 ms and exposure follows its design token;
+moving edges/content show a blur relative to exposure 0 at the same phase;
+the final restored image is sharp; the existing reversal, reduced-motion,
+geometry and unload checks still pass. If the extra buffer cannot be made,
+keep the existing Genie presentation. Use the existing style bridge and no
+new setting or dependency.
+
+Files: `config/Motion.qml`, `modules/common/CompositorTheme.qml`,
+`hypr/windows/Style.{hpp,cpp}`, `hypr/windows/Genie.{hpp,cpp}`,
+`tests/WindowBlurTest.qml`, and this specification. One dependent native
+change, implemented on the same branch; original acceptance tests stay frozen.
