@@ -41,7 +41,7 @@ Row {
     /*! Resting artwork in monitor-local coordinates, also while the dock is
         hidden. The native owner chooses the window's monitor. Hover and drag
         transforms never feed back into the destination of a window's Genie. */
-    readonly property var windowTargets: {
+    readonly property var iconTargets: {
         const targets = [];
         const size = Appearance.m.dockIcon;
         const y = (root.screen?.height ?? 0) - Appearance.m.screenGap
@@ -50,12 +50,18 @@ Row {
             if (entry.leaving) return;
             const x = ((root.screen?.width ?? 0) - root.original.width) / 2
                 + root.original.centers[index] - size / 2;
-            for (const window of entry.item.windows)
-                if (window?.address)
-                    targets.push({ address: window.address, x, y, width: size, height: size });
+            targets.push({ item: entry.item, rect: { x, y, width: size, height: size } });
         });
         return targets;
     }
+    readonly property var windowTargets: root.iconTargets.reduce((out, t) => out.concat(t.item.windows
+        .filter(w => w?.address).map(w => Object.assign({ address: w.address }, t.rect))), [])
+    /*! Publish identities before a pin has a window. These are the desktop
+        entry's own identities, not a second application lookup in native code. */
+    readonly property var appTargets: root.iconTargets.reduce((out, t) => out.concat(
+        [...new Set([t.item.appId, t.item.entry?.id, t.item.entry?.startupClass].filter(id => id))]
+            .map(appId => Object.assign({ appId }, t.rect))), [])
+    readonly property var animationTargets: root.windowTargets.concat(root.appTargets)
     readonly property var magnifications: {
         // Distances use the resting centres, so an icon's animated artwork
         // never feeds back into its own magnification target.

@@ -2,8 +2,8 @@
 
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
-// The existing move-to-workspace action is shared by the title-bar minimize
-// button and the dock's restore. Hook that boundary, never duplicate actions.
+// Present map/unmap and the existing minimize/restore action through the same
+// dock Genie. Native window lifetime, layout, focus and actions stay intact.
 namespace WindowMotion {
     void init(HANDLE handle);
     void exit();

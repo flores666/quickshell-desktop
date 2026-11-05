@@ -13,6 +13,7 @@ class CGenie {
     static UP<CGenie> capture(PHLWINDOW window, const CBox& target, float from);
     ~CGenie();
     void toward(bool minimized);
+    void close();
     void paint(Render::CRenderContext& ctx) const;
     bool finished() const;
     bool valid() const;
@@ -32,4 +33,5 @@ class CGenie {
     SP<Style::Config> m_config;
     PHLANIMVAR<float> m_progress;
     float m_from = 0.F;
+    bool m_closing = false, m_private = false;
 };

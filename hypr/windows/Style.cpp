@@ -28,7 +28,7 @@ namespace {
     SP<CIntValue>             g_hover, g_fade, g_rollOut, g_rollIn, g_dwell, g_linger;
     SP<CIntValue>             g_minimize, g_exposure, g_move, g_close;
     SP<CIntValue>             g_height, g_button, g_gap, g_inset, g_edge, g_fontPoints, g_fontWeight;
-    SP<CFloatValue>           g_widthCap, g_heightCap, g_closeScale;
+    SP<CFloatValue>           g_widthCap, g_heightCap;
     SP<CStringValue>          g_fontFamily;
     SP<Style::Config>         g_hoverConfig, g_fadeConfig, g_rollOutConfig, g_rollInConfig, g_minimizeConfig;
 
@@ -119,7 +119,6 @@ void Style::init(HANDLE handle) {
     g_exposure = MS("plugin:windows:minimize_exposure", "Genie motion blur exposure in ms", 22);
     g_move = MS("plugin:windows:move_duration", "Window geometry transition duration in ms", 479);
     g_close = MS("plugin:windows:close_duration", "Window close duration in ms", 180);
-    g_closeScale = CAP("plugin:windows:close_scale", "Window scale at the end of close", 0.96F);
     g_motion.value = ADD(makeShared<CStringValue>("plugin:windows:move_curve", "Window geometry curve: x1 y1 x2 y2", "0.25 0.1 0.25 1"));
 
     g_bar = COLOR("plugin:windows:bar_color", "The system's title bar, where the application's colour cannot be told", 0xFFFFFFFF);
@@ -165,7 +164,11 @@ void Style::restyle() {
             std::max(0.1F, ms->value() / 100.F), curve, style);
     };
     SET("windowsMove", g_move, g_motion.name);
-    SET("windowsOut", g_close, g_standard.name, std::format("popin {}%", std::lround(g_closeScale->value() * 100)));
+    // Windows without a dock target keep their final box and fade. A 100%
+    // popin is Hyprland's native no-geometry-change presentation.
+    SET("windowsIn", g_fade, g_standard.name, "popin 100%");
+    SET("fadeIn", g_fade, g_standard.name);
+    SET("windowsOut", g_close, g_standard.name, "popin 100%");
     SET("fadeOut", g_close, g_standard.name);
 }
 

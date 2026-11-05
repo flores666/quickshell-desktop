@@ -198,7 +198,6 @@ QtObject {
     readonly property int titleBarEdge: 4
     readonly property real windowWidthCap: 0.7
     readonly property real windowHeightCap: 0.8
-    readonly property real windowCloseScale: 0.96
     readonly property int windowShadowDrop: 6
     readonly property real windowShadowRange: 1.7
     readonly property int windowShadowPower: 4

@@ -14,9 +14,9 @@ Item {
     CompositorTheme {}
 
     function start(): void {
-        const names = ["minimize_duration", "move_duration", "close_duration", "close_scale", "move_curve"];
+        const names = ["minimize_duration", "move_duration", "close_duration", "move_curve"];
         const expected = [Appearance.t["windowMinimize"], Appearance.t["windowMove"],
-            Appearance.t["windowClose"], Appearance.m["windowCloseScale"], Appearance.t["windowCurve"]?.join(" ")];
+            Appearance.t["windowClose"], Appearance.t["windowCurve"]?.join(" ")];
         sh.run('hyprctl -j --batch "$1"', [names.map(k => "getoption plugin:windows:" + k).join(" ; ")], text => {
             const replies = JSON.parse("[" + text.replace(/no such option/g, "{}").replace(/}\s*{/g, "},{") + "]");
             names.forEach((name, i) => {
@@ -31,10 +31,15 @@ Item {
                 const move = leaves.find(a => a.name === "windowsMove");
                 const close = leaves.find(a => a.name === "windowsOut");
                 const fade = leaves.find(a => a.name === "fadeOut");
+                const open = leaves.find(a => a.name === "windowsIn");
+                const fadeIn = leaves.find(a => a.name === "fadeIn");
                 check.near("window geometry uses the motion token", move.speed * 100, expected[1]);
                 check.near("close geometry uses the close token", close.speed * 100, expected[2]);
                 check.near("close fade and geometry finish together", fade.speed, close.speed);
-                check.equal("close uses a small centered shrink", close.style, "popin " + Math.round(expected[3] * 100) + "%");
+                check.equal("fallback close keeps its full geometry", close.style, "popin 100%");
+                check.equal("fallback launch keeps its full geometry", open.style, "popin 100%");
+                check.near("launch fade uses the shell fade timing", fadeIn.speed * 100, Appearance.t.fast);
+                check.equal("launch fade uses the shell curve", fadeIn.bezier, fade.bezier);
                 check.done();
             });
         });

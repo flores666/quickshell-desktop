@@ -23,7 +23,8 @@ Item {
 
     function entry(key: string, addresses: var, leaving: bool): var {
         return { key, leaving, arriving: false, item: {
-            key, name: key, icon: "utilities-terminal",
+            key, appId: key, name: key, icon: "utilities-terminal",
+            entry: { id: key + ".desktop", startupClass: key + "-startup" },
             windows: addresses.map(address => ({ address, activated: false }))
         } };
     }
@@ -62,6 +63,17 @@ Item {
         check.equal("departing applications publish no stale addresses", root.targets().map(t => t.address).join(","), "bbb");
         row.drawn = [];
         check.equal("empty dock releases every target", root.targets().length, 0);
+        row.drawn = [root.entry("pinned", [], false), b];
+        row.forceLayout();
+        const apps = row["appTargets"] ?? [];
+        check.equal("pins without windows publish a launch target", apps.some(t => t.appId === "pinned"), true);
+        check.equal("launch targets include desktop and startup identities",
+            apps.some(t => t.appId === "pinned.desktop") && apps.some(t => t.appId === "pinned-startup"), true);
+        const pin = apps.find(t => t.appId === "pinned");
+        if (pin) check.near("launch target uses the same resting artwork", pin.x + pin.width / 2,
+            (row.screen.width - row.original.width) / 2 + row.original.centers[0]);
+        row.drawn = [root.entry("pinned", [], true)];
+        check.equal("departing pins release their launch identities", (row["appTargets"] ?? []).length, 0);
         check.done();
     }
 

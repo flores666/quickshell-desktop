@@ -95,7 +95,6 @@ Binding {
             "plugin:windows:minimize_exposure": String(Appearance.t.windowExposure),
             "plugin:windows:move_duration": String(Appearance.t.windowMove),
             "plugin:windows:close_duration": String(Appearance.t.windowClose),
-            "plugin:windows:close_scale": String(Appearance.m.windowCloseScale),
             "plugin:windows:move_curve": Appearance.t.windowCurve.join(" "),
             "plugin:windows:hover_duration": String(Appearance.t.instant),
             "plugin:windows:fade_duration": String(Appearance.t.fast),

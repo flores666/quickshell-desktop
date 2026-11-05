@@ -48,7 +48,7 @@ PanelWindow {
     Component.onCompleted: {
         root.targetScreen = root.modelData.name;
         root.pointerKey = "dock:" + root.targetScreen;
-        Compositor.setDockTargets(root.targetScreen, layout.windowTargets);
+        Compositor.setDockTargets(root.targetScreen, layout.animationTargets);
     }
 
     readonly property HyprlandMonitor monitor: Compositor.monitorFor(root.modelData)
@@ -274,7 +274,7 @@ PanelWindow {
             panel: surface
             pointerX: dockHover.point.scenePosition.x
             magnifying: dockHover.hovered && root.shown
-            onWindowTargetsChanged: Compositor.setDockTargets(root.targetScreen, layout.windowTargets)
+            onAnimationTargetsChanged: Compositor.setDockTargets(root.targetScreen, layout.animationTargets)
             onActivated: (item, x) => root.activate(item, x)
             onChildHover: (key, label, x, entered) => root.onChildHover(key, label, x, entered)
         }

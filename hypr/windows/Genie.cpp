@@ -108,7 +108,7 @@ namespace {
 
 UP<CGenie> CGenie::capture(PHLWINDOW window, const CBox& target, float from) {
     const auto MONITOR = window->m_monitor.lock();
-    if (!MONITOR || !Style::motionEnabled() || !g_pHyprRenderer->glBackend())
+    if (!MONITOR || !Style::motionEnabled() || !g_pHyprRenderer->glBackend() || window->m_ruleApplicator->noAnim().valueOrDefault())
         return nullptr;
     const auto BOX = target.intersection({0, 0, MONITOR->m_size.x, MONITOR->m_size.y});
     if (BOX.empty())
@@ -133,7 +133,8 @@ UP<CGenie> CGenie::capture(PHLWINDOW window, const CBox& target, float from) {
 
 CGenie::CGenie(PHLWINDOW window, const CBox& target, SP<Render::IFramebuffer> snapshot, float from) :
     m_window(window), m_monitor(window->m_monitor), m_workspace(window->m_workspace), m_target(target),
-    m_windowBox(window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT)), m_snapshot(snapshot) {
+    m_windowBox(window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT)), m_snapshot(snapshot),
+    m_private(window->m_ruleApplicator->noScreenShare().valueOrDefault()) {
     const auto MONITOR = monitor();
     m_source = window->getFullWindowBoundingBox().translate(-MONITOR->m_position).intersection({0, 0, MONITOR->m_size.x, MONITOR->m_size.y});
     m_frame = window->getWindowBoxUnified(Desktop::View::RESERVED_EXTENTS).translate(-MONITOR->m_position);
@@ -164,7 +165,7 @@ void CGenie::toward(bool minimized) {
 void CGenie::paint(Render::CRenderContext& ctx) const {
     const auto W = m_window.lock();
     const auto MONITOR = monitor();
-    if (W && MONITOR) {
+    if (MONITOR) {
         const float CURRENT = m_progress->value();
         std::vector<float> poses{CURRENT};
         if (m_blur && Style::minimizeExposure() > 0) {
@@ -181,15 +182,21 @@ void CGenie::paint(Render::CRenderContext& ctx) const {
             }
         }
         Render::IHyprRenderer::addPassElement(ctx, makeUnique<CGeniePass>(m_snapshot, m_blur, m_source, m_frame, m_target, MONITOR->m_size, poses,
-            W->m_ruleApplicator->noScreenShare().valueOrDefault()));
+            m_private || (W && W->m_ruleApplicator->noScreenShare().valueOrDefault())));
     }
 }
 
 bool CGenie::finished() const { return !m_progress->isBeingAnimated(); }
+void CGenie::close() {
+    if (const auto W = m_window.lock()) m_private |= W->m_ruleApplicator->noScreenShare().valueOrDefault();
+    m_closing = true;
+    m_window.reset();
+    toward(true);
+}
 bool CGenie::valid() const {
     const auto W = m_window.lock();
     const auto WORKSPACE = m_workspace.lock();
-    return validMapped(W) && monitor() && WORKSPACE && WORKSPACE->visible();
+    return (m_closing || validMapped(W)) && monitor() && WORKSPACE && WORKSPACE->visible();
 }
 bool CGenie::sameDestination(PHLWINDOW window) const {
     return window->m_monitor == m_monitor && window->m_workspace == m_workspace &&

@@ -1,5 +1,10 @@
 # macOS-style window animations
 
+The launch/close extension in [window-launch-close.md](window-launch-close.md)
+supersedes this change's close shrink: a current dock target uses Genie;
+otherwise map/unmap fades at full geometry. The unused close-scale token and
+native option were removed along with their bridge and test expectation.
+
 ## Goal
 
 Animate the windows controlled by the existing title-bar buttons: close,
