@@ -50,6 +50,8 @@
     "hyprTapToClick": -1,
     "hyprTouchpadScroll": 70,
     "hyprTouchpadSpeed": 94,
+    "nightLightEnabled": false,
+    "nightLightTemperature": 4500,
     "notificationTimeout": -1,
     "pinnedApps": [
         "firefox",

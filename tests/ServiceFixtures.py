@@ -54,6 +54,40 @@ counter.write_text(str(n))
 with (p / ("response-" + str(n))).open() as response:
     print(response.read(), flush=True)
 ''')
+elif sys.argv[1] == "nightlight":
+    os.mkfifo(directory / "backend-control")
+    for i in range(1, 13):
+        os.mkfifo(directory / f"reply-{i}")
+    command("hyprsunset", '''#!/usr/bin/env python3
+import os, pathlib, sys
+p = pathlib.Path(os.environ["TEST_BIN"])
+counter = p / "daemon-sequence"
+n = int(counter.read_text()) + 1 if counter.exists() else 1
+counter.write_text(str(n))
+(p / ("daemon-pid-" + str(n))).write_text(str(os.getpid()) + chr(10))
+(p / ("started-" + str(n))).write_text(" ".join(sys.argv[1:]) + chr(10) + os.environ["XDG_CONFIG_HOME"])
+with os.fdopen(os.open(p / "backend-control", os.O_RDWR)) as control:
+    for line in control:
+        if line.strip() == "exit":
+            sys.exit(1)
+        if line.strip() == "ready":
+            print("[LOG] hyprsunset socket started at private fixture", flush=True)
+''')
+    command("hyprctl", '''#!/usr/bin/env python3
+import os, pathlib, signal, sys
+if len(sys.argv) < 2 or sys.argv[1] != "hyprsunset":
+    os.execv("/usr/bin/hyprctl", sys.argv)
+# Simulate a callback arriving after cancellation and a backend replacement.
+signal.signal(signal.SIGTERM, lambda *_: None)
+p = pathlib.Path(os.environ["TEST_BIN"])
+counter = p / "write-sequence"
+n = int(counter.read_text()) + 1 if counter.exists() else 1
+counter.write_text(str(n))
+(p / ("request-" + str(n))).write_text(" ".join(sys.argv[2:]))
+with (p / ("reply-" + str(n))).open() as reply:
+    print(reply.read(), flush=True)
+''')
+    command("hyprsunset-unavailable", "#!/bin/sh\nexit 127\n")
 elif sys.argv[1] == "screenshot":
     command("xdg-user-dir", '#!/bin/sh\nprintf "%s\\n" "$TEST_BIN/pictures"\n')
     command("date", '#!/bin/sh\nprintf "2026-01-01_12-00-00\\n"\n')

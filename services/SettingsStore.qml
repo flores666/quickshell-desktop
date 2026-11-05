@@ -9,6 +9,8 @@ import Quickshell.Io
 JsonAdapter {
     property string theme: "dark"
     property bool doNotDisturb: false
+    property bool nightLightEnabled: false
+    property int nightLightTemperature: 4500
     property bool roundnessFollowsWindows: false
     /*! Off keeps the dock on screen, reserving its footprint like the bar. */
     property bool dockAutoHide: true

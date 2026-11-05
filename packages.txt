@@ -5,6 +5,10 @@
 # the compositor and the shell
 hyprland
 hyprpaper
+# screen temperature in quick settings (services/NightLight)
+hyprsunset
+# flock/setpriv: NightLight's backend ownership and lifetime
+util-linux
 xdg-desktop-portal-hyprland
 # the portal's Settings: the shell's light or dark, as browsers read it
 # (services/DesktopScheme)

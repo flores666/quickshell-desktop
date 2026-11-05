@@ -48,6 +48,8 @@ ShellOverlay {
     })
     readonly property var current: root.pages[root.visiblePage] ?? null
 
+    onShownChanged: if (root.shown) NightLight.refresh()
+
     Timer {
         // Hands the card over to the incoming page. A Behavior animation never
         // emits finished(), so the handover is timed rather than chained off the
@@ -167,7 +169,19 @@ ShellOverlay {
             id: powerPage
             PowerPage { onActionTaken: Overlay.close() }
         }
-        Component { id: colorsPage; ColorsSection {} }
+        Component {
+            id: colorsPage
+            Column {
+                spacing: Appearance.s.lg
+
+                ColorsSection { width: parent.width }
+
+                NightLightControl {
+                    width: parent.width
+                    visible: NightLight.available
+                }
+            }
+        }
 
         // ----------------------------------------------------- front page
 

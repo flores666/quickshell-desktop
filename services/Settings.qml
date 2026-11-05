@@ -15,6 +15,8 @@ Singleton {
 
     readonly property bool effectiveDark: store.theme !== "light"
     readonly property bool doNotDisturb: store.doNotDisturb
+    readonly property bool nightLightEnabled: store.nightLightEnabled
+    readonly property int nightLightTemperature: store.nightLightTemperature
     readonly property var pinnedApps: store.pinnedApps
     readonly property var dockOrder: store.dockOrder
     readonly property var hiddenTitleBars: store.hiddenTitleBars
@@ -114,6 +116,14 @@ Singleton {
 
     function setDoNotDisturb(on: bool): void {
         store.doNotDisturb = on;
+    }
+
+    function setNightLightEnabled(on: bool): void {
+        store.nightLightEnabled = on;
+    }
+
+    function setNightLightTemperature(kelvin: int): void {
+        store.nightLightTemperature = kelvin;
     }
 
     function setRoundnessFollowsWindows(on: bool): void {

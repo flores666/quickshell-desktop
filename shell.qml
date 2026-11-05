@@ -29,7 +29,7 @@ ShellRoot {
         // Bring the state singletons up at startup rather than on first paint,
         // so the bar renders with real values instead of empty placeholders.
         void [Audio.ready, Network.available, Bt.available, Power.hasBattery,
-              Brightness.available, Players.any, Apps.all.length, Notifs.count,
+              Brightness.available, NightLight.available, Players.any, Apps.all.length, Notifs.count,
               Compositor.workspaces.length, Settings.ready, Osd.shown, Keyboard.available,
               Vpn.available, V2rayn.available,
               // Not for a first paint: the switcher's order is every focus

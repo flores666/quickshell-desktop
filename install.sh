@@ -151,6 +151,7 @@ if ! { [[ -f "$hypr_conf" ]] && grep -qxF "$hypr_line" "$hypr_conf"; }; then
     say "wrote $hypr_conf"
 fi
 link "$shell_dir/hypr/hyprpaper.conf" "$config/hypr/hyprpaper.conf"
+link "$shell_dir/hypr/hyprsunset.conf" "$config/hypr/hyprsunset.conf"
 
 # kitty's own file likewise: the font size kitty-font-size keeps is the
 # machine's, and anything after the include wins over the project.
