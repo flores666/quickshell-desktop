@@ -19,6 +19,9 @@ Item {
     required property HyprlandMonitor monitor
     /*! The colours its dots are drawn in (Bar). */
     property ColorScheme scheme: Appearance.c
+    /*! The bar's glass, for local active and urgent colors. Inactive dots
+        retain dark ink across the wallpaper. */
+    property Surface surface: null
 
     readonly property var list: Compositor.workspacesFor(root.monitor)
 
@@ -71,14 +74,19 @@ Item {
                 onClicked: Compositor.switchToWorkspace(item.modelData.id)
 
                 Rectangle {
+                    id: marker
+
+                    readonly property ColorScheme scheme: root.surface
+                        ? root.surface.schemeOver(marker) : root.scheme
+
                     anchors.centerIn: parent
                     width: item.isActive ? 16 : 6
                     height: 6
                     radius: 3
-                    color: (item.modelData?.urgent ?? false) ? root.scheme.danger
-                        : item.isActive ? root.scheme.accent
-                        : item.occupied ? root.scheme.textMuted
-                        : root.scheme.borderStrong
+                    color: (item.modelData?.urgent ?? false) ? marker.scheme.danger
+                        : item.isActive ? marker.scheme.accent
+                        : item.occupied ? Appearance.day.text
+                        : Appearance.day.textMuted
 
                     Behavior on width {
                         NumberAnimation {

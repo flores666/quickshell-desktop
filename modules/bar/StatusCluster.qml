@@ -82,8 +82,7 @@ BarButton {
             anchors.verticalCenter: parent.verticalCenter
             text: Math.round(Power.percentage) + "%"
             role: Label.Role.Small
-            muted: true
-            scheme: root.scheme
+            surface: root.surface
         }
     }
 }

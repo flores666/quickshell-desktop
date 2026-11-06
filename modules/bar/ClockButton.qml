@@ -25,8 +25,7 @@ BarButton {
     Label {
         anchors.verticalCenter: parent.verticalCenter
         text: Time.dateShort
-        muted: true
-        scheme: root.scheme
+        surface: root.surface
     }
 
     Label {
@@ -35,7 +34,7 @@ BarButton {
         role: Label.Role.Subtitle
         font.weight: Font.DemiBold
         font.features: ({ "tnum": 1 })
-        scheme: root.scheme
+        surface: root.surface
     }
 
     Rectangle {

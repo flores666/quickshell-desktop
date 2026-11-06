@@ -12,8 +12,11 @@ Text {
     property int role: Label.Role.Body
     property bool muted: false
     property bool faint: false
+    /*! Optional glass beneath text drawn over wallpaper, as in the bar.
+        Choose light or dark ink from this label's own background area. */
+    property Surface surface: null
     /*! The colours it is set in; see Clickable's. */
-    property ColorScheme scheme: Appearance.c
+    property ColorScheme scheme: root.surface ? root.surface.schemeOver(root) : Appearance.c
 
     /*! Resolve the nearest material, including opaque in-card menus. */
     readonly property bool onClearGlass: {

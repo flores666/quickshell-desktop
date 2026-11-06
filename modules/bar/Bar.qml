@@ -25,7 +25,8 @@ import "root:/services"
     panel (Surface.schemeOver): the theme's, until the user thins the glass
     enough over a wallpaper of the other lightness there. The bar also
     measures its screen's wallpaper for that, for the dock as well
-    (BackdropProbe).
+    (BackdropProbe). Text chooses its light or dark ink independently over
+    each label's own rectangle.
 */
 PanelWindow {
     id: root
@@ -96,6 +97,7 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 monitor: root.monitor
                 scheme: panel.schemeOver(workspaces)
+                surface: panel
             }
         }
 
@@ -105,6 +107,7 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             screen: root.modelData
             scheme: panel.schemeOver(clock)
+            surface: panel
         }
 
         BarGroup {
@@ -130,6 +133,7 @@ PanelWindow {
                 id: layout
                 anchors.verticalCenter: parent.verticalCenter
                 scheme: panel.schemeOver(layout)
+                surface: panel
             }
 
             StatusCluster {
@@ -137,6 +141,7 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 screen: root.modelData
                 scheme: panel.schemeOver(status)
+                surface: panel
             }
         }
     }

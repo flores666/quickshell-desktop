@@ -19,7 +19,6 @@ BarButton {
         text: Keyboard.code
         role: Label.Role.Small
         font.weight: Font.DemiBold
-        muted: true
-        scheme: root.scheme
+        surface: root.surface
     }
 }

@@ -10,6 +10,8 @@ Clickable {
     id: root
 
     property int padding: Appearance.m.barIconGap / 2
+    /*! The bar's glass, for text to read its own part of the wallpaper. */
+    property Surface surface: null
     property alias contentItem: content
     default property alias barContent: content.data
 
