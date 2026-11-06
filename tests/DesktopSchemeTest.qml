@@ -5,7 +5,8 @@ import "root:/services"
 /*!
     The shell's theme handed to other applications (DesktopScheme): GNOME's
     color-scheme, what the portal tells browsers, is prefer-dark under the
-    dark theme and prefer-light under the light one, and follows a switch.
+    dark theme and prefer-light under the light one. Conflux stays selected
+    across that switch, including a new request while the setter is busy.
     Only against tools/test.sh's gsettings, which keeps its values in a file
     of the run's own: anywhere else the test touches nothing and fails.
 */
@@ -31,10 +32,10 @@ Item {
 
     readonly property string key: "org.gnome.desktop.interface color-scheme"
 
-    /*! GNOME's color-scheme once it is `want`, or as it stands after two
-        seconds. */
-    function read(want: string, then: var): void {
-        scheme.until(`gsettings get ${root.key}`, [], v => v.trim() === `'${want}'`, v => then(v.trim()));
+    /*! Both GTK keys once the requested pair has landed. */
+    function read(want: string, icons: string, then: var): void {
+        scheme.until(`gsettings get ${root.key}; gsettings get org.gnome.desktop.interface icon-theme`, [],
+            v => v.trim() === `'${want}'\n'${icons}'`, v => then(v.trim().split("\n")));
     }
 
     property bool started: false
@@ -60,13 +61,25 @@ Item {
             Settings.setTheme("dark");
             check.equal("dark: the scheme", DesktopScheme.scheme, "prefer-dark");
         });
-        root.read("prefer-dark", dark => {
-            check.equal("dark: GNOME's color-scheme", dark, "'prefer-dark'");
+        root.read("prefer-dark", "Conflux", dark => {
+            check.equal("dark: GNOME's color-scheme", dark[0], "'prefer-dark'");
+            check.equal("dark: Conflux artwork", dark[1], "'Conflux'");
+            check.equal("dark: Qt and GTK share a theme", DesktopScheme.iconTheme, IconThemes.themeName);
             check.attempt("light", () => Settings.setTheme("light"));
-            root.read("prefer-light", light => {
-                check.equal("light: GNOME's color-scheme", light, "'prefer-light'");
-                check.attempt("put back", () => Settings.setTheme(theme));
-                check.done();
+            root.read("prefer-light", "Conflux", light => {
+                check.equal("light: GNOME's color-scheme", light[0], "'prefer-light'");
+                check.equal("light: Conflux artwork", light[1], "'Conflux'");
+                // These arrive before the first external setter can finish.
+                Settings.setTheme("dark");
+                Settings.setTheme("light");
+                Settings.setTheme("dark");
+                root.read("prefer-dark", "Conflux", latest => {
+                    check.equal("rapid changes keep the final scheme", latest[0], "'prefer-dark'");
+                    check.equal("rapid changes keep Conflux", latest[1], "'Conflux'");
+                    Settings.setTheme(theme);
+                    root.read(theme === "dark" ? "prefer-dark" : "prefer-light",
+                        "Conflux", () => check.done());
+                });
             });
         });
     }

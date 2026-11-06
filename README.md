@@ -56,7 +56,8 @@ and window actions use the new Lua IPC API too.
 
 The window plugin and the overview's local patches target Hyprland 0.57.
 The installer and each login rebuild them when the installed headers or local
-sources change. Only binaries stamped for the running release are loaded.
+sources change on that release. Older sessions keep their compatible installed
+plugins. Only binaries stamped for the running release are loaded.
 
 ## What is where
 
@@ -191,14 +192,28 @@ Measured idle CPU with the shell running and nothing happening: **0.00%**.
 
 ### Icons
 
-UI glyphs are vector path data lifted from the Adwaita symbolic icon theme by
-`tools/genicons.py` into `components/Icons.qml`, and drawn with QtQuick.Shapes.
-They take their colour from the design system, stay crisp at any size, and cost
-no image loading or colourising shader. Application icons still come from the
-XDG icon theme at runtime.
+Shell glyphs use **Hugeicons Stroke Rounded**, including the loading spinner
+and native window buttons. The selected MIT-licensed SVGs, pinned provenance
+and semantic map live in `tools/icons/hugeicons/`. `tools/genicons.py` generates
+`components/Icons.qml` for QtQuick.Shapes and `hypr/windows/HugeiconsGlyphs.hpp`
+for the window plugin from the same artwork, preserving its strokes at shell
+sizes. The fish prompt separately retains its Phosphor font glyphs.
 
-To change the icon set, edit the map at the top of `tools/genicons.py` and re-run
-it.
+Application icons use **Conflux** in both light and dark mode. `IconThemes`
+owns the theme name; `DesktopScheme` applies it to GTK alongside the color
+scheme. The installer runs `tools/install-icon-theme.sh`, which installs a
+pinned revision of [Conflux](https://github.com/MoshiurRahmanAdib/Conflux-Icon-Theme),
+including its GPL-3.0 license and source credits. Missing artwork falls through
+the theme's standard XDG inheritance to hicolor, Adwaita and
+application-provided icons, with Qt's platform fallback retained.
+The native icon-theme hook applies the theme to the shell and
+gives the existing icon provider a new image-cache identity on theme changes
+or installs, so already visible icons redraw too. The saved GTK
+profile applies the same theme to applications. App-provided tray images,
+notification pictures and media artwork keep their original meaning.
+
+To change a shell glyph, edit `tools/icons/hugeicons/map.json` and run
+`python3 tools/genicons.py`; `--check` verifies the generated files.
 
 ## Colours
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 project(desktop-native LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS DBus Gui Qml)
+find_package(Qt6 6.5 REQUIRED COMPONENTS DBus Gui Qml Quick)
 qt_standard_project_setup(REQUIRES 6.5)
 
 # The module lands in qml/Desktop/Native under the build directory: a qmldir,
@@ -14,4 +14,4 @@ qt_add_qml_module(desktopnative
     PLUGIN_TARGET desktopnative
     SOURCES IconThemeWatch.cpp IconThemeWatch.hpp MprisWatch.cpp MprisWatch.hpp
 )
-target_link_libraries(desktopnative PRIVATE Qt6::DBus Qt6::Gui Qt6::Qml)
+target_link_libraries(desktopnative PRIVATE Qt6::DBus Qt6::Gui Qt6::Qml Qt6::Quick)

@@ -83,6 +83,7 @@ Binding {
             "plugin:windows:bar_color": root.rgba(Appearance.c.surface),
             "plugin:windows:height": String(Appearance.m.titleBarHeight),
             "plugin:windows:button_size": String(Appearance.m.titleBarButton),
+            "plugin:windows:glyph_scale": String(Appearance.m.titleBarGlyphScale),
             "plugin:windows:button_gap": String(Appearance.m.titleBarGap),
             "plugin:windows:button_inset": String(Appearance.m.titleBarInset),
             "plugin:windows:reveal_edge": String(Appearance.m.titleBarEdge),

@@ -1,327 +1,145 @@
 #!/usr/bin/env python3
-"""Generate components/Icons.qml from the Adwaita symbolic icon theme.
+"""Generate shell and window glyphs from the vendored Hugeicons Stroke Rounded set.
 
-Adwaita symbolic icons are single-colour 16x16 SVGs made of one or more <path>
-fill elements.  We lift the raw path data out so the shell can draw them with
-QtQuick.Shapes in any colour, at any size, with no runtime SVG or image-effect
-cost.
+Only Python's standard library is needed. Artwork, aliases and the upstream
+license live in tools/icons/hugeicons; generation never downloads files or
+depends on the machine's application icon theme.
 """
-import re, sys, os, xml.etree.ElementTree as ET
+import json
+from pathlib import Path
+import re
+import sys
+import xml.etree.ElementTree as ET
 
-THEME = "/usr/share/icons/Adwaita/symbolic"
-OUT = os.path.join(os.path.dirname(__file__), "..", "components", "Icons.qml")
+ROOT = Path(__file__).resolve().parent.parent
+SOURCE = ROOT / "tools/icons/hugeicons"
 SVG = "{http://www.w3.org/2000/svg}"
-MAX_LAYERS = 3
-
-# key -> adwaita icon name (without -symbolic.svg)
-ICONS = {
-    # network
-    "wifi-none": "network-wireless-signal-none",
-    "wifi-weak": "network-wireless-signal-weak",
-    "wifi-ok": "network-wireless-signal-ok",
-    "wifi-good": "network-wireless-signal-good",
-    "wifi-excellent": "network-wireless-signal-excellent",
-    "wifi-off": "network-wireless-disabled",
-    "wifi-acquiring": "network-wireless-acquiring",
-    "wifi-locked": "network-wireless-encrypted",
-    "wifi-hotspot": "network-wireless-hotspot",
-    "ethernet": "network-wired",
-    "ethernet-off": "network-wired-disconnected",
-    "network-offline": "network-offline",
-    "network-error": "network-error",
-    "network-limited": "network-no-route",
-    "vpn": "network-vpn",
-    # audio
-    "volume-muted": "audio-volume-muted",
-    "volume-low": "audio-volume-low",
-    "volume-medium": "audio-volume-medium",
-    "volume-high": "audio-volume-high",
-    "volume-over": "audio-volume-overamplified",
-    "speakers": "audio-speakers",
-    "headphones": "audio-headphones",
-    "headset": "audio-headset",
-    "audio-card": "audio-card",
-    "mic": "audio-input-microphone",
-    "mic-muted": "microphone-sensitivity-muted",
-    # bluetooth
-    "bluetooth": "bluetooth-active",
-    "bluetooth-off": "bluetooth-disabled",
-    "bluetooth-disconnected": "bluetooth-disconnected",
-    "bluetooth-acquiring": "bluetooth-acquiring",
-    # power
-    "battery-missing": "battery-missing",
-    "ac-adapter": "ac-adapter",
-    "power-saver": "power-profile-power-saver",
-    "power-balanced": "power-profile-balanced",
-    "power-performance": "power-profile-performance",
-    "brightness": "display-brightness",
-    # session
-    "lock": "system-lock-screen",
-    "logout": "system-log-out",
-    "reboot": "system-reboot",
-    "shutdown": "system-shutdown",
-    "suspend": "weather-clear-night",
-    # ui / chrome
-    "chevron-down": "pan-down",
-    "chevron-up": "pan-up",
-    "chevron-left": "pan-start",
-    "chevron-right": "pan-end",
-    "close": "window-close",
-    "check": "object-select",
-    "search": "system-search",
-    "apps": "view-app-grid",
-    "menu": "open-menu",
-    "more": "view-more",
-    "refresh": "view-refresh",
-    "add": "list-add",
-    "remove": "list-remove",
-    "clear": "edit-clear",
-    "trash": "user-trash-full",
-    "settings": "system-run",
-    "pin": "view-pin",
-    "reveal": "view-reveal",
-    "conceal": "view-conceal",
-    "fullscreen": "view-fullscreen",
-    "grid": "view-grid",
-    "back": "go-previous",
-    "forward": "go-next",
-    # media
-    "play": "media-playback-start",
-    "pause": "media-playback-pause",
-    "prev": "media-skip-backward",
-    "next": "media-skip-forward",
-    "shuffle": "media-playlist-shuffle",
-    "repeat": "media-playlist-repeat",
-    "repeat-one": "media-playlist-repeat-song",
-    "music": "multimedia-player",
-    # status
-    "dnd": "notifications-disabled",
-    "bell": "preferences-system-notifications",
-    "info": "dialog-information",
-    "warning": "dialog-warning",
-    "error": "dialog-error",
-    "night-light": "night-light",
-    "wallpaper": "preferences-desktop-wallpaper",
-    "calendar": "x-office-calendar",
-    "loading": "content-loading",
-    "password": "dialog-password",
-    "user": "avatar-default",
-    # devices
-    "computer": "computer",
-    "display": "video-display",
-    "keyboard": "input-keyboard",
-    "mouse": "input-mouse",
-    "gamepad": "input-gaming",
-    "phone": "phone",
-    "printer": "printer",
-    "window": "window-new",
-    # application categories, for the launcher
-    "cat-development": "utilities-terminal",
-    "cat-internet": "web-browser",
-    "cat-office": "x-office-document",
-    "cat-graphics": "applications-graphics",
-    "cat-multimedia": "applications-multimedia",
-    "cat-games": "applications-games",
-    "cat-education": "applications-science",
-    "cat-system": "applications-system",
-    "cat-settings": "preferences-system",
-    "cat-utilities": "applications-utilities",
-    # task manager: tabs and the network cards' arrows
-    "performance": "applications-engineering",
-    "disk": "drive-harddisk",
-    "network-transfer": "network-transmit-receive",
-    "gpu": "gpu",
-    "cpu": "cpu",
-    "ram": "ram",
-    "download": "go-down",
-    "upload": "go-up",
-    # drawn for the shell (tools/icons)
-    "magic-wand": "magic-wand",
-}
-
-# battery levels are generated programmatically
-for lvl in (0, 10, 20, 30, 40, 50, 60, 70, 80, 90):
-    ICONS[f"battery-{lvl}"] = f"battery-level-{lvl}"
-    ICONS[f"battery-{lvl}-charging"] = f"battery-level-{lvl}-charging"
-    ICONS[f"battery-{lvl}-plugged-in"] = f"battery-level-{lvl}-plugged-in"
-ICONS["battery-100"] = "battery-level-100"
-ICONS["battery-100-charging"] = "battery-level-100-charged"
-ICONS["battery-100-plugged-in"] = "battery-level-100-plugged-in"
-
-
-# Glyphs Adwaita does not draw, kept beside this script in the same form.
-LOCAL = os.path.join(os.path.dirname(__file__), "icons")
-
-
-def find(name):
-    local = os.path.join(LOCAL, f"{name}-symbolic.svg")
-    if os.path.exists(local):
-        return local
-    for sub in ("status", "ui", "actions", "devices", "categories", "places",
-                "emotes", "mimetypes", "legacy"):
-        p = os.path.join(THEME, sub, f"{name}-symbolic.svg")
-        if os.path.exists(p):
-            return p
-    return None
-
-
+EXTENT = 24  # Artwork coordinates, independent of UI sizing.
+WINDOW_GLYPHS = ("Cancel01", "MinusSign", "Add01", "Square", "Layout2Column")
+MAX_LAYERS = 3  # Fixed ShapePaths in Icon.qml; fail if new artwork needs more.
 NUM = re.compile(r"[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?")
-ARGC = {"M": 2, "L": 2, "H": 1, "V": 1, "C": 6, "S": 4, "Q": 4, "T": 2, "A": 7,
-        "Z": 0}
+ARGC = {"M": 2, "L": 2, "H": 1, "V": 1, "C": 6, "S": 4, "Q": 4,
+        "T": 2, "A": 7, "Z": 0}
 
 
-def shifted(text, by):
-    """A coordinate moved by a translation, written as briefly as it reads."""
-    v = round(float(text) + by, 6)
-    return ("%f" % v).rstrip("0").rstrip(".") if v else "0"
+def normalize(data):
+    """Separate SVG arguments, including compact arc flags Qt misreads.
 
-
-def normalize(d, tx=0.0, ty=0.0):
-    """Re-emit path data with one space between every command and argument.
-
-    Qt's PathSvg misreads SVG's compacted arc syntax.  In `a1 1 0 00-1 1` the
-    large-arc and sweep flags are single digits written without a separator;
-    Qt takes `00` for one number and shifts the remaining arguments along, so
-    the arc collapses into a straight line and the glyph comes out with square
-    corners.  Adwaita's optimised files write arcs that way, so the arguments
-    are pulled apart here instead of being trusted to the parser.  Everything
-    else is copied through verbatim, but for a translation (tx, ty), which
-    moves every absolute coordinate and the path's opening moveto.
+    In `a1 1 0 00-1 1`, the flags are two single digits, followed by -1.
+    Make the opening relative move absolute so merging paths keeps placement.
     """
-    out, i, n, cmd = [], 0, len(d), None
-    opening = True
-    while i < n:
-        if d[i] in " ,\t\r\n":
-            i += 1
+    out, pos, command = [], 0, None
+    while pos < len(data):
+        if data[pos] in " ,\t\r\n":
+            pos += 1
             continue
-        if d[i] in "MmZzLlHhVvCcSsQqTtAa":
-            cmd = d[i]
-            out.append(cmd)
-            i += 1
+        if data[pos] in "MmZzLlHhVvCcSsQqTtAa":
+            command = data[pos]
+            out.append(command.upper() if not out else command)
+            pos += 1
             continue
-        if cmd is None or ARGC[cmd.upper()] == 0:
-            raise ValueError(f"unexpected {d[i]!r} at {i} in {d!r}")
-        up = cmd.upper()
-        # Which arguments are an x and which a y: an arc's end point only.
-        absolute = cmd.isupper() or (opening and cmd == "m")
-        opening = False
-        axes = {"H": "x", "V": "y", "A": "-----xy"}.get(up, "xy" * 3)
-        for k in range(ARGC[up]):
-            while i < n and d[i] in " ,\t\r\n":
-                i += 1
-            # The two arc flags are one digit each, never a full number.
-            if up == "A" and k in (3, 4):
-                out.append(d[i])
-                i += 1
+        if command is None or ARGC[command.upper()] == 0:
+            raise ValueError(f"Unexpected path data at {pos}: {data!r}")
+        upper = command.upper()
+        for arg in range(ARGC[upper]):
+            while pos < len(data) and data[pos] in " ,\t\r\n":
+                pos += 1
+            if upper == "A" and arg in (3, 4):
+                if pos == len(data) or data[pos] not in "01":
+                    raise ValueError(f"Invalid arc flag at {pos}: {data!r}")
+                out.append(data[pos])
+                pos += 1
                 continue
-            m = NUM.match(d, i)
-            if not m:
-                raise ValueError(f"expected a number at {i} in {d!r}")
-            by = (tx if axes[k] == "x" else ty if axes[k] == "y" else 0) if absolute else 0
-            out.append(shifted(m.group(), by) if by else m.group())
-            i = m.end()
-        # Arguments repeating without a new letter mean the command again, and
-        # a moveto repeats as a lineto.
-        if up == "M":
-            cmd = "l" if cmd.islower() else "L"
+            number = NUM.match(data, pos)
+            if not number:
+                raise ValueError(f"Expected a number at {pos}: {data!r}")
+            out.append(number.group())
+            pos = number.end()
+        if upper == "M":
+            command = "l" if command.islower() else "L"
     return " ".join(out)
 
 
-TRANSLATE = re.compile(r"\s*translate\(\s*([^\s,)]+)(?:[\s,]+([^\s,)]+))?\s*\)\s*")
+def extract(name):
+    """Group only identical strokes, keeping SVG defaults and disconnected paths."""
+    source = SOURCE / f"{name}.svg"
+    root = ET.parse(source).getroot()
+    if root.attrib != {"viewBox": f"0 0 {EXTENT} {EXTENT}", "fill": "none"}:
+        raise ValueError(f"Unexpected SVG root styling: {source}")
+    groups = {}
+    for element in root:
+        tag = element.tag.removeprefix(SVG)
+        geometry = {"path": {"d"}, "circle": {"cx", "cy", "r"}}.get(tag)
+        allowed = {"stroke", "stroke-width", "stroke-linecap", "stroke-linejoin",
+                   "fill-rule", "clip-rule"}
+        if geometry is None or set(element.attrib) - allowed - geometry:
+            raise ValueError(f"Unsupported SVG geometry/styling: {source}")
+        if len(element) or element.get("stroke") != "currentColor":
+            raise ValueError(f"Unsupported SVG stroke: {source}")
+        width = float(element.get("stroke-width", "1"))
+        cap = element.get("stroke-linecap", "butt")
+        join = element.get("stroke-linejoin", "miter")
+        if width <= 0 or cap not in ("butt", "round", "square") or join not in ("miter", "round", "bevel"):
+            raise ValueError(f"Unsupported stroke style: {source}")
+        if any(element.get(key, "nonzero") not in ("nonzero", "evenodd")
+               for key in ("fill-rule", "clip-rule")):
+            raise ValueError(f"Unsupported fill/clip rule: {source}")
+        if tag == "path":
+            data = normalize(element.attrib["d"])
+        else:
+            x, y, radius = (float(element.attrib[key]) for key in ("cx", "cy", "r"))
+            if radius <= 0:
+                raise ValueError(f"Invalid circle: {source}")
+            data = normalize(f"M {x - radius:g} {y:g} a {radius:g} {radius:g} 0 1 0 {2 * radius:g} 0 "
+                             f"a {radius:g} {radius:g} 0 1 0 {-2 * radius:g} 0 Z")
+        groups.setdefault((width, cap, join), []).append(data)
+    if not groups or len(groups) > MAX_LAYERS:
+        raise ValueError(f"Expected 1..{MAX_LAYERS} stroke groups: {source}")
+    return [{"d": " ".join(paths), "width": width, "cap": cap, "join": join}
+            for (width, cap, join), paths in groups.items()]
 
 
-def placed(el, tx=0.0, ty=0.0):
-    """Every path under `el`, with the translation it is drawn at.
+def generate():
+    aliases = json.loads((SOURCE / "map.json").read_text())
+    paths = {name: extract(name) for name in sorted(set(aliases.values()) | set(WINDOW_GLYPHS))}
+    lines = ["pragma Singleton", "pragma ComponentBehavior: Bound", "", "import QtQuick", "",
+             "// GENERATED by tools/genicons.py. Hugeicons Stroke Rounded (MIT).",
+             "// Sources and license: tools/icons/hugeicons. Do not edit by hand.",
+             "QtObject {", f"    readonly property int extent: {EXTENT}",
+             "    readonly property var glyphs: ({"]
+    for key, name in sorted(aliases.items()):
+        lines.append(f"        {json.dumps(key)}: {json.dumps(paths[name])},")
+    lines.extend(["    })", "}", ""])
 
-    Newer Adwaita files draw a glyph far off its box and move it back with a
-    translate, on the path or a group around it; left out, the glyph lands
-    hundreds of pixels away and nothing shows. A transform of any other kind
-    stops the run rather than draw a glyph wrong.
-    """
-    t = el.get("transform")
-    if t:
-        m = TRANSLATE.fullmatch(t)
-        if not m:
-            raise ValueError(f"unsupported transform {t!r}")
-        tx, ty = tx + float(m.group(1)), ty + float(m.group(2) or 0)
-    if el.tag == f"{SVG}path":
-        yield el, tx, ty
-    for child in el:
-        yield from placed(child, tx, ty)
-
-
-def extract(path):
-    """-> (viewBox size, [(d, opacity)])"""
-    root = ET.parse(path).getroot()
-    vb = root.get("viewBox", "0 0 16 16").split()
-    size = float(vb[2]) if len(vb) == 4 else 16.0
-    out = []
-    for el, tx, ty in placed(root):
-        d = el.get("d")
-        if not d:
-            continue
-        op = el.get("fill-opacity")
-        style = el.get("style") or ""
-        m = re.search(r"fill-opacity:\s*([0-9.]+)", style)
-        if m:
-            op = m.group(1)
-        out.append((normalize(d, tx, ty), float(op) if op else 1.0))
-    return size, out
-
-
-def absolute_start(d):
-    """Make a path's opening moveto absolute.
-
-    A standalone path's leading lowercase `m` is already interpreted as
-    absolute, but once the path is concatenated after another one it becomes
-    relative to that path's final point. Upper-casing it keeps the merged path
-    identical to the separate ones.
-    """
-    d = d.lstrip()
-    return "M" + d[1:] if d[:1] == "m" else d
+    header = ["#pragma once", "", "// GENERATED by tools/genicons.py from Hugeicons Stroke Rounded (MIT).",
+              "// Sources and license: tools/icons/hugeicons. Do not edit by hand.",
+              "#include <array>", "#include <string_view>", "", "namespace Hugeicons {",
+              "inline constexpr std::array<std::string_view, 5> windowGlyphs = {"]
+    for name in WINDOW_GLYPHS:
+        root = ET.parse(SOURCE / f"{name}.svg").getroot()
+        ET.register_namespace("", SVG[1:-1])
+        for element in root.iter():
+            for key, value in element.attrib.items():
+                if value == "currentColor":
+                    element.set(key, "white")
+        svg = " ".join(ET.tostring(root, encoding="unicode").split())
+        header.append(f'    R"svg({svg})svg", // {name}')
+    header.extend(["};", "}", ""])
+    return {ROOT / "components/Icons.qml": "\n".join(lines),
+            ROOT / "hypr/windows/HugeiconsGlyphs.hpp": "\n".join(header)}
 
 
 def main():
-    missing, entries = [], []
-    for key in sorted(ICONS):
-        p = find(ICONS[key])
-        if not p:
-            missing.append(f"{key} -> {ICONS[key]}")
-            continue
-        size, paths = extract(p)
-        if not paths:
-            missing.append(f"{key} (no path data)")
-            continue
-        # Merge subpaths that share an opacity into one path element: Adwaita
-        # icons are disjoint shapes, so a single nonzero-fill path renders
-        # identically while keeping the QML delegate count fixed and small.
-        merged = {}
-        for d, o in paths:
-            merged.setdefault(o, []).append(absolute_start(d))
-        groups = [(" ".join(v), k) for k, v in merged.items()]
-        groups.sort(key=lambda g: -g[1])
-        if len(groups) > MAX_LAYERS:
-            missing.append(f"{key} has {len(groups)} opacity layers")
-        body = ", ".join(
-            '{ "d": "%s", "o": %g }' % (d.replace("\\", "\\\\").replace('"', '\\"'), o)
-            for d, o in groups)
-        entries.append('        "%s": { "size": %g, "paths": [%s] }' % (key, size, body))
-
-    if missing:
-        print("MISSING:\n  " + "\n  ".join(missing), file=sys.stderr)
-
-    with open(OUT, "w") as f:
-        f.write("pragma Singleton\n\n")
-        f.write("import QtQuick\n\n")
-        f.write("// GENERATED by tools/genicons.py from the Adwaita symbolic icon\n")
-        f.write("// theme. Do not edit by hand; re-run the script instead.\n")
-        f.write("QtObject {\n")
-        f.write("    readonly property var glyphs: ({\n")
-        f.write(",\n".join(entries))
-        f.write("\n    })\n\n")
-        f.write("    function has(name: string): bool { return name in glyphs; }\n")
-        f.write("}\n")
-    print(f"wrote {len(entries)} icons -> {os.path.normpath(OUT)}")
+    if sys.argv[1:] not in ([], ["--check"]):
+        sys.exit("Usage: tools/genicons.py [--check]")
+    for target, content in generate().items():
+        if sys.argv[1:]:
+            if not target.exists() or target.read_text() != content:
+                sys.exit(f"Stale generated glyphs: {target.relative_to(ROOT)}")
+        else:
+            target.write_text(content)
+            print(f"Generated {target.relative_to(ROOT)}")
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -708,7 +708,7 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `CompositorOptions` | the Hyprland options the settings panel changes, and the one pipeline that pushes any option through `hyprctl eval` (`Compositor.focusWindow` turns `cursor:no_warps` on for its one dispatch and back) | `spec`, `keys`, `configured`, `value`, `known`, `set`, `hasTouchpad`, `pushing` (falling as what was set is in: Hyprland says nothing itself), `derived` (options that follow the design system — the overview's, the title bars', the windows' shadow and, while the accent follows the wallpaper, the active border — set by `CompositorTheme`; one that goes away is put back by a reload, as a cleared override is) |
 | `Overlay` | which popup is open, on which screen, its context menu, and outside-click and Escape dismissal | `active`, `screen`, `anchorXOf` (each popup's anchor, by name, set only as that popup opens: one anchor for all slid the card being taken over from towards the next popup's button), `payload`, `isOpen/open/openWith/openUnanchored/close/toggle`, `menu`, `openMenu/closeMenu`, `setPointerOver`, `dismissOnOutsideClick`, `dismissOnEscape` (a menu first, then the popup; neither while `Compositor.covered`), `authorizing` (set by `AuthWindow` while it is drawn; neither dismissal acts meanwhile), `flight` (`{ from, to, rect, strength, contents, away }`, and `at` and `subject` for a popup taking over from itself; see *Flight*), `depart/arrive/abandon` (each acts only for the popup the hand-off names) |
 | `Compositor` | Hyprland's workspaces, monitors and windows, and whether something else covers a screen above them | `workspaces`, `toplevels`, `focusedScreen`, `monitorFor`, `appIdOf`, `focusWindow` (leaves the pointer where it is; brings a minimized window back first; raises it), `minimizedWorkspace`, `closeWindow`, `exec`, `switchToWorkspace`, `cycleWorkspace`, `isFullscreenOn`, `toggleOverview`, `covered` (a foreign surface over a whole screen on the overlay layer: slurp, hyprpicker; every press and key is its) |
-| `DesktopScheme` | the shell's light or dark handed to every other application: GNOME's `color-scheme`, which xdg-desktop-portal-gtk serves as the portal's `org.freedesktop.appearance color-scheme` — what browsers read for their look and `prefers-color-scheme`, and libadwaita follows | `scheme` (`prefer-dark` or `prefer-light`), `setting` (falling as it is set) |
+| `DesktopScheme` | the shell's light or dark handed to every other application: GNOME's `color-scheme`, which the GTK portal serves to browsers and libadwaita, and `icon-theme` supplied by IconThemes | `scheme` (`prefer-dark` or `prefer-light`), `iconTheme`, `setting` (falling after both keys are set) |
 | `DesktopAccent` | the accent handed outside the shell while it follows the wallpaper: GTK's `accent-color` and the terminal's palette file, each put back when it stops; nothing before `Settings.ready` | `gtk` (a libadwaita name), `settingGtk` (falling as it is set and the one before kept), `terminal` (`{ accent, accent_bright }`), `palette` (`terminal/palette.conf`), `stateFile` |
 | `TitleBars` | the window plugin's title bars from the shell's side: the applications they are hidden for, handed to the plugin (`hl.plugin.windows.hidden_for`), and which windows have one | `hidden`, `byWindow` (address → whether it has a bar; only the plugin knows), `read` (asked as the dock's menu opens) |
 | `Dock` | the dock's model: one entry per application, pinned or running, holding its open windows | `items`, `hideDelay`, `activate` (an application's one window, brought back if minimized, or a launch; one with several has the preview, on a click as on a hover), `launchNew`, `close` (every window), `togglePinned` |
@@ -721,7 +721,7 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `Tasks` | scheduled tasks: their units in `~/.config/systemd/user`, changed one script at a time and read again after each; runs heard from the user manager's journal lines; the user's other timers, read-only | `prefix`, `tasks` (`{ id, name, command, schedule, enabled, next, last, result, status }`), `others`, `read`, `save`, `runNow`, `setEnabled`, `remove`, `validate` (systemd-analyze), `formatWhen` |
 | `TaskUnits` | a task as units: its schedule (`once`, `hourly`, `daily`, `weekly`, `calendar`, `login`) as OnCalendar, its command quoted for ExecStart, the units' text and the task read back | `parts`, `validSchedule`, `calendar`, `describe`, `validCommand`, `exec`, `files`, `read`, `days` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch` |
-| `IconThemes` | the icon themes as the shell reads them: read again whenever one changes on disk, through the native module (`IconThemeWatch`), so an application installed while the shell runs comes with its icon; without the module, as they were at start | `revision` (whatever resolves an icon by name reads it: `AppIcon`), `watch` |
+| `IconThemes` | Conflux application artwork in both light and dark mode, with XDG/system fallback; the native module (`IconThemeWatch`) selects the theme and reads it again whenever one changes on disk, so an application installed while the shell runs comes with its icon; without the module, the platform theme as it was at start | `themeName` (also exported to GTK by DesktopScheme), `revision` (whatever resolves an icon by name reads it: `AppIcon`), `watch` |
 | `Audio` | PipeWire sinks/sources, volume, mute, mic-in-use | `hasSink` (bound, not just present), `volume`, `muted`, `micInUse`, `volumeIcon`, `volumeIconFor`, `sinks`, `setVolume` (unmutes), `stepVolume`, `toggleMute`, `setSink` |
 | `Network` | NetworkManager state and the Wi-Fi list | `available`, `hasWifi`, `hasWired`, `wifiEnabled`, `icon`, `label`, `signalIcon`, `wifiNetworks`, `activeWifi`, `connect`, `connectWithPassword`, `changePassword`, `forget`, `scan` (one, as the Wi-Fi list opens), `restartWifi`, `restarting`, `passwordRequested`, `failure` |
 | `Vpn` | the VPN menu: the NetworkManager connections `Settings.vpnConnections` names (states from `nmcli monitor`, switched with `nmcli`, latency a ping to the tunnel's far end), whether anything in the menu is up; latency measured as the menu opens and as a connection comes up, never on a schedule | `available`, `anyActive`, `connections`, `states`, `isActive`, `status`, `toggle` |
@@ -758,7 +758,7 @@ implemented.
 | `Chart` | a time series on QtQuick.Shapes: a line over a fill fading to the baseline, the newest sample at the right edge; `series` (`[{ points: [{ t, v }], color }]`), `now`, `span`, `max` (≤ 0 follows the data), `format`, `place`; with `axes` its scale, span, faint rules and a hover crosshair and readout, none without (a sparkline). Its colours are the `series*` tokens, one per reading (`seriesCpu`, `seriesMemory`, `seriesGpu`, `seriesDisk`) and a pair for two directions (`seriesIn`, `seriesOut`), checked for colour-vision separation in both themes; text beside a chart stays in the text tokens |
 | `StatCard` | one reading on a `raised` card: title, figure, a `Chart` taking the height left, a line of detail; takes no input — one that opens something is laid in a `Clickable` |
 | `Door` | how a card hanging from an edge rolls out of it and back (see *Door*): `edge`, `out`, `full`, `radius` in; `rolled`, `rolling`, `shut`, `extent` (its height), `drop` (where its box starts), `contentY` out. A popup's card and the dock's window preview hang from one |
-| `Icon` / `Icons` | a monochrome UI glyph drawn with QtQuick.Shapes from generated path data |
+| `Icon` / `Icons` | a Hugeicons Stroke Rounded UI glyph drawn with QtQuick.Shapes from generated path data; Spinner uses the same renderer |
 | `AppIcon` | an application icon from the XDG theme, with fallbacks, asked again whenever the themes change (`IconThemes.revision`); `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's); `ink` draws it among the shell's glyphs (the tray's): desaturated, and a one-tone glyph levelled (Qt5Compat's `LevelAdjust`) so its tone comes out in the ink; artwork of both tones, a light sign on a dark plate, reads on either and keeps them |
 | `IconShapes` | what `optical` and `ink` measure: how much of its box each icon covers, once per icon, the scale and offset that follow, and how much of its artwork is `light` |
 | `Label` | text with the type scale applied; use instead of bare `Text`. `scheme` as `Clickable`'s |
@@ -827,6 +827,20 @@ of these explain code that otherwise looks unnecessary; preserve the invariant.
   `IconThemeWatch` calls it with the same paths when a directory under them
   changes, and `IconThemes.revision` has `AppIcon` ask again. Qt also
   searches only the icon directories there were when it started.
+- **An icon lookup is not an image refresh.** The same `image://icon/name`
+  URL keeps QML Image and Canvas pixels cached when its theme changes.
+  `IconThemeWatch.imageSource` supplies a process-unique generation through
+  a native provider alias that delegates to Quickshell's existing icon
+  provider; do not append unknown query/fragment fields, which that provider
+  treats as part of the icon name. `AppIcon.renderSource` is the image and
+  shape-cache identity; `resolved` remains the logical lookup. Clear obsolete
+  shape measurements and reject stale Canvas loads on a new identity.
+  Serialize delegated provider renders, availability checks and native QIcon
+  theme/cache writes with the same lock:
+  Qt can render on a worker while the GUI changes themes. Release that lock
+  before emitting revision signals, which can synchronously request images.
+  `IconRenderingTest` checks actual displayed pixels for the same icon name
+  through dark/light/dark, beyond lookup-only coverage.
 - **`Palette` collides with a QtQuick type.** The palette component is called
   `ColorScheme` for this reason. Watch for the same with `Icon`, `Label`,
   `Slider` if `QtQuick.Controls` is ever imported (it currently is not).
@@ -853,7 +867,7 @@ of these explain code that otherwise looks unnecessary; preserve the invariant.
   the large-arc and sweep flags are single digits with no separator; Qt takes
   `00` for one number, shifts every later argument along, and the arc comes out
   a straight line. `tools/genicons.py` pulls every argument apart before
-  emitting it. Adwaita's `legacy/` icons are the ones written that way.
+  emitting it. Preserve that normalization when updating the Hugeicons sources.
 - **A file name that matches a singleton shadows it.** `modules/dock/Dock.qml`
   would hide the `Dock` service, which is why the window is `DockPanel.qml` and
   the OSD window is `OsdWindow.qml`. Do not name a module file after a service.
@@ -1369,24 +1383,32 @@ of these explain code that otherwise looks unnecessary; preserve the invariant.
 
 ### Icons
 
-`components/Icons.qml` is **generated** — do not hand-edit. `tools/genicons.py`
-lifts path data out of the Adwaita symbolic theme, and out of `tools/icons/`
-for the glyphs Adwaita lacks (the Wi-Fi restart's magic wand), drawn the same
-way: 16×16, filled paths. Three details matter:
+`components/Icons.qml` and `hypr/windows/HugeiconsGlyphs.hpp` are **generated** —
+do not hand-edit. `tools/genicons.py` reads the vendored Hugeicons Stroke Rounded
+SVGs and `map.json` in `tools/icons/hugeicons/`. Keep the upstream MIT license and
+pinned package revision with the artwork; generation needs no system theme or download.
 
-- Subpaths sharing an opacity are merged into one path, and **a merged path's
-  leading relative `m` must be upper-cased to `M`** or it becomes relative to
-  the previous subpath's end point. Symptom: glyph fragments scattered across
-  the screen.
-- Newer Adwaita files draw a glyph far off its box and move it back with a
-  `translate` on the path or a group (the battery's `-plugged-in` ones, at
-  −682, −180). The generator applies it to every absolute coordinate and the
-  opening moveto, and stops on any other transform; ignored, the glyph is
-  drawn 680 px away and nothing shows. The rest of `Icons.qml` predates
-  Adwaita's re-encoded paths: a full re-run rewrites every glyph, so look at
-  them on screen before committing one.
-- Icons render as at most two opacity layers; `Icon.qml` has exactly two
-  `ShapePath` slots. If a new icon needs more, the generator warns.
+- Artwork uses a 24×24 coordinate system. `Icon` draws up to three fixed
+  `ShapePath` stroke groups; the native title bars decode the same SVG artwork
+  through Hyprgraphics and tint it in the existing button ink.
+- Preserve each path's stroke width, cap and join, including omitted SVG
+  defaults. Merge only identical styles, keeping each subpath's opening move
+  absolute. Circles become closed arc paths for Qt; unsupported styling or
+  more than three groups stops generation. Compact arc flags stay separated.
+- Preserve the semantic keys used by services, including all battery aliases.
+  Hugeicons supplies five battery bands and separate charging/held symbols;
+  percentage text remains exact. Verify regenerated artwork visually.
+- Run `python3 tools/genicons.py --check` to verify both outputs. The terminal
+  prompt separately uses `ttf-phosphor-icons` through Kitty's `symbol_map`;
+  rounded pill endcaps remain layout, not icons.
+
+Application themes are installed by `tools/install-icon-theme.sh`, called by
+`install.sh`: pinned Conflux, standard XDG inheritance for absent artwork,
+existing themes backed up, and a silent re-run of the same revision.
+`IconThemes.themeName` selects `Conflux` in both shell schemes. `DesktopScheme`
+exports that same name to GTK; do not add a second theme writer.
+`IconThemeWatch.selectTheme` leaves Qt's platform fallback intact. Keep
+app-provided tray/status images and notification/media pictures intact.
 
 ### The overview plugin
 

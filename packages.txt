@@ -61,7 +61,9 @@ sqlite
 # fonts and icons: the shell's face, the terminal's, the applications' icons
 adwaita-fonts
 adwaita-icon-theme
-papirus-icon-theme
+# Conflux is installed from its pinned upstream by tools/install-icon-theme.sh;
+# Adwaita and hicolor supply app icons that it does not include.
+gtk-update-icon-cache
 ttf-jetbrains-mono-nerd
 
 # the terminal, the editor, the file manager, and the browser Super+B opens

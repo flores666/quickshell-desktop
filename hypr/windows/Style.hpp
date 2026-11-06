@@ -38,6 +38,7 @@ namespace Style {
 
     double height();
     double button();
+    double glyphScale();
     double gap();
     double inset();
     double edge();

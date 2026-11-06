@@ -23,6 +23,12 @@ public:
     explicit IconThemeWatch(QObject* parent = nullptr);
 
     int revision() const { return m_revision; }
+    // The preferred theme's XDG inheritance and Qt's platform fallback supply
+    // the system icons it does not draw.
+    Q_INVOKABLE void selectTheme(const QString& name);
+    // A fresh image-cache identity, with Quickshell retaining all icon policy.
+    Q_INVOKABLE QString imageSource(const QString& source);
+    Q_INVOKABLE bool iconAvailable(const QString& name);
 
 signals:
     void revisionChanged();
@@ -33,5 +39,6 @@ private:
 
     QFileSystemWatcher m_watcher;
     QTimer m_settle;
+    quint64 m_generation;
     int m_revision = 0;
 };

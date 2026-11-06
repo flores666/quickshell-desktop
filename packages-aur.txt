@@ -4,3 +4,6 @@
 
 # "Open in kitty" in nautilus' context menu (profile/gtk.dconf picks kitty)
 nautilus-open-any-terminal
+
+# Phosphor font glyphs in the fish prompt, rendered through Kitty's symbol_map.
+ttf-phosphor-icons

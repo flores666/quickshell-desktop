@@ -104,7 +104,7 @@ Item {
         });
         check.attempt("glyphs", () => {
             for (const k of ["performance", "disk", "network-transfer", "gpu", "download", "upload", "cpu", "ram", "grid"])
-                check.equal("glyph " + k, Icons.has(k), true);
+                check.equal("glyph " + k, (Icons.glyphs[k]?.length ?? 0) > 0, true);
         });
         check.done();
     }

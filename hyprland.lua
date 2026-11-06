@@ -41,7 +41,11 @@ end
 loadPlugin("hyprexpo", "hyprexpo.so")
 loadPlugin("hypr-windows", "windows.so")
 hl.on("hyprland.start", function()
-    hl.exec_cmd("systemd-cat -t hyprexpo ~/.config/quickshell/shell/tools/build-overview-plugin.sh --if-stale; systemd-cat -t hypr-windows ~/.config/quickshell/shell/tools/build-windows-plugin.sh --if-stale")
+    -- As in install.sh, these sources build against 0.57's API. An older
+    -- session keeps its compatible installed plugins, loaded above.
+    if hl.version():gsub("^v", ""):match("^0%.57%.") then
+        hl.exec_cmd("systemd-cat -t hyprexpo ~/.config/quickshell/shell/tools/build-overview-plugin.sh --if-stale; systemd-cat -t hypr-windows ~/.config/quickshell/shell/tools/build-windows-plugin.sh --if-stale")
+    end
 end)
 
 if hl.plugin.hyprexpo then

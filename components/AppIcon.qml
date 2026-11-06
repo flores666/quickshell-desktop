@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import Qt5Compat.GraphicalEffects
-import Quickshell
 import "root:/config"
 import "root:/services"
 
@@ -63,15 +62,18 @@ Item {
         // ?fallback= query is its own way out and is left to it.
         const themed = "image://icon/";
         if (s.startsWith(themed) && s.indexOf("?") === -1)
-            return Quickshell.iconPath(s.slice(themed.length), true);
+            return IconThemes.iconPath(s.slice(themed.length));
         if (s.indexOf("://") !== -1)
             return s;
-        return Quickshell.iconPath(s, true);
+        return IconThemes.iconPath(s);
     }
 
+    // The icon name stays the same across themes, but Qt's image and Canvas
+    // caches need a new URL to load the replacement artwork.
+    readonly property string renderSource: IconThemes.imageSource(root.resolved)
     readonly property bool usingFallback: root.resolved === "" || image.status === Image.Error
     readonly property var shape: (root.optical || root.inked) && root.resolved !== ""
-        ? IconShapes.shapeOf(root.resolved, IconShapes.revision) : null
+        ? IconShapes.shapeOf(root.renderSource, IconShapes.revision) : null
     /*! Where `optical` scales and centres it; nothing otherwise. */
     readonly property var fit: root.optical ? root.shape : null
     /*! The picture asked of the theme. With `optical`, one size whatever the
@@ -100,7 +102,7 @@ Item {
             height: image.width
             x: Math.round((root.size - image.width) / 2 - (root.fit?.dx ?? 0) * image.width)
             y: Math.round((root.size - image.height) / 2 - (root.fit?.dy ?? 0) * image.height)
-            source: root.resolved
+            source: root.renderSource
             sourceSize.width: root.raster
             sourceSize.height: root.raster
             fillMode: Image.PreserveAspectFit
@@ -119,6 +121,7 @@ Item {
             id: probe
 
             readonly property int n: 64
+            readonly property string source: root.renderSource
 
             width: probe.n
             height: probe.n
@@ -126,15 +129,17 @@ Item {
             opacity: 0
 
             onAvailableChanged: if (probe.available)
-                probe.loadImage(root.resolved, Qt.size(root.raster, root.raster))
+                probe.loadImage(probe.source, Qt.size(root.raster, root.raster))
+            onSourceChanged: if (probe.available)
+                probe.loadImage(probe.source, Qt.size(root.raster, root.raster))
             onImageLoaded: probe.requestPaint()
             onPaint: {
-                if (!probe.isImageLoaded(root.resolved))
+                if (!probe.isImageLoaded(probe.source))
                     return;
                 const context = probe.getContext("2d");
                 context.clearRect(0, 0, probe.n, probe.n);
-                context.drawImage(root.resolved, 0, 0, probe.n, probe.n);
-                IconShapes.measure(root.resolved, context.getImageData(0, 0, probe.n, probe.n).data, probe.n);
+                context.drawImage(probe.source, 0, 0, probe.n, probe.n);
+                IconShapes.measure(probe.source, context.getImageData(0, 0, probe.n, probe.n).data, probe.n);
             }
         }
     }

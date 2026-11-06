@@ -152,8 +152,6 @@ QtObject {
     readonly property int scrollbarInset: 2
     readonly property int scrollbarThumb: 28
     readonly property real scrollbarIdle: 0.45
-    readonly property int spinnerThickness: 2
-    readonly property int spinnerSweep: 260
     readonly property int menuRowHeight: 44
     readonly property int searchWidth: 320
     readonly property int fieldWidth: 240
@@ -200,6 +198,7 @@ QtObject {
     /*! Native title bars and first-launch floating-window size caps. */
     readonly property int titleBarHeight: 28
     readonly property int titleBarButton: 12
+    readonly property real titleBarGlyphScale: 0.65
     readonly property int titleBarGap: 8
     readonly property int titleBarInset: 12
     readonly property int titleBarEdge: 4

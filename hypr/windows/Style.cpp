@@ -28,7 +28,7 @@ namespace {
     SP<CIntValue>             g_hover, g_fade, g_rollOut, g_rollIn, g_dwell, g_linger;
     SP<CIntValue>             g_minimize, g_exposure, g_move, g_close;
     SP<CIntValue>             g_height, g_button, g_gap, g_inset, g_edge, g_fontPoints, g_fontWeight;
-    SP<CFloatValue>           g_widthCap, g_heightCap;
+    SP<CFloatValue>           g_widthCap, g_heightCap, g_glyphScale;
     SP<CStringValue>          g_fontFamily;
     SP<Style::Config>         g_hoverConfig, g_fadeConfig, g_rollOutConfig, g_rollInConfig, g_minimizeConfig;
 
@@ -107,6 +107,7 @@ void Style::init(HANDLE handle) {
     // Fallbacks for a compositor started before the shell pushes its tokens.
     g_height = SIZE("plugin:windows:height", "Title-bar height in logical pixels", 28);
     g_button = SIZE("plugin:windows:button_size", "Title-bar button diameter", 12);
+    g_glyphScale = CAP("plugin:windows:glyph_scale", "Glyph size as a share of its title-bar button", 0.65F);
     g_gap = MS("plugin:windows:button_gap", "Gap between title-bar buttons", 8);
     g_inset = MS("plugin:windows:button_inset", "Title-bar button inset", 12);
     g_edge = MS("plugin:windows:reveal_edge", "Top edge that reveals an overlaid bar", 4);
@@ -222,6 +223,7 @@ int Style::linger() {
 
 double Style::height() { return g_height->value(); }
 double Style::button() { return g_button->value(); }
+double Style::glyphScale() { return g_glyphScale->value(); }
 double Style::gap() { return g_gap->value(); }
 double Style::inset() { return g_inset->value(); }
 double Style::edge() { return g_edge->value(); }

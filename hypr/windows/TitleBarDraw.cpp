@@ -1,5 +1,6 @@
 #include "TitleBar.hpp"
 #include "AppColor.hpp"
+#include "HugeiconsGlyphs.hpp"
 #include "Style.hpp"
 
 #include <hyprland/src/desktop/view/window/Window.hpp>
@@ -11,8 +12,10 @@
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/render/pass/RectPassElement.hpp>
 #include <hyprland/src/render/pass/TexPassElement.hpp>
+#include <hyprland/src/debug/log/Logger.hpp>
 
 #include <cairo/cairo.h>
+#include <hyprgraphics/image/Image.hpp>
 
 namespace {
     // How often a window's colour is read at most: each read waits on the
@@ -203,68 +206,41 @@ void CTitleBar::paint(Render::CRenderContext& ctx, PHLMONITOR monitor, float a, 
     line's baseline, not in the middle of its box, and came out off centre.
     Close is a cross, minimize a bar, zoom a plus; layout shows what it does,
     two panes side by side on a floating window, which it tiles, and one on a
-    tiled one, which it floats. Every stroke is the same weight.
+    tiled one, which it floats. These are the shell's Hugeicons Stroke Rounded paths,
+    decoded by the compositor's own image loader and tinted in the button ink.
 */
 void CTitleBar::drawGlyph(Render::CRenderContext& ctx, int button, const CBox& box, const CBox& clip, const CHyprColor& color, float alpha) {
     const auto W     = m_window.lock();
     const int  SHAPE = button == 3 && W && W->isFloating() ? 4 : button;
     const int  SIZE  = std::max(1, sc<int>(std::round(box.w)));
-    auto&      tex   = g_state->glyphs[std::format("{}:{}:{}", SHAPE, SIZE, key(color))];
-    if (!tex) {
+    const int  GLYPH = std::max(1, sc<int>(std::round(SIZE * Style::glyphScale())));
+    auto [cached, inserted] = g_state->glyphs.try_emplace(std::format("{}:{}:{}:{}", SHAPE, SIZE, GLYPH, key(color)));
+    auto& tex = cached->second;
+    if (inserted) {
+        const auto SVG = Hugeicons::windowGlyphs[SHAPE];
+        Hyprgraphics::CImage image(std::span<const uint8_t>{reinterpret_cast<const uint8_t*>(SVG.data()), SVG.size()},
+                                   Hyprgraphics::IMAGE_FORMAT_SVG, {GLYPH, GLYPH});
+        const auto MASK = image.cairoSurface();
+        if (!image.success() || !MASK || MASK->status() != CAIRO_STATUS_SUCCESS) {
+            LOG(Log::ERR, "[windows] Could not draw Hugeicons glyph {}: {}", SHAPE, image.getError());
+            return;
+        }
         const auto SURFACE = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, SIZE, SIZE);
         const auto CR      = cairo_create(SURFACE);
-        const double C = SIZE / 2.0, ARM = SIZE * 0.25, LINE = std::max(1.0, SIZE * 0.11);
         cairo_set_source_rgba(CR, color.r, color.g, color.b, color.a);
-        cairo_set_line_width(CR, LINE);
-        cairo_set_line_cap(CR, CAIRO_LINE_CAP_ROUND);
-        const auto LINE_TO = [&](double x1, double y1, double x2, double y2) {
-            cairo_move_to(CR, x1, y1);
-            cairo_line_to(CR, x2, y2);
-        };
-        const auto PANE = [&](double x, double y, double w, double h, double r) {
-            const double R = std::min(r, std::min(w, h) / 2);
-            cairo_new_sub_path(CR);
-            cairo_arc(CR, x + w - R, y + R, R, -M_PI / 2, 0);
-            cairo_arc(CR, x + w - R, y + h - R, R, 0, M_PI / 2);
-            cairo_arc(CR, x + R, y + h - R, R, M_PI / 2, M_PI);
-            cairo_arc(CR, x + R, y + R, R, M_PI, 3 * M_PI / 2);
-            cairo_close_path(CR);
-        };
-        switch (SHAPE) {
-            case 0: {
-                const double D = ARM * 0.85;
-                LINE_TO(C - D, C - D, C + D, C + D);
-                LINE_TO(C - D, C + D, C + D, C - D);
-                cairo_stroke(CR);
-                break;
-            }
-            case 1:
-                LINE_TO(C - ARM, C, C + ARM, C);
-                cairo_stroke(CR);
-                break;
-            case 2:
-                LINE_TO(C - ARM, C, C + ARM, C);
-                LINE_TO(C, C - ARM, C, C + ARM);
-                cairo_stroke(CR);
-                break;
-            // Rounded as the windows they stand for are.
-            case 3:
-                PANE(C - ARM * 0.85, C - ARM * 0.85, ARM * 1.7, ARM * 1.7, ARM * 0.55);
-                cairo_fill(CR);
-                break;
-            case 4: {
-                const double PW = ARM * 0.7, GAP = LINE * 0.9, H = ARM * 1.8;
-                PANE(C - GAP / 2 - PW, C - H / 2, PW, H, PW / 2);
-                PANE(C + GAP / 2, C - H / 2, PW, H, PW / 2);
-                cairo_fill(CR);
-                break;
-            }
-        }
+        const double INSET = (SIZE - GLYPH) / 2.0;
+        cairo_mask_surface(CR, MASK->cairo(), INSET, INSET);
+        const auto STATUS = cairo_status(CR);
         cairo_surface_flush(SURFACE);
-        tex = g_pHyprRenderer->createTexture(SURFACE);
+        if (STATUS == CAIRO_STATUS_SUCCESS)
+            tex = g_pHyprRenderer->createTexture(SURFACE);
+        else
+            LOG(Log::ERR, "[windows] Could not tint Hugeicons glyph {}: {}", SHAPE, cairo_status_to_string(STATUS));
         cairo_destroy(CR);
         cairo_surface_destroy(SURFACE);
     }
+    if (!tex)
+        return;
     CTexPassElement::SRenderData glyph;
     glyph.tex     = tex;
     glyph.box     = CBox{box.pos(), {sc<double>(SIZE), sc<double>(SIZE)}};

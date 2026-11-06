@@ -33,8 +33,8 @@ end
 function fish_prompt
     set -l last $status
     set -l cwd (prompt_pwd)
-    set -l place \uf07b
-    string match -q '~*' -- $cwd; and set place \uf015
+    set -l place \ue24a
+    string match -q '~*' -- $cwd; and set place \ue2c2
 
     # The place's icon on a lighter cap of the directory's own pill.
     set_color -b normal $__soft_raised
@@ -52,7 +52,7 @@ function fish_prompt
             or command git rev-parse --short HEAD 2>/dev/null)
         if test -n "$branch"
             printf ' '
-            __soft_pill $__soft_selection $__soft_text_soft \uf418 $branch
+            __soft_pill $__soft_selection $__soft_text_soft \ue278 $branch
         end
     end
 

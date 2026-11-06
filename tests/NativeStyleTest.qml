@@ -28,8 +28,8 @@ Item {
 
     function start(): void {
         root.defaults = Object.assign({}, CompositorOptions.derived);
-        const options = ["height", "button_size", "button_gap", "button_inset", "reveal_edge", "font_size", "font_weight", "font_family", "width_cap", "height_cap"];
-        const expected = [Appearance.m.titleBarHeight, Appearance.m.titleBarButton, Appearance.m.titleBarGap,
+        const options = ["height", "button_size", "glyph_scale", "button_gap", "button_inset", "reveal_edge", "font_size", "font_weight", "font_family", "width_cap", "height_cap"];
+        const expected = [Appearance.m.titleBarHeight, Appearance.m.titleBarButton, Appearance.m.titleBarGlyphScale, Appearance.m.titleBarGap,
             Appearance.m.titleBarInset, Appearance.m.titleBarEdge, Appearance.font.titleBarPointSize,
             Appearance.font.titleBarWeight, Appearance.font.titleBarFamily, Appearance.m.windowWidthCap, Appearance.m.windowHeightCap];
         sh.run('hyprctl -j --batch "$1"', [options.map(k => "getoption plugin:windows:" + k).join(" ; ")], text => {

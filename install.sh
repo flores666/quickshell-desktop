@@ -120,6 +120,10 @@ done
 
 # --------------------------------------------------------------------- shell
 
+# Conflux application artwork, installed from its pinned upstream. Its XDG
+# inheritance supplies the system's icons when Conflux has no artwork.
+"$repo/tools/install-icon-theme.sh"
+
 link "$repo" "$shell_dir"
 
 # The shell's native module (native/: Qt reads the icon themes again when an

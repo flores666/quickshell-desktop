@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import "root:/services"
 
 /*!
     How to draw each application icon so that every one carries the same
@@ -33,6 +34,16 @@ QtObject {
     property var shapes: ({})
     /*! Bumped whenever a measurement lands: what makes a lookup re-evaluate. */
     property int revision: 0
+
+    // Measurements describe the current artwork. Releasing the old generation
+    // prevents theme switches and installs from retaining stale cache entries.
+    readonly property Connections themes: Connections {
+        target: IconThemes
+        function onRevisionChanged(): void {
+            root.shapes = ({});
+            root.revision++;
+        }
+    }
 
     /*! `{ scale, dx, dy, light }` for an icon, or null until it is measured;
         the offsets are the artwork's from the box's centre, as shares of it,

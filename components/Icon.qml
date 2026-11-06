@@ -20,42 +20,43 @@ Item {
     property color color: Appearance.c.text
     property int size: Appearance.m.icon
 
-    readonly property var glyph: Icons.glyphs[root.name] ?? null
-    readonly property bool valid: root.glyph !== null
+    readonly property var glyph: Icons.glyphs[root.name] ?? []
+    readonly property bool valid: root.glyph.length > 0
 
     implicitWidth: root.size
     implicitHeight: root.size
 
     Shape {
         anchors.centerIn: parent
-        width: 16
-        height: 16
-        scale: root.size / 16
+        width: Icons.extent
+        height: Icons.extent
+        scale: root.size / Icons.extent
         visible: root.valid
         preferredRendererType: Shape.CurveRenderer
         asynchronous: false
         layer.enabled: false
 
-        ShapePath {
-            strokeWidth: -1
-            fillRule: ShapePath.WindingFill
-            fillColor: root.glyph && root.glyph.paths.length > 0
-                ? Qt.alpha(root.color, root.color.a * root.glyph.paths[0].o)
-                : "transparent"
-            PathSvg {
-                path: root.glyph && root.glyph.paths.length > 0 ? root.glyph.paths[0].d : ""
-            }
-        }
+        GlyphPath { part: 0 }
+        GlyphPath { part: 1 }
+        GlyphPath { part: 2 }
+    }
 
-        ShapePath {
-            strokeWidth: -1
-            fillRule: ShapePath.WindingFill
-            fillColor: root.glyph && root.glyph.paths.length > 1
-                ? Qt.alpha(root.color, root.color.a * root.glyph.paths[1].o)
-                : "transparent"
-            PathSvg {
-                path: root.glyph && root.glyph.paths.length > 1 ? root.glyph.paths[1].d : ""
-            }
-        }
+    // The generator rejects artwork needing more than these three style
+    // groups. Identical strokes share a path, while caps, joins and dot widths
+    // retain the source artwork's settings.
+    component GlyphPath: ShapePath {
+        id: stroke
+        required property int part
+        readonly property var group: root.glyph[stroke.part] ?? null
+
+        strokeWidth: stroke.group?.width ?? -1
+        strokeColor: root.color
+        fillColor: "transparent"
+        capStyle: stroke.group?.cap === "round" ? ShapePath.RoundCap
+            : stroke.group?.cap === "square" ? ShapePath.SquareCap : ShapePath.FlatCap
+        joinStyle: stroke.group?.join === "round" ? ShapePath.RoundJoin
+            : stroke.group?.join === "bevel" ? ShapePath.BevelJoin : ShapePath.MiterJoin
+
+        PathSvg { path: stroke.group?.d ?? "" }
     }
 }
