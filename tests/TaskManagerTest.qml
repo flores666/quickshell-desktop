@@ -122,7 +122,6 @@ Item {
                     check.equal(key + ": ranked by " + root.ranks[key], pane.rankKey, root.ranks[key]);
                     check.equal(key + ": its list is Activity's", JSON.stringify(pane.ranked),
                         JSON.stringify(Activity.top(root.ranks[key], 5)));
-                    check.equal(key + ": its title in the bar", pane.title, manager.current.title);
                 }
             }
             manager.tab = "ram";

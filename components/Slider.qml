@@ -23,6 +23,7 @@ Clickable {
     property real stepSize: 0.05
     property string icon: ""
     property color fillColor: Appearance.c.accent
+    property color knobColor: Appearance.c.knob
     property bool interactive: true
 
     signal started()
@@ -91,7 +92,7 @@ Clickable {
         height: root.knobSize
         anchors.verticalCenter: parent.verticalCenter
         radius: height / 2
-        color: Appearance.c.knob
+        color: root.enabled ? root.knobColor : Appearance.c.textFaint
         border.width: Appearance.m.controlBorder
         border.color: Appearance.c.border
         scale: root.pressed ? Appearance.m.sliderPressedScale : root.hovered ? Appearance.m.sliderHoverScale : 1

@@ -274,7 +274,7 @@ ShellOverlay {
                 anchors.horizontalCenter: parent.horizontalCenter
                 name: "search"
                 size: Appearance.m.iconXl
-                color: Appearance.c.textFaint
+                color: PopupStyle.muted
             }
 
             Label {

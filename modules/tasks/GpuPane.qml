@@ -17,7 +17,6 @@ EntityPane {
 
     readonly property real vram: Usage.vramTotal > 0 ? Usage.vramUsed / Usage.vramTotal : -1
 
-    title: qsTr("GPU")
     icon: "gpu"
     lines: [
         { text: Usage.gpuName !== "" ? Usage.gpuName : qsTr("GPU"), value: root.manager.percent(Usage.gpu) },

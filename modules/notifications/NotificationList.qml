@@ -86,7 +86,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             name: Settings.doNotDisturb ? "dnd" : "bell"
             size: 28
-            color: Appearance.c.textFaint
+            color: PopupStyle.muted
         }
 
         Label {

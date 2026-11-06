@@ -7,8 +7,8 @@ import "root:/services"
 
 /*!
     The one pattern every entity tab follows — CPU, GPU, RAM, Disks,
-    Network: its title in the bar, then top to bottom a card naming the
-    thing with its facts (EntityFacts: a bar where it has a capacity), a
+    Network: top to bottom a card naming the thing with its facts
+    (EntityFacts: a bar where it has a capacity), a
     chart of its last minute with its axes and a legend, and the processes
     that used it most (RankedList: `Activity.top(rankKey)`, five at most,
     their room kept).
@@ -22,7 +22,6 @@ Item {
 
     property var manager: null
 
-    property string title: ""
     /*! The facts card's glyph and lines, as EntityFacts takes them. */
     property string icon: ""
     property var lines: []
@@ -46,18 +45,10 @@ Item {
     property Component section: null
     readonly property bool scrolls: root.section !== null
 
-    Label {
-        x: Appearance.s.xl
-        y: (root.manager.barHeight - height) / 2
-        text: root.title
-        role: Label.Role.Subtitle
-    }
-
     Flickable {
         id: scroller
 
         anchors.fill: parent
-        anchors.topMargin: root.manager.barHeight
         clip: true
         interactive: root.scrolls
         contentHeight: root.scrolls ? page.implicitHeight + Appearance.s.xl * 2 : scroller.height

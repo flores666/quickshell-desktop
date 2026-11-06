@@ -34,7 +34,7 @@ Item {
             icon: Audio.deviceIcon(devRow.modelData)
             title: Audio.nodeLabel(devRow.modelData)
             selected: devRow.modelData === root.current
-            iconColor: devRow.modelData === root.current ? Appearance.c.accent : Appearance.c.text
+            iconColor: devRow.modelData === root.current ? PopupStyle.accentIndicator : Appearance.c.text
 
             onClicked: {
                 if (root.output)

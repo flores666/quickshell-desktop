@@ -111,5 +111,32 @@ elif sys.argv[1] == "backdrop":
     path = directory / "wallpaper.png"
     path.write_bytes(png)
     print(path)
+elif sys.argv[1] == "power-profile":
+    # Preserve production service/actions, replacing only its external profile
+    # registry. This fixture never probes or writes the machine's system bus.
+    os.mkfifo(directory / "power-events")
+    command("gdbus", '''#!/bin/sh
+exec 3<> "$TEST_BIN/power-events"
+while IFS= read -r line <&3; do
+    [ "$line" = exit ] && exit 0
+    printf '%s\\n' "$line"
+done
+''')
+    text = (source / "services/Power.qml").read_text()
+    text = text[:text.index("    readonly property UPowerDevice")] + text[
+        text.index("    /*! The bus owner"):text.index("    // ---------------------------------------------------------- charge limit")]
+    text = text.replace("pragma Singleton\n", "")
+    text = text.replace("Singleton {", "Scope {", 1)
+    text = text.replace("id: root", "id: root\n    property QtObject backend", 1)
+    text = text.replace("PowerProfiles.", "root.backend.") + "}\n"
+    path = directory / "PowerFixture.qml"
+    path.write_text(text)
+    print(path.as_uri())
+    text = (source / "modules/panels/qs/PowerProfilePage.qml").read_text()
+    text = text.replace("id: root", "id: root\n    required property QtObject power", 1)
+    text = text.replace("Power.", "root.power.").replace("target: Power", "target: root.power")
+    path = directory / "PowerProfileFixture.qml"
+    path.write_text(text)
+    print(path.as_uri())
 else:
     raise ValueError(sys.argv[1])

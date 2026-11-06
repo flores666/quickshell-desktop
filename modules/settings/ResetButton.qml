@@ -15,6 +15,6 @@ IconButton {
     icon: "refresh"
     iconSize: Appearance.m.iconSm
     size: Appearance.m.resetButton
-    iconColor: Appearance.c.textMuted
+    iconColor: PopupStyle.muted
     onClicked: Settings.setOverride(root.key, -1)
 }

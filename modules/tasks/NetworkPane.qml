@@ -17,7 +17,6 @@ EntityPane {
 
     readonly property var interfaces: (Processes.last?.nets ?? []).map(n => n.name)
 
-    title: qsTr("Network")
     icon: "network-transfer"
     lines: [
         { text: root.interfaces.length > 0 ? root.interfaces.join(" · ") : qsTr("Network") },

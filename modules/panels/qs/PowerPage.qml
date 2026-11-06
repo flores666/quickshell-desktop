@@ -58,7 +58,7 @@ Column {
         width: root.width
         icon: "shutdown"
         title: qsTr("Power Off")
-        iconColor: Appearance.c.danger
+        iconColor: PopupStyle.danger
         onClicked: {
             root.actionTaken();
             Session.shutdown();

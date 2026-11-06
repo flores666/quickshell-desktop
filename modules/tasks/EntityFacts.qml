@@ -33,7 +33,7 @@ Card {
         anchors.verticalCenter: parent.verticalCenter
         name: root.icon
         size: Appearance.m.iconXl
-        color: Appearance.c.textMuted
+        color: PopupStyle.muted
     }
 
     Column {
@@ -73,7 +73,7 @@ Card {
                     visible: !line.bar && line.glyphed
                     name: line.spec.icon ?? ""
                     size: Appearance.m.iconSm
-                    color: line.spec.ink ?? Appearance.c.textMuted
+                    color: line.spec.ink ?? PopupStyle.muted
                 }
 
                 Label {

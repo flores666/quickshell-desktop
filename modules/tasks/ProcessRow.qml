@@ -70,19 +70,19 @@ Clickable {
                 Badge {
                     visible: root.next
                     text: qsTr("Next")
-                    ink: Appearance.c.danger
+                    ink: PopupStyle.danger
                 }
 
                 Badge {
                     visible: root.preference === "avoid"
                     text: qsTr("Protected")
-                    ink: Appearance.c.success
+                    ink: PopupStyle.success
                 }
 
                 Badge {
                     visible: root.preference === "prefer"
                     text: qsTr("Kill first")
-                    ink: Appearance.c.warning
+                    ink: PopupStyle.warning
                 }
             }
 

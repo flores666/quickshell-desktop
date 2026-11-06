@@ -142,7 +142,7 @@ Column {
             text: EarlyOom.pending ? qsTr("Applying…") : EarlyOom.failure !== "" ? EarlyOom.failure
                 : qsTr("Applying asks for your password")
             role: Label.Role.Small
-            color: EarlyOom.failure !== "" && !EarlyOom.pending ? Appearance.c.danger : Appearance.c.textMuted
+            color: EarlyOom.failure !== "" && !EarlyOom.pending ? PopupStyle.danger : PopupStyle.muted
             elide: Text.ElideRight
         }
 

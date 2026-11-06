@@ -16,9 +16,8 @@ import "root:/modules/common"
     busy it is (Usage.hasGpu), and one shown as the GPU goes gives way to
     Processes.
 
-    Laid out as the settings panel is, tabs down the left and one pane on the
-    right, each pane drawing its own title in the bar along the top above the
-    rule.
+    Tabs down the left and one pane on the right, with content starting at
+    the top of the card and no separate title bar.
 
     The machine's readings are kept always (Usage), so every chart opens
     with the last minute in it; each process is read only while a tab that
@@ -51,9 +50,6 @@ ShellOverlay {
     readonly property var current: root.tabs.find(t => t.key === root.tab)
     /*! The pane shown, loaded afresh for every tab and every visit. */
     readonly property alias pane: pane
-
-    /*! Where the rule under the panes' bars runs. */
-    readonly property int barHeight: Appearance.m.fieldHeight + Appearance.s.lg * 2
 
     /*! What the tab on screen asks of Processes: whether each process is
         read, and what beside. */
@@ -123,26 +119,11 @@ ShellOverlay {
     Item {
         anchors.fill: parent
 
-        Label {
-            anchors.left: parent.left
-            anchors.leftMargin: Appearance.s.xl
-            y: (root.barHeight - height) / 2
-            text: qsTr("Task Manager")
-            role: Label.Role.Subtitle
-        }
-
-        Divider {
-            id: rule
-            anchors.left: parent.left
-            anchors.right: parent.right
-            y: root.barHeight
-        }
-
         Column {
             id: nav
 
             anchors.left: parent.left
-            anchors.top: rule.bottom
+            anchors.top: parent.top
             anchors.leftMargin: Appearance.s.md
             anchors.topMargin: Appearance.s.md
             width: Appearance.m.navWidth - Appearance.s.md * 2
@@ -169,7 +150,7 @@ ShellOverlay {
         Divider {
             anchors.left: parent.left
             anchors.leftMargin: Appearance.m.navWidth
-            anchors.top: rule.bottom
+            anchors.top: parent.top
             anchors.bottom: parent.bottom
             vertical: true
         }

@@ -196,7 +196,7 @@ Column {
                 : root.reading.next > 0 ? qsTr("Next: %1").arg(Tasks.formatWhen(root.reading.next)) : qsTr("Never runs again")
             role: Label.Role.Small
             color: root.valid || name.text.trim() === "" || !TaskUnits.validCommand(command.text)
-                ? Appearance.c.textMuted : Appearance.c.danger
+                ? PopupStyle.muted : PopupStyle.danger
             wrapMode: Text.Wrap
         }
     }

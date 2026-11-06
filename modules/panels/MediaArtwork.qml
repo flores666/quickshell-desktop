@@ -107,7 +107,7 @@ ClippingRectangle {
             visible: image.status !== Image.Ready
             name: "music"
             size: Appearance.m.mediaFallback
-            color: Appearance.c.textFaint
+            color: PopupStyle.muted
         }
 
         Image {

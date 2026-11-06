@@ -69,7 +69,13 @@ Column {
             onPageRequested: root.pageRequested("bluetooth")
         }
 
+    }
+
+    Row {
+        width: parent.width
+        spacing: Appearance.s.md
         QsTile {
+            compact: true
             width: (root.width - Appearance.s.md) / 2
             icon: "dnd"
             title: qsTr("Do Not Disturb")
@@ -80,6 +86,7 @@ Column {
 
         QsTile {
             width: (root.width - Appearance.s.md) / 2
+            compact: true
             icon: Settings.effectiveDark ? "night-light" : "brightness"
             title: qsTr("Dark Style")
             status: Settings.effectiveDark ? qsTr("On") : qsTr("Off")
@@ -97,6 +104,7 @@ Column {
         QsSliderRow {
             width: parent.width
             enabled: Audio.hasSink
+            label: qsTr("Output volume")
             icon: Audio.volumeIcon
             value: Audio.volume
             muted: Audio.muted
@@ -110,6 +118,7 @@ Column {
         QsSliderRow {
             width: parent.width
             enabled: Audio.hasSource
+            label: qsTr("Microphone level")
             icon: Audio.micIcon
             value: Audio.micVolume
             muted: Audio.micMuted
@@ -123,73 +132,18 @@ Column {
         QsSliderRow {
             width: parent.width
             enabled: Brightness.available
+            label: qsTr("Brightness")
             icon: Brightness.icon
             value: Brightness.value
             onMoved: v => Brightness.set(v)
         }
     }
 
-    PowerProfileRow {
-        width: parent.width
-        enabled: Power.hasProfiles
-    }
-
     Divider { width: parent.width }
 
-    Item {
+    QsFooter {
         width: parent.width
-        height: 34
-
-        // A reading, not a control: on a machine with no battery there is
-        // nothing to read, and the buttons opposite hold the row's place.
-        Row {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: Power.hasBattery
-            spacing: Appearance.s.sm
-
-            Icon {
-                anchors.verticalCenter: parent.verticalCenter
-                name: Power.icon
-                size: Appearance.m.icon
-                color: Power.critical ? Appearance.c.danger : Appearance.c.text
-            }
-
-            Label {
-                anchors.verticalCenter: parent.verticalCenter
-                readonly property string detail: Power.limitLabel || Power.timeLabel
-
-                text: this.detail !== ""
-                    ? qsTr("%1% · %2").arg(Math.round(Power.percentage)).arg(this.detail)
-                    : qsTr("%1%").arg(Math.round(Power.percentage))
-                role: Label.Role.Small
-                muted: true
-            }
-        }
-
-        Row {
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Appearance.s.xs
-
-            IconButton {
-                icon: "settings"
-                // Opened over this popup, not after closing it, so the card
-                // flies on into the settings panel's.
-                onClicked: Overlay.openUnanchored(Overlay.settings)
-            }
-
-            IconButton {
-                icon: "lock"
-                onClicked: {
-                    Overlay.close();
-                    Session.lock();
-                }
-            }
-
-            IconButton {
-                icon: "shutdown"
-                onClicked: root.pageRequested("power")
-            }
-        }
+        onProfileRequested: root.pageRequested("profile")
+        onPowerRequested: root.pageRequested("power")
     }
 }

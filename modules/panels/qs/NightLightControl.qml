@@ -25,7 +25,7 @@ Rectangle {
             flush: true
             enabled: NightLight.available
             icon: "night-light"
-            iconColor: NightLight.enabled ? Appearance.c.warning : Appearance.c.text
+            iconColor: NightLight.enabled ? PopupStyle.warning : Appearance.c.text
             title: qsTr("Night Light")
             subtitle: NightLight.starting ? qsTr("Starting…")
                 : !NightLight.available ? qsTr("Unavailable")
@@ -47,7 +47,7 @@ Rectangle {
             enabled: NightLight.available && NightLight.enabled
             value: NightLight.warmth
             stepSize: NightLight.step / (NightLight.maximum - NightLight.minimum)
-            fillColor: Appearance.c.warning
+            fillColor: PopupStyle.warning
             onMoved: value => NightLight.setWarmth(value)
             Accessible.name: qsTr("Screen temperature")
             Accessible.description: qsTr("%1 K. Move right for a warmer screen.").arg(NightLight.temperature)

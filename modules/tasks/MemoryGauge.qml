@@ -55,7 +55,7 @@ Column {
             width: Math.max(height, parent.width * Math.min(100, root.percent) / 100)
             height: parent.height
             radius: Appearance.r.capsule(height)
-            color: root.marks.length > 0 && root.percent <= root.marks[0] ? Appearance.c.danger : Appearance.c.accent
+            color: root.marks.length > 0 && root.percent <= root.marks[0] ? PopupStyle.danger : Appearance.c.accent
 
             Behavior on width {
                 NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.standardEasing }

@@ -13,7 +13,6 @@ import "root:/services"
 EntityPane {
     id: root
 
-    title: qsTr("CPU")
     icon: "cpu"
     lines: [
         { text: Usage.cpuModel !== "" ? Usage.cpuModel : qsTr("CPU"), value: root.manager.percent(Usage.cpu) },

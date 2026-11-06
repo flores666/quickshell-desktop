@@ -40,7 +40,7 @@ Singleton {
         dockOpacity: { min: 0,  max: 100, def: 100 },
         // Not below 70: a popup reads its colours off no backdrop, and its
         // text stays legible, and its glass frosted, down to there.
-        popupOpacity: { min: 70, max: 100, def: 100 }
+        popupOpacity: { min: 70, max: 100, def: 80 }
     })
 
     /*! A user override, clamped — or the tuned value, when unset (negative). */

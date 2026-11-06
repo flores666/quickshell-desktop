@@ -41,7 +41,7 @@ PanelWindow {
     // ones below slide up from where they were, and a surface that shrank to
     // the new height at once would cut the bottom one off mid-slide.
     implicitHeight: root.padTop + 600 + root.pad
-    implicitWidth: root.pad + column.width + Appearance.s.lg
+    implicitWidth: root.pad + column.width + Appearance.s.md
     anchors { top: true; right: true }
     margins.top: root.stackTop - root.padTop
 
@@ -57,8 +57,10 @@ PanelWindow {
         anchors.top: parent.top
         anchors.topMargin: root.padTop
         anchors.right: parent.right
-        anchors.rightMargin: Appearance.s.lg
-        width: 372
+        anchors.rightMargin: Appearance.s.md
+        // Match the system panel's width and screen-edge clearance.
+        width: Math.min(Appearance.m.popoverWidth,
+            (Compositor.focusedScreen ? Compositor.focusedScreen.width : Appearance.m.popoverWidth) - Appearance.s.md * 2)
         notifications: Notifs.popups
         standalone: true
     }

@@ -51,7 +51,7 @@ Column {
         visible: root.reason !== ""
         text: root.reason
         role: Label.Role.Small
-        color: Appearance.c.danger
+        color: PopupStyle.danger
         wrapMode: Text.Wrap
     }
 

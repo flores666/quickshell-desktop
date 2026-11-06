@@ -33,6 +33,8 @@ Item {
     property int radius: Appearance.r.md
     property int elevation: 2
     property bool bordered: true
+    /*! Popup cards and standalone notifications share this material. */
+    property bool clearGlass: false
     property color borderColor: root.scheme.border
     /*! How much of its glass it lays down: its fill, hairline and shadow
         together, its content untouched — the bar and the dock at the user's
@@ -79,6 +81,7 @@ Item {
         anchors.fill: parent
         radius: root.radius
         level: root.elevation
+        hollow: root.clearGlass
         opacity: root.glass
     }
 
@@ -86,9 +89,20 @@ Item {
         id: inner
         anchors.fill: parent
         radius: root.radius
-        color: Qt.alpha(root.color, root.color.a * root.glass)
-        border.width: root.bordered ? Appearance.m.border : 0
+        color: root.clearGlass ? Qt.alpha(PopupStyle.tint, root.scheme.glass * root.glass)
+            : Qt.alpha(root.color, root.color.a * root.glass)
+        border.width: root.bordered && !root.clearGlass ? Appearance.m.border : 0
         border.color: Qt.alpha(root.borderColor, root.borderColor.a * root.glass)
         antialiasing: root.radius > 0
+
+        Loader {
+            anchors.fill: parent
+            active: root.clearGlass && root.visible && root.glass > 0
+            sourceComponent: GlassFinish {
+                radius: root.radius
+                borderWidth: root.bordered ? Appearance.m.border : 0
+                opacity: root.glass
+            }
+        }
     }
 }

@@ -120,6 +120,7 @@ Surface {
     // One radius for every panel; no popup picks its own.
     radius: Appearance.r.panel
     glass: Appearance.popupOpacity
+    clearGlass: true
     // A card in flight is the one that was there: as strong as that one was
     // from its first frame, whatever its own fade has reached, and coming in
     // with its fade from there.

@@ -17,7 +17,6 @@ EntityPane {
     readonly property var disks: (Processes.last?.disks ?? []).slice().sort((a, b) => b.size - a.size)
     readonly property real share: Usage.fsTotal > 0 ? Usage.fsUsed / Usage.fsTotal : 0
 
-    title: qsTr("Disks")
     icon: "disk"
     lines: root.disks.map(d => ({ text: d.model !== "" ? d.model : d.name, value: Usage.formatBytes(d.size), strong: true }))
         .concat([

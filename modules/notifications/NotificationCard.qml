@@ -41,7 +41,9 @@ Surface {
     HoverHandler { id: pointer }
 
     implicitHeight: layout.implicitHeight + Appearance.s.lg * 2
-    color: root.standalone ? Appearance.c.chrome : Appearance.c.raised
+    clearGlass: root.standalone
+    glass: root.standalone ? Appearance.popupOpacity : 1
+    color: PopupStyle.wash
     radius: root.standalone ? Appearance.r.panel : Appearance.r.md
     elevation: root.standalone ? 3 : 0
     bordered: root.standalone
@@ -63,7 +65,7 @@ Surface {
         width: 3
         height: parent.height - Appearance.s.lg * 2
         radius: 1.5
-        color: Appearance.c.danger
+        color: PopupStyle.danger
     }
 
     // Sized by bindings rather than positioners: the body's wrap is only
@@ -124,6 +126,7 @@ Surface {
                         text: Notifs.relativeLabel(root.notification, Time.now)
                         role: Label.Role.Caption
                         faint: true
+                        color: PopupStyle.muted
                     }
                 }
 
@@ -135,6 +138,7 @@ Surface {
                     text: root.bodyText
                     role: Label.Role.Small
                     muted: true
+                    color: PopupStyle.muted
                     wrapMode: Text.Wrap
                     // A toast is a glance: two lines, and the rest is in the
                     // notification centre.

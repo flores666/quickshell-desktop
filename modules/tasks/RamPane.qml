@@ -15,7 +15,6 @@ EntityPane {
 
     readonly property var memory: Processes.memory
 
-    title: qsTr("RAM")
     icon: "ram"
     lines: [
         { text: qsTr("RAM"), value: Usage.memoryTotal > 0 && Usage.memory >= 0

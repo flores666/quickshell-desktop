@@ -23,28 +23,11 @@ Item {
 
     Component.onCompleted: Tasks.read()
 
-    Label {
-        x: Appearance.s.xl
-        y: (root.manager.barHeight - height) / 2
-        text: qsTr("Schedule")
-        role: Label.Role.Subtitle
-    }
-
-    TextButton {
-        anchors.right: parent.right
-        anchors.rightMargin: Appearance.s.xl
-        y: (root.manager.barHeight - height) / 2
-        visible: root.editing === null
-        icon: "add"
-        text: qsTr("New Task")
-        onClicked: root.editing = {}
-    }
-
     Flickable {
         id: scroller
 
         anchors.fill: parent
-        anchors.topMargin: root.manager.barHeight + Appearance.s.xl
+        anchors.topMargin: Appearance.s.xl
         anchors.leftMargin: Appearance.s.xl
         anchors.rightMargin: Appearance.s.xl
         clip: true
@@ -56,6 +39,14 @@ Item {
 
             width: scroller.width - scrollbar.footprint
             spacing: Appearance.s.lg
+
+            TextButton {
+                anchors.right: parent.right
+                visible: root.editing === null
+                icon: "add"
+                text: qsTr("New Task")
+                onClicked: root.editing = {}
+            }
 
             Loader {
                 width: page.width

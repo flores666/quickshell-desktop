@@ -179,10 +179,11 @@ QtObject {
 
     /*! Quick-settings tiles, rows and detail pages. */
     readonly property int qsTileWidth: 168
-    readonly property int qsTileHeight: 58
-    readonly property int qsBubble: 34
+    readonly property int qsTileHeight: 56
+    readonly property int qsModeHeight: 40
+    readonly property int qsPercentageWidth: 32
     readonly property int qsRowWidth: 300
-    readonly property int qsRowHeight: 36
+    readonly property int qsRowHeight: 40
     readonly property int qsChevron: 30
     readonly property int qsAudioHeight: 320
     readonly property int qsDevicesHeight: 340

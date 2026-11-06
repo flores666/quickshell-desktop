@@ -48,7 +48,7 @@ ShellOverlay {
 
                 width: column.width
                 icon: "vpn"
-                iconColor: Vpn.isActive(row.modelData) ? Appearance.c.success : Appearance.c.text
+                iconColor: Vpn.isActive(row.modelData) ? PopupStyle.success : Appearance.c.text
                 title: row.modelData
                 subtitle: Vpn.status(row.modelData)
                 // Vpn ignores a switch asked for while one is under way; the
@@ -68,7 +68,7 @@ ShellOverlay {
             width: column.width
             visible: V2rayn.available
             icon: "vpn"
-            iconColor: V2rayn.active ? Appearance.c.success : Appearance.c.text
+            iconColor: V2rayn.active ? PopupStyle.success : Appearance.c.text
             title: "v2rayN"
             subtitle: V2rayn.status
             // Without TUN mode there is no switch to reach, and the row

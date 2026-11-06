@@ -36,18 +36,6 @@ Singleton {
         still frosts and its text still reads over any wallpaper. */
     readonly property real popupOpacity: Tuning.pick("popupOpacity") / 100
 
-    /*!
-        An engaged quick-settings tile (QsTile): the accent as glass, as
-        strong as the card it rests on (the theme's glass at popupOpacity);
-        what is set on it in near-black or white, whichever reads better on
-        that over the card, the status line a little fainter; and a wash of
-        that ink for its icon's disc.
-    */
-    readonly property color popupAccent: Qt.alpha(root.c.accent, root.c.glass * root.popupOpacity)
-    readonly property color popupAccentInk: root.inkOn(root.laid(root.popupAccent, root.c.surface, 1))
-    readonly property color popupAccentInkMuted: Qt.alpha(root.popupAccentInk, 0.72)
-    readonly property color popupAccentLayer: Qt.alpha(root.popupAccentInk, 0.18)
-
     readonly property ColorScheme day: ColorScheme {
         id: dayScheme
 

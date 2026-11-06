@@ -105,7 +105,7 @@ Item {
         visible: root.pending === null && Network.failure !== ""
         text: Network.failure
         role: Label.Role.Small
-        color: Appearance.c.danger
+        color: PopupStyle.danger
         wrapMode: Text.Wrap
     }
 
@@ -138,7 +138,7 @@ Item {
             MenuRow {
                 width: parent.width
                 icon: Network.signalIcon(net.modelData.signalStrength)
-                iconColor: net.modelData.connected ? Appearance.c.accent : Appearance.c.text
+                iconColor: net.modelData.connected ? PopupStyle.accentIndicator : Appearance.c.text
                 title: net.modelData.name
                 subtitle: net.modelData.connected ? qsTr("Connected")
                     : net.modelData.stateChanging ? qsTr("Connecting…")
@@ -160,7 +160,7 @@ Item {
                         visible: net.secured && !net.modelData.connected
                         name: "wifi-locked"
                         size: Appearance.m.iconSm
-                        color: Appearance.c.textFaint
+                        color: PopupStyle.muted
                     }
 
                     IconButton {

@@ -62,14 +62,16 @@ Singleton {
 
     // ------------------------------------------------------------- profiles
 
-    /*! Set once at startup by probing the system bus for power-profiles-daemon. */
-    property bool hasProfiles: false
+    /*! The bus owner is also the identity of choices made against this backend. */
+    property string profileOwner: ""
+    readonly property bool hasProfiles: root.profileOwner !== ""
 
     readonly property int profile: PowerProfiles.profile
     readonly property bool hasPerformance: PowerProfiles.hasPerformanceProfile
 
     function setProfile(p: int): void {
-        if (root.hasProfiles)
+        if (root.hasProfiles && (p === PowerProfile.PowerSaver || p === PowerProfile.Balanced
+                || (p === PowerProfile.Performance && root.hasPerformance)))
             PowerProfiles.profile = p;
     }
 
@@ -91,8 +93,16 @@ Singleton {
 
     Process {
         running: true
-        command: ["busctl", "--system", "--timeout=3", "status", "net.hadess.PowerProfiles"]
-        onExited: exitCode => root.hasProfiles = exitCode === 0
+        command: ["env", "LC_ALL=C", "gdbus", "monitor", "--system", "--dest", "net.hadess.PowerProfiles"]
+        stdout: SplitParser {
+            onRead: line => {
+                const owner = /^The name net\.hadess\.PowerProfiles is owned by (:\S+)/.exec(line);
+                if (owner) root.profileOwner = owner[1];
+                else if (line === "The name net.hadess.PowerProfiles does not have an owner")
+                    root.profileOwner = "";
+            }
+        }
+        onExited: root.profileOwner = ""
     }
 
     // ---------------------------------------------------------- charge limit

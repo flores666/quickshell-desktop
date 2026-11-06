@@ -75,7 +75,7 @@ Clickable {
             width: parent.width
             text: root.outcome
             role: Label.Role.Small
-            color: root.task.result === "failed" ? Appearance.c.danger : Appearance.c.textMuted
+            color: root.task.result === "failed" ? PopupStyle.danger : PopupStyle.muted
             elide: Text.ElideRight
         }
     }

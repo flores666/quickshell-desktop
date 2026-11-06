@@ -49,7 +49,7 @@ Clickable {
             height: parent.height - 8
             rotation: 45
             radius: 1
-            color: Appearance.c.textMuted
+            color: PopupStyle.muted
         }
 
         Icon {
@@ -57,7 +57,7 @@ Clickable {
             visible: root.icon !== ""
             name: root.icon
             size: Appearance.m.iconSm
-            color: Appearance.c.textMuted
+            color: PopupStyle.muted
         }
     }
 

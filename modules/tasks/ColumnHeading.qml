@@ -38,7 +38,7 @@ Clickable {
             visible: root.active
             name: root.descending ? "chevron-down" : "chevron-up"
             size: Appearance.m.iconSm
-            color: Appearance.c.textMuted
+            color: PopupStyle.muted
         }
     }
 }

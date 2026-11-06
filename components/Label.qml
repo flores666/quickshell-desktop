@@ -15,7 +15,17 @@ Text {
     /*! The colours it is set in; see Clickable's. */
     property ColorScheme scheme: Appearance.c
 
-    color: root.faint ? root.scheme.textFaint
+    /*! Resolve the nearest material, including opaque in-card menus. */
+    readonly property bool onClearGlass: {
+        for (let item = root.parent; item; item = item.parent) {
+            const surface = item as Surface;
+            if (surface) return surface.clearGlass;
+        }
+        return false;
+    }
+
+    color: root.onClearGlass && (root.faint || root.muted) ? PopupStyle.muted
+        : root.faint ? root.scheme.textFaint
         : root.muted ? root.scheme.textMuted
         : root.scheme.text
     font.family: Appearance.fontFamily

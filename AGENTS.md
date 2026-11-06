@@ -497,8 +497,12 @@ surface. The bar and the dock lay down a share of the glass the user sets
 own and never more, 0 none — and below about 57% the panel is no longer over
 half opaque, so nothing behind it is blurred. The popups' cards take a share
 too (`Appearance.popupOpacity`, held to 70–100% so a card always frosts and
-its text reads over any wallpaper), and an engaged quick-settings tile's
-accent fill as much (`Appearance.popupAccent`); how strongly the glass is blurred is
+its text reads over any wallpaper), with an unset default of 80%.
+Popup-only tint, reflection, ink and control colors live in `config/PopupStyle`;
+`OverlayCard` opts into this material through `Surface.clearGlass`. Its shadow
+keeps its exterior but masks out the solid core beneath transmitting glass.
+An engaged quick-settings tile uses the current accent with contrasting ink.
+How strongly the glass is blurred is
 Hyprland's one blur radius (`hyprBlurSize`, `decoration:blur:size`), shared
 by everything it blurs.
 
@@ -761,7 +765,7 @@ implemented.
 | `Icon` / `Icons` | a Hugeicons Stroke Rounded UI glyph drawn with QtQuick.Shapes from generated path data; Spinner uses the same renderer |
 | `AppIcon` | an application icon from the XDG theme, with fallbacks, asked again whenever the themes change (`IconThemes.revision`); `optical` scales and centres its artwork to the same visual weight as every other icon drawn so (the dock's); `ink` draws it among the shell's glyphs (the tray's): desaturated, and a one-tone glyph levelled (Qt5Compat's `LevelAdjust`) so its tone comes out in the ink; artwork of both tones, a light sign on a dark plate, reads on either and keeps them |
 | `IconShapes` | what `optical` and `ink` measure: how much of its box each icon covers, once per icon, the scale and offset that follow, and how much of its artwork is `light` |
-| `Label` | text with the type scale applied; use instead of bare `Text`. `scheme` as `Clickable`'s |
+| `Label` | text with the type scale applied; use instead of bare `Text`. `scheme` as `Clickable`'s; subdued ink adapts to the nearest Surface's popup material, stopping at opaque in-card menus |
 | `ColorPicker` | an HSV plane and hue strip, optionally held to a saturation/value band; `moved`/`committed` like `Slider`, arrow keys, no wheel |
 | `Filmstrip` | a sideways-scrolling row of choices wider than its room: wallpaper previews, font samples |
 | `SettingGroup` | rows that belong together on one `raised` card, a heading above it: the settings panel's and the task manager's |

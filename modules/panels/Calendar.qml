@@ -140,8 +140,8 @@ Item {
                     anchors.centerIn: parent
                     text: cell.day.getDate()
                     role: Label.Role.Small
-                    color: cell.isToday ? Appearance.c.accentText
-                        : cell.inMonth ? Appearance.c.text : Appearance.c.textFaint
+                    color: cell.isToday ? PopupStyle.accentInk
+                        : cell.inMonth ? Appearance.c.text : PopupStyle.muted
                     font.weight: cell.isToday ? Font.DemiBold : Font.Normal
                 }
             }

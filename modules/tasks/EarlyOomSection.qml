@@ -47,7 +47,7 @@ Column {
                 text: !EarlyOom.available ? qsTr("earlyoom is not installed")
                     : EarlyOom.running ? qsTr("earlyoom is watching") : qsTr("earlyoom is stopped")
                 role: Label.Role.Small
-                color: EarlyOom.available && !EarlyOom.running ? Appearance.c.warning : Appearance.c.textMuted
+                color: EarlyOom.available && !EarlyOom.running ? PopupStyle.warning : PopupStyle.muted
             }
         }
 

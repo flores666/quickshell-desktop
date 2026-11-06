@@ -64,7 +64,7 @@ Item {
 
             width: list.width
             icon: Bt.deviceIcon(btRow.modelData)
-            iconColor: btRow.modelData.connected ? Appearance.c.accent : Appearance.c.text
+            iconColor: btRow.modelData.connected ? PopupStyle.accentIndicator : Appearance.c.text
             title: Bt.deviceName(btRow.modelData)
             subtitle: btRow.modelData.pairing ? qsTr("Pairing…")
                 : btRow.modelData.state === BluetoothDeviceState.Connecting ? qsTr("Connecting…")

@@ -54,17 +54,10 @@ Item {
         }
     }
 
-    Label {
-        x: Appearance.s.xl
-        y: (root.manager.barHeight - height) / 2
-        text: qsTr("Processes")
-        role: Label.Role.Subtitle
-    }
-
     SearchField {
         id: filter
         x: Appearance.s.xl
-        y: root.manager.barHeight + Appearance.s.lg
+        y: Appearance.s.xl
         width: root.width - Appearance.s.xl * 2
         placeholder: qsTr("Search processes…")
         onEscaped: Overlay.close()
