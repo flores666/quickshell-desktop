@@ -23,6 +23,9 @@ QtObject {
     readonly property int title: Math.round(19 * root.scale)
     readonly property int display: Math.round(34 * root.scale)
     readonly property int clock: Math.round(44 * root.scale)
+    /*! Compact media metadata, following the user's text scale. */
+    readonly property int mediaTitle: Math.round(14 * root.scale)
+    readonly property int mediaArtist: Math.round(11 * root.scale)
     /*! Hyprland's renderer takes points and a fontconfig family. */
     readonly property int titleBarPointSize: 10
     readonly property int titleBarWeight: 600

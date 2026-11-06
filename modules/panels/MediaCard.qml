@@ -42,11 +42,18 @@ Surface {
     }
 
     visible: Players.active
-    implicitHeight: Players.active ? layout.implicitHeight + Appearance.s.lg * 2 : 0
+    implicitHeight: Players.active ? layout.implicitHeight + Appearance.s.md * 2 : 0
     color: Appearance.c.raised
-    radius: Appearance.r.md
+    radius: Appearance.r.lg
     elevation: 0
     bordered: false
+
+    // Inherit the popup's blur and tint; add only its reflection and rim.
+    GlassFinish {
+        anchors.fill: parent
+        radius: root.radius
+        borderWidth: Appearance.m.border
+    }
 
     Row {
         id: layout
@@ -54,10 +61,12 @@ Surface {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: Appearance.s.lg
-        spacing: Appearance.s.lg
+        anchors.margins: Appearance.s.xl
+        anchors.topMargin: Appearance.s.md
+        spacing: Appearance.s.xl
 
         MediaArtwork {
+            anchors.verticalCenter: parent.verticalCenter
             width: Appearance.m.mediaArt
             height: Appearance.m.mediaArt
             source: Players.artUrl
@@ -68,12 +77,13 @@ Surface {
 
         Column {
             width: layout.width - Appearance.m.mediaArt - layout.spacing
-            spacing: Appearance.s.xs
+            spacing: Appearance.s.xxs
 
             Label {
                 width: parent.width
                 text: Players.title !== "" ? Players.title : Players.identity
-                font.weight: Font.DemiBold
+                role: Label.Role.Subtitle
+                font.pixelSize: Appearance.font.mediaTitle
             }
 
             Label {
@@ -81,7 +91,8 @@ Surface {
                 visible: Players.artist !== ""
                 text: Players.artist
                 role: Label.Role.Small
-                muted: true
+                font.pixelSize: Appearance.font.mediaArtist
+                color: PopupStyle.muted
             }
 
             Item {
@@ -121,11 +132,13 @@ Surface {
                 height: Appearance.m.mediaButton
 
                 Row {
+                    id: controls
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Appearance.s.xs
+                    spacing: Appearance.s.sm
 
                     IconButton {
                         icon: "prev"
+                        iconSize: Appearance.m.iconLg
                         size: Appearance.m.mediaButton
                         enabled: Players.canPrev
                         onClicked: Players.previous()
@@ -133,14 +146,16 @@ Surface {
 
                     IconButton {
                         icon: Players.playing ? "pause" : "play"
+                        iconSize: Appearance.m.iconLg
                         size: Appearance.m.mediaButton
-                        accented: true
+                        iconColor: Appearance.c.accent
                         enabled: Players.canPlay
                         onClicked: Players.playPause()
                     }
 
                     IconButton {
                         icon: "next"
+                        iconSize: Appearance.m.iconLg
                         size: Appearance.m.mediaButton
                         enabled: Players.canNext
                         onClicked: Players.next()
@@ -148,13 +163,18 @@ Surface {
                 }
 
                 Label {
+                    anchors.left: controls.right
+                    anchors.leftMargin: Appearance.s.sm
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.hasLength
                     text: Players.formatTime((seek.holding ? seek.displayed : root.shownValue) * Players.length)
                         + " / " + Players.formatTime(Players.length)
                     role: Label.Role.Caption
-                    faint: true
+                    font.pixelSize: Appearance.font.small
+                    horizontalAlignment: Text.AlignRight
+                    elide: Text.ElideLeft
+                    color: PopupStyle.muted
                 }
             }
         }

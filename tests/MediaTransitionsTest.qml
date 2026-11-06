@@ -72,18 +72,23 @@ Item {
             root.until("same-track seek animates", () => root.seek.value === 0.5 && root.seek.animating
                 && root.seek.displayed > 1 / 6 && root.seek.displayed < 0.5, () => {
                 check.near("time label uses the reported position", card.shownValue, 0.5);
-                const x = root.seek.knobSize / 2 + root.seek.spanX * 2 / 3;
+                // TestEvent sends whole pixels, even when the track's width
+                // does not divide into thirds. Assert the point actually sent.
+                const x = Math.round(root.seek.knobSize / 2 + root.seek.spanX * 2 / 3);
+                const target = (x - root.seek.knobSize / 2) / root.seek.spanX;
+                const seconds = target * Players.length;
                 const before = root.seek.displayed;
                 check.equal("pointer press accepted", input.mousePress(root.seek, x, root.seek.height / 2,
                     Qt.LeftButton, Qt.NoModifier, -1), true);
-                check.near("pointer target updates immediately", root.seek.value, 2 / 3);
+                check.near("pointer target updates immediately", root.seek.value, target);
                 check.within("pointer retarget does not jump", root.seek.displayed, before, 0.1);
                 input.mouseRelease(root.seek, x, root.seek.height / 2, Qt.LeftButton, Qt.NoModifier, -1);
-                root.until("pointer seek reaches the player", () => Players.position === 120
+                root.until("pointer seek reaches the player", () => Math.abs(Players.position - seconds) < 0.001
                     && driver.calls.length === 1, () => {
-                    check.equal("seek sends the exact requested microseconds", driver.calls[0][3], 120000000);
+                    // Quickshell's position setter has millisecond precision.
+                    check.within("seek sends the requested position", driver.calls[0][3], seconds * 1000000, 1000);
                     root.until("pointer seek animation settles", () => !root.seek.animating
-                        && Math.abs(root.seek.displayed - 2 / 3) < 0.001, () => root.keyboard());
+                        && Math.abs(root.seek.displayed - target) < 0.001, () => root.keyboard());
                 });
             });
         });

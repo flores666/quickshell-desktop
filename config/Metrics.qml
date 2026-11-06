@@ -172,7 +172,7 @@ QtObject {
 
     /*! Date menu's media player. The artwork is decoded at twice its box. */
     readonly property int mediaWidth: 352
-    readonly property int mediaArt: 64
+    readonly property int mediaArt: 80
     readonly property int mediaFallback: 26
     readonly property int mediaSeek: root.sliderKnob
     readonly property int mediaButton: 30

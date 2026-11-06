@@ -24,7 +24,7 @@ ClippingRectangle {
 
     implicitWidth: Appearance.m.mediaArt
     implicitHeight: Appearance.m.mediaArt
-    radius: Appearance.r.sm
+    radius: Appearance.r.md
     // Each slot is a complete, opaque picture, including transparent artwork
     // and the fallback. Fading it over the old slot avoids a mid-fade dark dip.
     color: Qt.tint(Appearance.c.surface, Appearance.c.sunken)
