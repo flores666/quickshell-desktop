@@ -52,8 +52,7 @@ Slider {
 
     function snap(): void {
         const subject = Players.selected;
-        const supported = subject && subject.player && subject.player.positionSupported && subject.track.length > 0;
-        const value = supported ? root.clamped : 0;
+        const value = subject && subject.hasTimeline() ? root.clamped : 0;
         motion.stop();
         root.animatedValue = value;
         root.lastValue = value;
@@ -117,8 +116,8 @@ Slider {
 
     // Only reads Quickshell's local extrapolation; never queries the player.
     SystemClock {
-        enabled: root.visible && root.tracking && Players.playing && Players.length > 0
-            && Players.hasPlayer && Players.current.positionSupported && !root.animating && !root.holding
+        enabled: root.visible && root.tracking && Players.playing && Players.hasTimeline
+            && !root.animating && !root.holding
         precision: SystemClock.Seconds
         onDateChanged: root.readClock()
     }

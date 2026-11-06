@@ -96,8 +96,21 @@ Item {
                         check.equal("nonfinite time is safe", Players.formatTime(Infinity), "0:00");
                         check.equal("negative time is safe", Players.formatTime(-5), "0:00");
                         check.equal("hours are formatted", Players.formatTime(3723.9), "1:02:03");
-                        root.selection();
+                        root.readOnly();
                     });
+                });
+            });
+        });
+    }
+    function readOnly(): void {
+        driver.send({ action: "update", properties: { CanSeek: false } }, () => {
+            root.until("seek permission withdrawn", () => !Players.canSeek, () => {
+                check.equal("read-only player keeps its timeline", card.hasLength, true);
+                check.near("read-only timeline retains reported progress", card.position, 1);
+                const timeline = driver.find(card, item => item instanceof MediaTimeline)[0];
+                check.equal("read-only timeline disables interaction", timeline.interactive, false);
+                driver.send({ action: "update", properties: { CanSeek: true } }, () => {
+                    root.until("seek permission restored", () => Players.canSeek, () => root.selection());
                 });
             });
         });

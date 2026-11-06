@@ -39,6 +39,7 @@ Singleton {
     readonly property bool canPlay: root.hasPlayer && root.current.canTogglePlaying
     readonly property bool canNext: root.hasPlayer && root.current.canGoNext
     readonly property bool canPrev: root.hasPlayer && root.current.canGoPrevious
+    readonly property bool hasTimeline: root.selected !== null && root.selected.hasTimeline()
     readonly property bool canSeek: root.hasPlayer && root.selected.canSeek
 
     readonly property real length: root.hasPlayer ? root.selected.length : 0

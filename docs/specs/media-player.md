@@ -11,7 +11,9 @@ collapsed the timeline.
 
 - `Players` keeps the sticky player selection and dispatches its actions.
   `PlayerState`, one instance per live MPRIS player, owns track metadata and
-  position. Returning to a player retains its own track state; removing it
+  position and timeline availability. Timing requires supported position and
+  positive duration, independently of seek permission or a pending track
+  change. Returning to a player retains its own track state; removing it
   destroys that state.
 - Capture every metadata event and coalesce publication for a bounded 150 ms
   window. The window does not restart indefinitely when more metadata arrives.
@@ -78,7 +80,7 @@ collapsed the timeline.
 `MediaPlayerTest` uses real MPRIS objects on the runner's private D-Bus session:
 cover/duration withdrawal, transient page titles, track changes with constant
 browser IDs, unknown duration, unsupported position, position bounds, player
-selection and removal, and per-player retention.
+selection and removal, per-player retention, and read-only timelines.
 
 `MediaTimelineTest` exercises the real card in a nested compositor: decoded
 artwork, unchanged card height and timeline presence during updates, actual Qt

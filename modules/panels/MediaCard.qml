@@ -16,7 +16,7 @@ Surface {
 
     property bool tracking: false
 
-    readonly property bool hasLength: Players.length > 0 && Players.hasPlayer && Players.current.positionSupported
+    readonly property bool hasLength: Players.hasTimeline
     readonly property real position: root.hasLength ? Players.position / Players.length : 0
     /*! Where a drag has the knob, held until the seek lands. */
     property real scrubValue: 0

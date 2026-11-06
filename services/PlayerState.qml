@@ -19,8 +19,7 @@ Scope {
     property string pendingKey: ""
     readonly property bool changing: root.pendingKey !== root.track.key
     readonly property real length: root.track.length
-    readonly property bool canSeek: root.player !== null && root.player.canSeek
-        && root.player.positionSupported && root.length > 0 && !root.changing
+    readonly property bool canSeek: root.hasTimeline() && root.player.canSeek && !root.changing
     property var pendingSeek: null
     property bool writingPosition: false
     property bool readingPosition: false
@@ -32,6 +31,12 @@ Scope {
         return Number.isFinite(seconds) ? Math.max(0, Math.min(root.length || Infinity, seconds)) : 0;
     }
     onPendingKeyChanged: if (root.pendingSeek && root.pendingKey !== root.pendingSeek.key) root.cancelSeek()
+
+    /*! Read the live subject even during signal delivery, before derived flags
+        settle. Timing does not require seek permission or a settled track. */
+    function hasTimeline(): bool {
+        return root.player !== null && root.player.positionSupported && root.track.length > 0;
+    }
 
     function intendedPosition(seek: var, now: real): real {
         return seek.position + (seek.playing ? (now - seek.at) / 1000 * seek.rate : 0);
