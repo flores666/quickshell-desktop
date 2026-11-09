@@ -5,7 +5,6 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Pam
 import "root:/config"
-import "root:/components"
 import "root:/services"
 
 /*!
@@ -13,7 +12,8 @@ import "root:/services"
 
     Uses the Wayland session-lock protocol, so the compositor keeps the screen
     covered even if this process dies while locked — that is the point of the
-    protocol, and it is why the surface itself is kept deliberately plain.
+    protocol. The backdrop is a cached image of the wallpaper, never a view
+    through to the desktop.
     Authentication goes through PAM directly; there is no external locker to
     depend on.
 */
@@ -24,6 +24,13 @@ Scope {
     property string status: ""
     property bool statusIsError: false
     property bool busy: false
+
+    // Keep intent through hot reload, independently of WlSessionLock.locked:
+    // Quickshell 0.3.2 omits its change signal on a successful unlock.
+    PersistentProperties {
+        id: state
+        property bool locked: false
+    }
 
     function submit(): void {
         if (root.busy || root.password === "")
@@ -44,10 +51,12 @@ Scope {
     Connections {
         target: Session
         function onLockRequested(): void {
+            if (lock.locked) return;
             root.password = "";
             root.status = "";
             root.statusIsError = false;
-            lock.locked = true;
+            root.busy = false;
+            state.locked = true;
         }
     }
 
@@ -73,7 +82,7 @@ Scope {
                 root.password = "";
                 root.status = "";
                 root.busy = false;
-                lock.locked = false;
+                state.locked = false;
             } else if (result === PamResult.MaxTries) {
                 root.fail(qsTr("Too many attempts"));
             } else {
@@ -90,137 +99,33 @@ Scope {
     WlSessionLock {
         id: lock
 
-        locked: false
+        locked: state.locked
 
         surface: WlSessionLockSurface {
             id: surface
 
-            color: Appearance.c.base
+            color: Appearance.night.base
 
-            Column {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: Math.round(parent.height * 0.28)
-                spacing: Appearance.s.xs
-
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: Time.time
-                    font.pixelSize: Appearance.font.clock
-                    font.weight: Font.Light
-                    font.features: ({ "tnum": 1 })
-                }
-
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: Time.dateLong
-                    role: Label.Role.Subtitle
-                    muted: true
-                }
+            LockBackdrop {
+                anchors.fill: parent
+                source: Wallpaper.current
             }
 
-            Column {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: Math.round(parent.height * 0.14)
-                spacing: Appearance.s.lg
-
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: 64
-                    height: 64
-                    radius: 32
-                    color: Appearance.c.raised
-
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "user"
-                        size: 32
-                        color: Appearance.c.textMuted
-                    }
-                }
-
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    // PamContext only reports a user once a conversation is
-                    // running, so the name shown comes from the environment.
-                    text: String(Quickshell.env("USER") ?? "")
-                    role: Label.Role.Subtitle
-                }
-
-                FieldWell {
-                    width: 300
-                    color: Appearance.c.surface
-                    focused: field.activeFocus
-
-                    Icon {
-                        id: keyIcon
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: Appearance.s.lg
-                        name: "password"
-                        size: Appearance.m.icon
-                        color: Appearance.c.textMuted
-                    }
-
-                    TextInput {
-                        id: field
-
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: keyIcon.x + keyIcon.width + Appearance.s.md
-                        width: parent.width - x - Appearance.s.lg - (root.busy ? 24 : 0)
-                        focus: true
-                        enabled: !root.busy
-                        echoMode: TextInput.Password
-                        passwordCharacter: "•"
-                        color: Appearance.c.text
-                        font.family: Appearance.fontFamily
-                        font.pixelSize: Appearance.font.body
-                        selectionColor: Appearance.c.accent
-                        selectedTextColor: Appearance.c.accentText
-                        clip: true
-                        renderType: Text.NativeRendering
-
-                        onTextChanged: root.password = field.text
-                        onAccepted: root.submit()
-
-                        Connections {
-                            target: root
-                            function onPasswordChanged(): void {
-                                if (field.text !== root.password)
-                                    field.text = root.password;
-                            }
-                        }
-                    }
-
-                    Label {
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: field.x
-                        visible: field.text === "" && !root.busy
-                        text: qsTr("Password")
-                        role: Label.Role.Subtitle
-                        faint: true
-                    }
-
-                    Spinner {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.right: parent.right
-                        anchors.rightMargin: Appearance.s.lg
-                        visible: root.busy
-                        size: Appearance.m.icon
-                    }
-                }
-
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: 320
-                    height: 18
-                    horizontalAlignment: Text.AlignHCenter
-                    text: root.status
-                    role: Label.Role.Small
-                    color: root.statusIsError ? Appearance.c.danger : Appearance.c.textMuted
-                }
+            LockContent {
+                anchors.fill: parent
+                password: root.password
+                status: root.status
+                statusIsError: root.statusIsError
+                busy: root.busy
+                onEdited: value => root.password = value
+                onSubmitted: root.submit()
             }
-
-            Component.onCompleted: field.forceActiveFocus()
         }
+    }
+
+    Binding {
+        target: Keyboard
+        property: "lockEnglish"
+        value: state.locked
     }
 }

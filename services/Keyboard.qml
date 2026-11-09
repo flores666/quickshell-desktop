@@ -29,6 +29,14 @@ Singleton {
     readonly property bool available: root.layoutCount > 1 && root.layout !== ""
     readonly property string code: root.shortCode(root.layout)
 
+    /*! Only the session lock leases English; ordinary applications keep their
+        own groups, restored separately for each keyboard after unlocking. */
+    property alias lockEnglish: lockLayout.active
+    readonly property bool lockReady: lockLayout.ready
+    readonly property string lockFailure: lockLayout.failure
+
+    KeyboardLock { id: lockLayout }
+
     /*! Language name to its two-letter code, where the two differ. */
     readonly property var languageCodes: ({
         "German": "DE", "Spanish": "ES", "Polish": "PL", "Greek": "EL",

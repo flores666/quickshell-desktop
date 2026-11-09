@@ -35,7 +35,37 @@ def service(name, replacement=""):
     print(path.as_uri())
 
 
-if sys.argv[1] == "bluetooth":
+if sys.argv[1] == "lock":
+    # Only a dedicated nested session may exercise the real session-lock
+    # protocol. Authentication uses a private PAM stack, never the user's.
+    if os.environ.get("TEST_LOCK_SESSION") != "1":
+        raise RuntimeError("Set TEST_LOCK_SESSION=1 only in an isolated compositor")
+    pam = directory / "pam"
+    pam.mkdir()
+    (pam / "permit").write_text("auth required pam_permit.so\n")
+    (pam / "deny").write_text("auth required pam_deny.so\n")
+    os.mkfifo(directory / "background-control")
+    command("lock-background", '''#!/usr/bin/env python3
+import hashlib, os, pathlib
+with (pathlib.Path(os.environ["TEST_BIN"]) / "background-control").open() as control:
+    control.read()
+hashlib.pbkdf2_hmac("sha256", b"background work", b"fixture", 10000)
+print("completed", flush=True)
+''')
+    text = (source / "modules/lock/Lock.qml").read_text()
+    text = text.replace('import QtQuick', 'import "root:/modules/lock"\nimport QtQuick', 1)
+    text = text.replace("id: root", "id: root\n    property alias sessionLock: lock\n"
+                        "    property alias authentication: pam\n    property alias lockIntent: state\n"
+                        "    property var surfaces: []", 1)
+    text = text.replace('config: "login"', 'config: "permit"\n        configDirectory: '
+                        + repr(str(pam)).replace("'", '"'))
+    text = text.replace("id: surface", "id: surface\n            property alias content: lockContent\n"
+                        "            Component.onCompleted: root.surfaces = root.surfaces.concat([surface])", 1)
+    text = text.replace("LockContent {", "LockContent {\n                id: lockContent", 1)
+    path = directory / "LockFixture.qml"
+    path.write_text(text)
+    print(path.as_uri())
+elif sys.argv[1] == "bluetooth":
     service("Bt")
 elif sys.argv[1] == "v2rayn":
     service("V2rayn", "property alias modeProbe: modeReader")

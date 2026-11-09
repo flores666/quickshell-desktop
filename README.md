@@ -155,6 +155,30 @@ binary whose build stamp matches the running release.
 Its layout and gestures live in `hyprland.lua`; its three colours are pushed by
 the shell (`modules/common/CompositorTheme.qml`) so the overview follows the theme.
 
+### Session lock
+
+Lock (or Super+L) keeps background work and the current power profile running.
+It does not suspend or turn off the display. The lock shows a dimmed, blurred
+copy of the selected wallpaper, cached after loading; its steady password caret
+avoids blink-driven redraws. The clock updates once a minute.
+
+The lock temporarily selects English (US, or UK when US is absent) on each
+keyboard and restores each device's previous layout after authentication.
+Layout changes while locked are reconciled through Hyprland's events. If
+English or compositor IPC is unavailable, the lock reports the problem and
+allows authentication with the available keyboard. Lock intent and saved
+layouts survive shell hot reloads. A missing wallpaper falls back to a solid
+background.
+
+The Wayland session-lock protocol protects the desktop while applications
+continue running. Agents that depend on interacting with the visible desktop
+remain subject to the compositor's normal lock restrictions.
+
+Run `TEST_LOCK_SESSION=1 ./tools/test.sh LockScreenTest` only in a disposable
+nested Hyprland configured with `us,ru`. This exercises the real lock protocol,
+keyboard restoration, password entry, and a pre-existing background worker,
+using private PAM permit/deny configurations instead of the user's password.
+
 ### Events only, never polled
 
 Nothing in the project asks on a schedule whether something has changed —
