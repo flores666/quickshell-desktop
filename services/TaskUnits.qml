@@ -7,7 +7,7 @@ import Quickshell
 /*!
     A scheduled task as systemd user units: what Tasks writes and reads back.
 
-    A task is `{ id, name, command, schedule }`. Its schedule is one line, a
+    A task is `{ id, name, command, schedule, privileged }`. Its schedule is one line, a
     kind and what that kind needs:
 
         once 2026-10-27 09:00     hourly 15      daily 09:00
@@ -97,7 +97,7 @@ Singleton {
     /*! A command systemd can hold on one line: something, on one line, not
         ending in a backslash, which would continue it onto the next. */
     function validCommand(command: string): bool {
-        return command.trim() !== "" && !command.includes("\n") && !/\\\s*$/.test(command);
+        return command.trim() !== "" && !/[\n\r\0]/.test(command) && !/\\\s*$/.test(command);
     }
 
     /*! ExecStart= for a command: /bin/sh with it as one quoted word, the
@@ -112,12 +112,18 @@ Singleton {
     /*! The units' text: `{ service, timer }`, the timer "" for `login`. */
     function files(task: var): var {
         const login = root.parts(task.schedule).kind === "login";
+        // sudo can run only this root-owned snapshot, never the editable
+        // command in the user unit. The uid keeps different users apart.
+        const command = task.privileged
+            ? 'exec /usr/bin/sudo -n -- /etc/quickshell-desktop/tasks/"$(/usr/bin/id -u)"-' + task.id
+            : task.command;
         const description = "Description=" + task.name.replace(/%/g, "%%");
         const service = ["[Unit]", description,
             "X-QsTask-Name=" + task.name,
             "X-QsTask-Command=" + task.command,
             "X-QsTask-Schedule=" + task.schedule,
-            "", "[Service]", "Type=oneshot", "ExecStart=" + root.exec(task.command)]
+            "X-QsTask-Privileged=" + (task.privileged ? "true" : "false"),
+            "", "[Service]", "Type=oneshot", "ExecStart=" + root.exec(command)]
             .concat(login ? ["", "[Install]", "WantedBy=" + root.loginTarget] : []);
         const timer = login ? [] : ["[Unit]", description,
             "", "[Timer]", "OnCalendar=" + root.calendar(task.schedule), "Persistent=true",
@@ -127,11 +133,11 @@ Singleton {
 
     /*! The task a service's text holds: `{ name, command, schedule }`. */
     function read(text: string): var {
-        const task = { name: "", command: "", schedule: "" };
+        const task = { name: "", command: "", schedule: "", privileged: false };
         for (const line of text.split("\n")) {
-            const m = /^X-QsTask-(Name|Command|Schedule)=(.*)$/.exec(line);
+            const m = /^X-QsTask-(Name|Command|Schedule|Privileged)=(.*)$/.exec(line);
             if (m)
-                task[m[1].toLowerCase()] = m[2];
+                task[m[1].toLowerCase()] = m[1] === "Privileged" ? m[2] === "true" : m[2];
         }
         return task;
     }

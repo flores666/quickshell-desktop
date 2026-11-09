@@ -20,6 +20,7 @@ Clickable {
 
     implicitHeight: texts.implicitHeight + Appearance.s.md * 2
     radius: Appearance.r.sm
+    enabled: !Tasks.busy
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     onClicked: root.edit(root.task)
     onRightClicked: root.openMenu()
@@ -33,7 +34,8 @@ Clickable {
     }
 
     readonly property string when: {
-        const words = TaskUnits.describe(root.task.schedule);
+        const schedule = TaskUnits.describe(root.task.schedule);
+        const words = root.task.privileged ? qsTr("%1 · administrator").arg(schedule) : schedule;
         if (!root.task.enabled)
             return qsTr("%1 · off").arg(words);
         return root.task.next > 0 ? qsTr("%1 · next %2").arg(words).arg(Tasks.formatWhen(root.task.next)) : words;

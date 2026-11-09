@@ -40,11 +40,20 @@ Item {
             width: scroller.width - scrollbar.footprint
             spacing: Appearance.s.lg
 
+            Label {
+                width: parent.width
+                visible: Tasks.failure !== ""
+                text: Tasks.failure
+                color: PopupStyle.danger
+                wrapMode: Text.Wrap
+            }
+
             TextButton {
                 anchors.right: parent.right
                 visible: root.editing === null
                 icon: "add"
                 text: qsTr("New Task")
+                enabled: !Tasks.busy
                 onClicked: root.editing = {}
             }
 

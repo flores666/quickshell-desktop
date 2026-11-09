@@ -21,6 +21,9 @@ qt6-5compat
 # earlyoom's options; mounting a disk in nautilus): the shell is the session's
 # agent and asks for the password itself (services/Polkit)
 polkit
+# unattended administrator tasks: only their root-owned saved commands are
+# authorized, one task at a time (bin/quickshell-task-admin)
+sudo
 
 # what the shell's services read: sound, network, power, Bluetooth
 pipewire

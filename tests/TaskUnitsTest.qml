@@ -64,6 +64,17 @@ Item {
             check.equal("read back: name", back.name, task.name);
             check.equal("read back: command", back.command, task.command);
             check.equal("read back: schedule", back.schedule, task.schedule);
+            check.equal("read back: ordinary task", back.privileged, false);
+            check.equal("legacy: no administrator flag", TaskUnits.read("X-QsTask-Command=true\n").privileged, false);
+
+            const privileged = TaskUnits.files(Object.assign({}, task, { privileged: true }));
+            check.equal("administrator: round trip", TaskUnits.read(privileged.service).privileged, true);
+            check.equal("administrator: original command retained", TaskUnits.read(privileged.service).command, task.command);
+            check.report("administrator: saved snapshot through noninteractive sudo",
+                privileged.service.includes('sudo -n -- /etc/quickshell-desktop/tasks/'), privileged.service);
+            check.report("administrator: command never taken from user unit ExecStart",
+                !privileged.service.split("ExecStart=")[1].includes("rsync"), privileged.service);
+            check.equal("administrator: same schedule", privileged.timer, files.timer);
 
             const login = TaskUnits.files({ id: "qs-task-x2", name: "Hello", command: "true", schedule: "login" });
             check.equal("at login: no timer", login.timer, "");

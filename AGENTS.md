@@ -649,6 +649,13 @@ task "At login" is wanted by `quickshell-login.target`, which Hyprland restarts
 as it starts (`20-autostart.lua`, after importing the display into the user
 manager so a task can open a window). A "once" task stays listed with its
 result after it ran, until deleted.
+An administrator task keeps the same user timer or login trigger, but runs
+only a root-owned command snapshot in `/etc/quickshell-desktop/tasks` through
+`sudo -n`. Saving authorizes `bin/quickshell-task-admin` through pkexec; it
+installs a per-user, per-task sudoers grant with no arguments allowed. Editing
+the command requires authorization again; deleting or switching back to a
+normal task revokes the grant first. Cancelling authorization leaves the user
+units intact. Do not execute a user-writable command file through this grant.
 
 **State layer** — the translucent hover/press/selected wash `Clickable` paints
 under a widget's content.
@@ -722,7 +729,7 @@ on it, and takes the pointer there; a hover focuses without raising. Also the
 | `Activity` | which processes used each thing most over the last `Usage.span`: a record of each sample that read the processes (only what was above 0), dropped once older than the span, kept across watches, so a tab opened again within the minute still lists what was busy; ranked once a sample | `top(key, count)` (`"cpu"`/`"gpu"`: the mean % over the samples that read it, one it was absent from counting 0; `"io"`: mean bytes a second; `"rss"`/`"connections"`: as they stand; `[{ pid, name, value, now }]`, best first, ties by pid; `now` false for one gone quiet), `ranked`, `revision`, `rank`, `record` |
 | `EarlyOom` | earlyoom: installed (its unit file), running, its options (`/etc/default/earlyoom`, watched), its kills (its journal, followed: wheel, adm and systemd-journal may read it) and their notifications, memory and the next victim as it reckons them | `available`, `running`, `logReadable`, `config`, `kills`, `usage`, `next`, `victim`, `preference`, `withPreference`, `protect`/`preferKill`/`clear`, `apply` (pkexec), `pending`, `failure`, `fileText`, `readEntry` |
 | `EarlyOomArgs` | EARLYOOM_ARGS read and written: the levels, the two lists as names (each escaped with bracket expressions and no space or backslash, which systemd would take apart), what else a list holds kept as written (`avoidExtra`), every other option in `rest` | `parse`, `format`, `regex`, `listable`, `matches`, `matcher` |
-| `Tasks` | scheduled tasks: their units in `~/.config/systemd/user`, changed one script at a time and read again after each; runs heard from the user manager's journal lines; the user's other timers, read-only | `prefix`, `tasks` (`{ id, name, command, schedule, enabled, next, last, result, status }`), `others`, `read`, `save`, `runNow`, `setEnabled`, `remove`, `validate` (systemd-analyze), `formatWhen` |
+| `Tasks` | scheduled tasks: their units in `~/.config/systemd/user`, changed one script at a time and read again after each; administrator command snapshots authorized through pkexec; runs heard from the user manager's journal lines; the user's other timers, read-only | `prefix`, `tasks` (`{ id, name, command, schedule, privileged, enabled, next, last, result, status }`), `others`, `busy`, `failure`, `saved`, `read`, `save`, `runNow`, `setEnabled`, `remove`, `validate` (systemd-analyze), `formatWhen` |
 | `TaskUnits` | a task as units: its schedule (`once`, `hourly`, `daily`, `weekly`, `calendar`, `login`) as OnCalendar, its command quoted for ExecStart, the units' text and the task read back | `parts`, `validSchedule`, `calendar`, `describe`, `validCommand`, `exec`, `files`, `read`, `days` |
 | `Apps` | the desktop-entry index, search and launch-frequency | `all`, `byId`, `byAppId`, `search`, `launch` |
 | `IconThemes` | Conflux application artwork in both light and dark mode, with XDG/system fallback; the native module (`IconThemeWatch`) selects the theme and reads it again whenever one changes on disk, so an application installed while the shell runs comes with its icon; without the module, the platform theme as it was at start | `themeName` (also exported to GTK by DesktopScheme), `revision` (whatever resolves an icon by name reads it: `AppIcon`), `watch` |
@@ -1275,6 +1282,10 @@ of these explain code that otherwise looks unnecessary; preserve the invariant.
   tasks or outlives it. No test reaches earlyoom or pkexec: its options and
   kills are tested as functions, and a kill's notification through
   `tests/bin/notify-send`, which notes what it is asked in `$TEST_NOTIFY`.
+  `TaskAuthorizationTest` also uses its own unit prefix, replacing pkexec
+  with a private fixture before any save. It never starts privileged units
+  or reaches real authorization. `TaskAdminTest.py` writes only to a temporary
+  directory and asks the real visudo to parse its generated grants.
 - **`hyprctl dispatch movecursor` does not generate pointer enter events.**
   Hover state will not update. Synthetic tests must emit real relative motion
   through `/dev/uinput` first; see the helper scripts pattern in the scratchpad

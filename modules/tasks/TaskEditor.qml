@@ -31,6 +31,16 @@ Column {
     property var days: root.initial.kind === "weekly" ? root.initial.rest.split(" ")[0].split(",") : ["Mon"]
     /*! systemd's reading of the custom expression: `{ valid, next }`. */
     property var reading: null
+    property bool privileged: root.task.privileged ?? false
+    property string pendingId: ""
+
+    Connections {
+        target: Tasks
+        function onSaved(id: string): void {
+            if (id === root.pendingId)
+                root.done();
+        }
+    }
 
     readonly property string schedule: {
         switch (root.kind) {
@@ -53,10 +63,10 @@ Column {
     }
 
     function save(): void {
-        if (!root.valid)
+        if (!root.valid || Tasks.busy)
             return;
-        Tasks.save({ id: root.task.id ?? "", name: name.text.trim(), command: command.text.trim(), schedule: root.schedule });
-        root.done();
+        root.pendingId = Tasks.save({ id: root.task.id ?? "", name: name.text.trim(),
+            command: command.text.trim(), schedule: root.schedule, privileged: root.privileged });
     }
 
     spacing: Appearance.s.lg
@@ -76,6 +86,7 @@ Column {
     SettingGroup {
         width: root.width
         title: root.task.id ? qsTr("Change task") : qsTr("New task")
+        enabled: !Tasks.busy
 
         InputField {
             id: name
@@ -111,11 +122,36 @@ Column {
                 }
             }
         }
+
+        MenuRow {
+            width: parent.width
+            flush: true
+            icon: "lock"
+            title: qsTr("Run as administrator")
+            subtitle: qsTr("Authorize on save; future runs need no password.")
+            onClicked: root.privileged = !root.privileged
+
+            ToggleSwitch {
+                checked: root.privileged
+                onToggled: value => root.privileged = value
+            }
+        }
+
+        Label {
+            width: parent.width
+            visible: root.privileged
+            text: qsTr("The entire command runs as root, including redirects and pipes. "
+                + "Use full paths. Changing or removing its authorization asks again.")
+            role: Label.Role.Small
+            muted: true
+            wrapMode: Text.Wrap
+        }
     }
 
     SettingGroup {
         width: root.width
         title: qsTr("When")
+        enabled: !Tasks.busy
 
         Flow {
             width: parent.width
@@ -207,13 +243,14 @@ Column {
 
         TextButton {
             text: qsTr("Cancel")
+            enabled: !Tasks.busy
             onClicked: root.done()
         }
 
         TextButton {
-            text: qsTr("Save")
+            text: Tasks.busy ? qsTr("Saving…") : qsTr("Save")
             kind: TextButton.Kind.Accent
-            enabled: root.valid
+            enabled: root.valid && !Tasks.busy
             onClicked: root.save()
         }
     }

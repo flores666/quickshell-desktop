@@ -1,0 +1,107 @@
+#!/usr/bin/python3 -I
+"""Authorize one saved task, through pkexec; never run its command here.
+
+Only a root-owned snapshot is executable without a password. The sudoers
+grant names that snapshot with no arguments, for the invoking user's uid.
+"""
+import fcntl
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+import tempfile
+
+TASKS = Path("/etc/quickshell-desktop/tasks")
+SUDOERS = Path("/etc/sudoers.d")
+
+
+def secure_directory(path):
+    """Every ancestor must be owned by root, unwritable by other users."""
+    if path.parent != path:
+        secure_directory(path.parent)
+    path.mkdir(mode=0o755, exist_ok=True)
+    info = path.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o022:
+        raise ValueError("Unsafe administrator task directory")
+
+
+def stage(path, text, mode):
+    """Reserve beside the destination, then replace it without following links."""
+    fd, name = tempfile.mkstemp(prefix=".qs-task-", dir=path.parent)
+    pending = Path(name)
+    try:
+        with os.fdopen(fd, "w") as output:
+            os.fchmod(output.fileno(), mode)
+            output.write(text)
+            output.flush()
+            os.fsync(output.fileno())
+        return pending
+    except BaseException:
+        pending.unlink(missing_ok=True)
+        raise
+
+
+def authorize(action, uid, task_id, command):
+    if action not in ("install", "remove") or uid <= 0:
+        raise ValueError("Invalid administrator task request")
+    if not re.fullmatch(r"qs-task[a-z]*-[a-z0-9-]{1,80}", task_id):
+        raise ValueError("Invalid task identity")
+    if action == "install" and (not command.strip() or any(c in command for c in "\n\r\0")
+                                or re.search(r"\\\s*$", command)):
+        raise ValueError("Invalid task command")
+    secure_directory(TASKS)
+    secure_directory(SUDOERS)
+    # Different shell instances may authorize the same task concurrently.
+    lock_fd = os.open(TASKS / ".lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        script = TASKS / f"{uid}-{task_id}"
+        grant = SUDOERS / f"quickshell-task-{uid}-{task_id}"
+        if action == "remove":
+            # Revoke first: a partial removal must fail closed.
+            grant.unlink(missing_ok=True)
+            script.unlink(missing_ok=True)
+            return
+        rule = f'# quickshell-desktop task\n#{uid} ALL=(root) NOPASSWD: NOSETENV: {script} ""\n'
+        pending_script = pending_grant = None
+        try:
+            pending_script = stage(script, "#!/bin/sh\n" + command + "\n", 0o700)
+            pending_grant = stage(grant, rule, 0o440)
+            subprocess.run(["/usr/bin/visudo", "-cf", str(pending_grant)], check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # The rule is stable across edits. Replacing the command is the
+            # commit point; a failed validation leaves the previous one intact.
+            if grant.exists():
+                if grant.is_symlink() or grant.read_text() != rule:
+                    raise ValueError("Unexpected administrator task authorization")
+                os.replace(pending_script, script)
+            else:
+                os.replace(pending_script, script)
+                try:
+                    os.replace(pending_grant, grant)
+                except OSError:
+                    script.unlink(missing_ok=True)
+                    raise
+        finally:
+            for pending in (pending_script, pending_grant):
+                if pending is not None:
+                    pending.unlink(missing_ok=True)
+
+
+def main():
+    if os.geteuid() != 0 or not os.environ.get("PKEXEC_UID", "").isdecimal():
+        raise ValueError("Administrator task setup must be authorized through pkexec")
+    if len(sys.argv) != 4:
+        raise ValueError("Usage: quickshell-task-admin install|remove task-id command")
+    authorize(sys.argv[1], int(os.environ["PKEXEC_UID"]), sys.argv[2], sys.argv[3])
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        # Do not print the command, which can contain private arguments.
+        print(f"Administrator task setup failed: {type(error).__name__}", file=sys.stderr)
+        sys.exit(1)

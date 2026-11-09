@@ -37,6 +37,15 @@ Singleton {
 
     /*! Changes waiting their turn: `{ script, args }`. */
     property var queue: []
+    property var job: null
+    readonly property bool busy: root.job !== null
+    property string failure: ""
+    signal saved(string id)
+
+    /*! Authorize before changing any user units. A cancelled prompt leaves
+        the previous task intact. Read the file here, after queued edits. */
+    readonly property string authorization: 'if [ "$6" = install ] || grep -qx "X-QsTask-Privileged=true" "$1/$2.service" 2>/dev/null; then '
+        + 'pkexec /usr/bin/python3 -I "$7" "$6" "$2" "$8" || exit $?; fi; '
 
     /*! journalctl reports a run as several lines. */
     readonly property int settleTime: 250
@@ -64,18 +73,26 @@ Singleton {
     }
 
     /*! Writes a task's units (a new one gets an id) and enables it. */
-    function save(task: var): void {
+    function save(task: var): string {
         const id = task.id || root.prefix + Date.now().toString(36);
+        if (!/^qs-task[a-z]*-[a-z0-9-]{1,80}$/.test(id) || !TaskUnits.validCommand(task.command)
+            || !TaskUnits.validCommand(task.name) || !TaskUnits.validCommand(task.schedule)
+            || !TaskUnits.validSchedule(task.schedule)) {
+            root.failure = qsTr("Could not save: invalid task");
+            return "";
+        }
         const files = TaskUnits.files(Object.assign({}, task, { id }));
         const unit = root.unitOf({ id, schedule: task.schedule });
-        root.enqueue("mkdir -p \"$1\" && cd \"$1\" || exit 1; "
+        root.enqueue(root.authorization + "mkdir -p \"$1\" && cd \"$1\" || exit 1; "
             + "systemctl --user disable --now \"$2.timer\" \"$2.service\" >/dev/null 2>&1; "
             + "printf '%s' \"$3\" > \"$2.service.new\" && mv -f \"$2.service.new\" \"$2.service\" || exit 1; "
             + "if [ -n \"$4\" ]; then printf '%s' \"$4\" > \"$2.timer.new\" && mv -f \"$2.timer.new\" \"$2.timer\"; "
             + "else rm -f \"$2.timer\"; fi; "
             + "systemctl --user daemon-reload && systemctl --user enable \"$5\" "
             + "&& case $5 in *.timer) systemctl --user restart \"$5\";; esac",
-            [root.dir, id, files.service, files.timer, unit]);
+            [root.dir, id, files.service, files.timer, unit, task.privileged ? "install" : "remove",
+             Quickshell.shellPath("bin/quickshell-task-admin"), task.command], id);
+        return id;
     }
 
     function runNow(id: string): void {
@@ -89,9 +106,10 @@ Singleton {
     }
 
     function remove(id: string): void {
-        root.enqueue("systemctl --user disable --now \"$2.timer\" >/dev/null 2>&1; "
+        root.enqueue(root.authorization + "systemctl --user disable --now \"$2.timer\" >/dev/null 2>&1; "
             + "systemctl --user disable \"$2.service\" >/dev/null 2>&1; "
-            + "rm -f \"$1/$2.service\" \"$1/$2.timer\"; systemctl --user daemon-reload", [root.dir, id]);
+            + "rm -f \"$1/$2.service\" \"$1/$2.timer\"; systemctl --user daemon-reload",
+            [root.dir, id, "", "", "", "remove", Quickshell.shellPath("bin/quickshell-task-admin"), ""]);
     }
 
     /*! systemd's reading of an OnCalendar expression, to `then`:
@@ -101,19 +119,23 @@ Singleton {
         checker.run();
     }
 
-    function enqueue(script: string, args: var): void {
-        root.queue = root.queue.concat([{ script, args }]);
-        if (!worker.running)
+    function enqueue(script: string, args: var, savedId: var): void {
+        root.failure = "";
+        root.queue = root.queue.concat([{ script, args, savedId }]);
+        if (!root.busy)
             root.work();
     }
 
     function work(): void {
+        if (root.busy)
+            return;
         if (root.queue.length === 0) {
             reader.run();
             return;
         }
         const job = root.queue[0];
         root.queue = root.queue.slice(1);
+        root.job = job;
         worker.command = ["sh", "-c", job.script, "sh"].concat(job.args);
         worker.running = true;
     }
@@ -153,6 +175,7 @@ Singleton {
             const ended = root.stamp(service.ExecMainExitTimestamp);
             return Object.assign(t, {
                 enabled: (login ? service : timer).UnitFileState === "enabled",
+                privileged: t.privileged === "true",
                 next: login ? 0 : root.stamp(timer.NextElapseUSecRealtime),
                 last: ended,
                 result: service.ActiveState === "activating" ? "running"
@@ -171,13 +194,23 @@ Singleton {
 
     Process {
         id: worker
-        onExited: root.work()
+        onExited: code => {
+            const id = root.job.savedId;
+            if (code === 126 || code === 127)
+                root.failure = qsTr("No authorization. The task was not changed.");
+            else if (code !== 0)
+                root.failure = qsTr("Could not update the task. Check the shell log.");
+            root.job = null;
+            if (code === 0 && id)
+                root.saved(id);
+            root.work();
+        }
     }
 
     Probe {
         id: reader
         command: ["sh", "-c", "cd \"$1\" 2>/dev/null && for f in \"$2\"*.service; do [ -e \"$f\" ] || continue; "
-            + "sed -n \"s/^X-QsTask-\\(Name\\|Command\\|Schedule\\)=/${f%.service}\\t\\1\\t/p\" \"$f\"; "
+            + "sed -n \"s/^X-QsTask-\\(Name\\|Command\\|Schedule\\|Privileged\\)=/${f%.service}\\t\\1\\t/p\" \"$f\"; "
             + "set -- \"$@\" \"${f%.service}.service\" \"${f%.service}.timer\"; done; "
             + "shift 2; printf '\\n--\\n'; [ $# -gt 0 ] && systemctl --user show --timestamp=unix "
             + "-p Id,UnitFileState,ActiveState,Result,ExecMainStatus,ExecMainExitTimestamp,NextElapseUSecRealtime \"$@\"; "
