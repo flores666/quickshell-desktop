@@ -18,6 +18,8 @@ import "root:/services"
 Singleton {
     id: root
 
+    readonly property WindowDrag windowDrag: WindowDrag {}
+
     readonly property bool dark: Settings.effectiveDark
     readonly property ColorScheme c: root.dark ? root.night : root.day
 

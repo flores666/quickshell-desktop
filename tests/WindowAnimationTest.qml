@@ -14,9 +14,12 @@ Item {
     CompositorTheme {}
 
     function start(): void {
-        const names = ["minimize_duration", "move_duration", "close_duration", "move_curve"];
+        const names = ["minimize_duration", "move_duration", "close_duration", "move_curve",
+            "drag_scale", "drag_lift", "drag_settle", "drag_landing", "drag_workspace_slide", "drag_edge_dwell", "drag_rotation", "drag_deformation"];
         const expected = [Appearance.t["windowMinimize"], Appearance.t["windowMove"],
-            Appearance.t["windowClose"], Appearance.t["windowCurve"]?.join(" ")];
+            Appearance.t["windowClose"], Appearance.t["windowCurve"]?.join(" "),
+            Appearance.windowDrag.scale, Appearance.windowDrag.lift, Appearance.windowDrag.settle, Appearance.windowDrag.landing,
+            Appearance.windowDrag.workspaceSlide, Appearance.windowDrag.edgeDwell, Appearance.windowDrag.rotation, Appearance.windowDrag.deformation];
         sh.run('hyprctl -j --batch "$1"', [names.map(k => "getoption plugin:windows:" + k).join(" ; ")], text => {
             const replies = JSON.parse("[" + text.replace(/no such option/g, "{}").replace(/}\s*{/g, "},{") + "]");
             names.forEach((name, i) => {

@@ -1442,11 +1442,15 @@ disk, see *Testing*) and sends a notification. install.sh runs the same
 check, so a patch changed after the plugin was built is not missed. Its output is in `journalctl --user -t hyprexpo`.
 `master` chases hyprland-git and will not compile against a release.
 
-Six patches are applied, in order, all relative to the source directory:
+Seven patches are applied, in order, all relative to the source directory:
 `hyprexpo-real-wallpaper-bg.patch` (the real wallpaper, blurred, behind the
 tiles), `hyprexpo-tile-zoom-and-add-tile.patch`,
 `hyprexpo-swipe-open-close.patch`, `hyprexpo-shell-above-overview.patch`,
-`hyprexpo-key-zoom.patch` and `hyprexpo-focus-tokens.patch`. The second highlights a
+`hyprexpo-key-zoom.patch`, `hyprexpo-focus-tokens.patch` and
+`hyprexpo-elastic-drag.patch`. The last shares the windows plugin's live
+elastic drag/landing presentation; the overview retains tile hit-testing and
+workspace assignment. See `docs/specs/elastic-drag.md` for its capture boundary,
+tokens and rendered checks. The second highlights a
 tile with a focus zoom instead of a border, so the shell pushes
 `border_width` 0: the tile under the pointer or the keyboard keeps its size
 and the workspace in it grows 2% inside the tile's rounded edge (a crop of
@@ -1565,6 +1569,14 @@ checkout (no clone, no patches) into `~/.local/share/hypr-windows`, with the
 overview's `--if-stale` stamp and login hook; its log is
 `journalctl --user -t hypr-windows`.
 
+`ElasticDrag` owns the presentation of every native move and hyprexpo grid
+drag: a grab-point-pinned live transformer, bounded velocity deformation,
+landing, and one-shot workspace-edge dwell. `ElasticEdge` uses native workspace
+switching without releasing the held button; `WindowMotion` owns the one window
+render hook and draws the carried subject separately from workspace motion.
+`ClippedPass` keeps title-bar clip rectangles aligned inside transformed
+framebuffers. Styling comes from `config/WindowDrag` through `CompositorTheme`.
+
 **Unloading must leave no bar behind.** A plugin's decorations are destroyed
 with their window, through a vtable into the plugin: one that outlives
 `dlclose` takes the compositor down when its window goes (measured: SIGILL,
@@ -1656,7 +1668,7 @@ once the pointer moves (`beginDragTarget`, as a mouse bind starts one), which
 for a tile is Hyprland's own tile drag. A maximized or fullscreen floating
 window is taken out of that mode first, at the size Hyprland kept as it
 maximized it, with the pointer where it took the bar, along it and down it
-(`restoreUnder`): Hyprland's own drag restored it centred on the pointer,
+(`placeUnderGrab`): Hyprland's own drag restored it centred on the pointer,
 its bar above the screen. Hover is the one listener on
 `input.mouse.move`, and it skips an event another plugin cancelled — the
 overview takes the pointer while it is open — so the title bars' `plugin =`

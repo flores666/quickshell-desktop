@@ -116,6 +116,11 @@ git apply "${apply_args[@]}" "$key_patch" || { echo "hyprexpo-key-zoom.patch no 
 focus_patch="$script_dir/hyprexpo-focus-tokens.patch"
 git apply "${apply_args[@]}" "$focus_patch" || { echo "hyprexpo-focus-tokens.patch no longer applies to ${tag}" >&2; exit 1; }
 
+# Share the windows plugin's live elastic presentation for overview drags;
+# hyprexpo retains tile hit-testing, workspace assignment and cancellation.
+elastic_patch="$script_dir/hyprexpo-elastic-drag.patch"
+git apply "${apply_args[@]}" "$elastic_patch" || { echo "hyprexpo-elastic-drag.patch no longer applies to ${tag}" >&2; exit 1; }
+
 make all
 install -Dm755 hyprexpo.so "$dest/hyprexpo.so"
 printf '%s\n' "$built_for" > "$stamp"

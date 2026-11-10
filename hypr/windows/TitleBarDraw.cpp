@@ -1,4 +1,5 @@
 #include "TitleBar.hpp"
+#include "ClippedPass.hpp"
 #include "AppColor.hpp"
 #include "HugeiconsGlyphs.hpp"
 #include "Style.hpp"
@@ -160,7 +161,7 @@ void CTitleBar::paint(Render::CRenderContext& ctx, PHLMONITOR monitor, float a, 
         data.color         = withAlpha(m_color->value(), ALPHA);
         data.round         = std::round(ROUND * SCALE);
         data.roundingPower = W->presentation().roundingPower();
-        g_pHyprRenderer->addPassElement(ctx, makeUnique<CRectPassElement>(data));
+        g_pHyprRenderer->addPassElement(ctx, clippedPass(data));
     }
 
     // Drawn in the ink of the colour the bar is going to, so the title turns
@@ -176,7 +177,7 @@ void CTitleBar::paint(Render::CRenderContext& ctx, PHLMONITOR monitor, float a, 
         data.clipBox = CLIP;
         data.color   = withAlpha(mix(withAlpha(INK.text, 0.2F), INK.buttons[i], LIT), ALPHA);
         data.round   = std::round(Style::button() * SCALE / 2);
-        g_pHyprRenderer->addPassElement(ctx, makeUnique<CRectPassElement>(data));
+        g_pHyprRenderer->addPassElement(ctx, clippedPass(data));
         if (m_hover->value() > 0)
             drawGlyph(ctx, i, data.box, CLIP, INK.glyph, ALPHA * m_hover->value());
     }
@@ -197,7 +198,7 @@ void CTitleBar::paint(Render::CRenderContext& ctx, PHLMONITOR monitor, float a, 
     title.box     = CBox{LOCAL.middle() - m_title->m_size / 2, m_title->m_size}.round();
     title.clipBox = CLIP;
     title.a       = ALPHA * (0.5F + 0.5F * m_focus->value());
-    g_pHyprRenderer->addPassElement(ctx, makeUnique<CTexPassElement>(std::move(title)));
+    g_pHyprRenderer->addPassElement(ctx, clippedPass(title));
 }
 
 /*
@@ -246,5 +247,5 @@ void CTitleBar::drawGlyph(Render::CRenderContext& ctx, int button, const CBox& b
     glyph.box     = CBox{box.pos(), {sc<double>(SIZE), sc<double>(SIZE)}};
     glyph.clipBox = clip;
     glyph.a       = alpha;
-    g_pHyprRenderer->addPassElement(ctx, makeUnique<CTexPassElement>(std::move(glyph)));
+    g_pHyprRenderer->addPassElement(ctx, clippedPass(glyph));
 }

@@ -153,12 +153,12 @@ void Pointer::move(const Vector2D& pos, Event::SCallbackInfo& info) {
     }
 
     if (const auto W = g_state->dragging.lock()) {
-        g_state->dragging.reset();
         if (std::ranges::contains(g_state->held, BTN_LEFT) && validMapped(W)) {
             if (const auto BAR = CTitleBar::of(W))
-                BAR->restoreUnder(pos);
+                BAR->placeUnderGrab(pos);
             g_layoutManager->beginDragTarget(W->layoutTarget(), MBIND_MOVE);
         }
+        g_state->dragging.reset();
     }
 
     const auto WINDOW = windowAt(pos);
@@ -185,6 +185,11 @@ void Pointer::button(const IPointer::SButtonEvent& e) {
         g_state->held.push_back(e.button);
     else
         std::erase(g_state->held, e.button);
+}
+
+std::optional<Vector2D> Pointer::dragPress(PHLWINDOW window) {
+    if (g_state->dragging.lock() == window) return g_state->pressed;
+    return std::nullopt;
 }
 
 void Pointer::modeChanged(PHLWINDOW window, bool floated) {
@@ -223,6 +228,7 @@ bool CTitleBar::onInputOnDeco(const eInputType type, const Vector2D& pos, std::a
         g_state->armed = buttonAt(pos);
         if (g_state->armed == -1) {
             g_state->dragging = W;
+            g_state->pressed = pos;
             // Where along the bar it was taken, and how far down it.
             const auto BAR = barBox();
             g_state->grab  = {(pos.x - BAR.x) / BAR.w, pos.y - BAR.y};

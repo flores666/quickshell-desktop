@@ -36,7 +36,8 @@ static void removed(void *data, struct wl_registry *registry, uint32_t name) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 6) return 2;
+    const int stream = argc == 2 && !strcmp(argv[1], "--stream");
+    if (argc != 6 && !stream) return 2;
     struct wl_display *display = wl_display_connect(NULL);
     if (!display) return 3;
     struct wl_registry *registry = wl_display_get_registry(display);
@@ -45,6 +46,27 @@ int main(int argc, char **argv) {
     if (wl_display_roundtrip(display) < 0 || !manager) return 4;
     struct wl_proxy *pointer = wl_proxy_marshal_flags(manager, 0, &pointer_interface, 1, 0, NULL, NULL);
     if (!pointer) return 5;
+    if (stream) {
+        // x y width height button: -1 moves, 1 presses, 0 releases. Keep
+        // the protocol connection and held button across the whole drag.
+        int x, y, width, height, button;
+        while (scanf("%d %d %d %d %d", &x, &y, &width, &height, &button) == 5) {
+            struct timespec now;
+            clock_gettime(CLOCK_MONOTONIC, &now);
+            uint32_t stamp = (uint32_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000);
+            wl_proxy_marshal_flags(pointer, 1, NULL, 1, 0, stamp, (uint32_t)x, (uint32_t)y, (uint32_t)width, (uint32_t)height);
+            wl_proxy_marshal_flags(pointer, 4, NULL, 1, 0);
+            if (wl_display_roundtrip(display) < 0) return 6;
+            if (button >= 0) {
+                wl_proxy_marshal_flags(pointer, 2, NULL, 1, 0, stamp, BTN_LEFT, (uint32_t)button);
+                wl_proxy_marshal_flags(pointer, 4, NULL, 1, 0);
+                if (wl_display_roundtrip(display) < 0) return 6;
+            }
+            puts("ok");
+            fflush(stdout);
+        }
+        goto cleanup;
+    }
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     uint32_t stamp = (uint32_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000);
@@ -60,6 +82,7 @@ int main(int argc, char **argv) {
         wl_proxy_marshal_flags(pointer, 4, NULL, 1, 0);
         wl_display_roundtrip(display);
     }
+cleanup:
     wl_proxy_marshal_flags(pointer, 8, NULL, 1, WL_MARSHAL_FLAG_DESTROY);
     wl_proxy_marshal_flags(manager, 1, NULL, 1, WL_MARSHAL_FLAG_DESTROY);
     wl_registry_destroy(registry);

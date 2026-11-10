@@ -114,20 +114,24 @@ void CTitleBar::reposition() {
         W->layoutTarget()->space()->recalculate();
 }
 
-void CTitleBar::restoreUnder(const Vector2D& pointer) {
+void CTitleBar::placeUnderGrab(const Vector2D& pointer) {
     const auto W      = m_window.lock();
     const auto TARGET = W ? W->layoutTarget() : nullptr;
-    if (!TARGET || !W->isFloating() || !Fullscreen::controller()->isFullscreen(W))
+    if (!TARGET || !W->isFloating())
         return;
-    Fullscreen::controller()->setFullscreenMode(W, Fullscreen::FSMODE_NONE, Fullscreen::FSMODE_NONE);
-    // The size Hyprland kept as it maximized it, the bar above the window
-    // with the pointer where it took the bar. One that never had a size of
-    // its own floating (it opened fullscreen) is left to Hyprland's drag.
-    const auto SIZE = TARGET->lastFloatingSize();
+    const bool RESTORING = Fullscreen::controller()->isFullscreen(W);
+    if (RESTORING)
+        Fullscreen::controller()->setFullscreenMode(W, Fullscreen::FSMODE_NONE, Fullscreen::FSMODE_NONE);
+    // Restore the saved floating size only for a mode change. An ordinary
+    // move keeps its current size and consumes the first pointer delta here,
+    // before Hyprland records its hotspot. A window without a saved floating
+    // size is left to Hyprland's own restoration.
+    const auto SIZE = RESTORING ? TARGET->lastFloatingSize() : TARGET->position().size();
     if (SIZE.x <= 0 || SIZE.y <= 0)
         return;
     const auto GRAB = g_state->grab;
     g_layoutManager->setTargetGeom({pointer.x - GRAB.x * SIZE.x, pointer.y - GRAB.y + Style::height(), SIZE.x, SIZE.y}, TARGET);
+    TARGET->warpPositionSize();
 }
 
 void CTitleBar::keepOnScreen() {

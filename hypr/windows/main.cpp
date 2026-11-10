@@ -3,6 +3,7 @@
 #include "Style.hpp"
 #include "TitleBar.hpp"
 #include "WindowMotion.hpp"
+#include "ElasticDrag.hpp"
 
 #include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
@@ -98,6 +99,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     Pointer::init();
     Stacking::init(PHANDLE);
     WindowMotion::init(PHANDLE);
+    ElasticDrag::init(PHANDLE);
     g_state->resample = makeShared<CEventLoopTimer>(std::nullopt, [](SP<CEventLoopTimer>, void*) { forEachBar([](CTitleBar* bar) { bar->retry(); }); }, nullptr);
     g_pEventLoopManager->addTimer(g_state->resample);
 
@@ -185,10 +187,16 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 }
 
 APICALL EXPORT void PLUGIN_EXIT() {
+    ElasticDrag::exit();
     WindowMotion::exit();
     g_state->listeners.clear();
     Pointer::exit();
     g_pEventLoopManager->removeTimer(g_state->resample);
+    // A completed frame may retain a transformed sub-pass containing our
+    // clipped title-bar elements. Destroy those vtables before dlclose.
+    auto& ctx = g_pHyprRenderer->context();
+    ctx.m_pass.clear();
+    if (ctx.m_currentPass && ctx.m_currentPass != &ctx.m_pass) ctx.m_currentPass->clear();
 
     // Every bar goes now, while its code is still loaded. Hyprland removes a
     // plugin's decorations after this returns, but only from windows it still

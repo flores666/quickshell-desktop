@@ -116,16 +116,33 @@ Binding {
             ? { "general:col.active_border": root.rgba(Appearance.c.accent) } : {};
     }
 
+    function elasticDrag(): var {
+        const d = Appearance.windowDrag;
+        const options = {};
+        const values = { scale: d.scale, rotation: d.rotation, deformation: d.deformation, velocity: d.velocity,
+            lift: d.lift, settle: d.settle, landing: d.landing, edge_dwell: d.edgeDwell, workspace_slide: d.workspaceSlide,
+            edge: d.edge, indicator_width: d.indicatorWidth, indicator_height: d.indicatorHeight,
+            shadow_range: d.shadowRange, shadow_drop: d.shadowDrop };
+        for (const name of Object.keys(values)) options[`plugin:windows:drag_${name}`] = String(values[name]);
+        options["plugin:windows:drag_indicator"] = root.rgba(Qt.alpha(Appearance.c.accent, d.indicatorOpacity));
+        options["plugin:windows:drag_shadow"] = root.rgba(Qt.alpha(Appearance.c.shadow, d.shadowOpacity));
+        return options;
+    }
+
     target: CompositorOptions
     property: "derived"
     value: Object.assign({
         "plugin:hyprexpo:bg_col": root.rgba(Appearance.c.base),
-        // No tile is outlined: the patched plugin marks the one under the
-        // pointer by zooming into it. The focus colour still outlines a window
-        // being dragged between tiles.
+        // Tile focus uses zoom. Dragging adds neither an outline nor a
+        // translucent proxy over the window, including before pickup and
+        // when elastic motion is unavailable.
         "plugin:hyprexpo:border_color": root.rgba(Appearance.c.borderStrong),
         "plugin:hyprexpo:border_color_focus": root.rgba(Appearance.c.accent),
         "plugin:hyprexpo:border_width": "0",
+        "plugin:hyprexpo:drag_drop_source_border_width": "0",
+        "plugin:hyprexpo:drag_drop_proxy_border_width": "0",
+        "plugin:hyprexpo:drag_drop_proxy_color": root.rgba(Qt.alpha(Appearance.c.base, 0)),
+        "plugin:hyprexpo:drag_drop_proxy_active_color": root.rgba(Qt.alpha(Appearance.c.base, 0)),
         // A workspace tile is a card like any other, so it takes the one
         // panel radius, which follows the roundness setting or the windows.
         "plugin:hyprexpo:tile_rounding": String(Appearance.r.panel),
@@ -133,5 +150,5 @@ Binding {
         "plugin:hyprexpo:focus_curve": Appearance.t.overviewFocusCurve.join(" "),
         "plugin:hyprexpo:focus_zoom": String(Appearance.m.overviewFocusZoom),
         "plugin:hyprexpo:current_focus": String(Appearance.m.overviewCurrentFocus)
-    }, root.titleBars(), root.windowShadow, root.border())
+    }, root.titleBars(), root.windowShadow, root.border(), root.elasticDrag())
 }

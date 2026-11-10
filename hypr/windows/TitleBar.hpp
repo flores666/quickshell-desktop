@@ -75,11 +75,10 @@ class CTitleBar : public IHyprWindowDecoration {
         the bar is in the work area. Only where Hyprland places the window —
         one dragged there is left there. */
     void keepOnScreen();
-    /*! A maximized or fullscreen floating window taken by its bar to be
-        dragged: out of that mode at its own size, the pointer where it took
-        the bar along it and down it. Hyprland would centre it on the pointer,
-        which put the bar above the screen. */
-    void restoreUnder(const Vector2D& pointer);
+    /*! Start a title-bar move at the original grab point, including the
+        first motion. Restore maximized/fullscreen floating windows to their
+        own size before handing the move to Hyprland. */
+    void placeUnderGrab(const Vector2D& pointer);
     /*! Ease towards what the pointer and focus now say, and roll out or in
         to where the window now has the bar. */
     void animate();
@@ -140,6 +139,7 @@ struct SState {
     // where it took the bar, as a share of its width and a depth into it.
     PHLWINDOWREF dragging;
     Vector2D     grab;
+    Vector2D     pressed;
     PHLWINDOWREF active;
     std::vector<uint32_t> held;
 
@@ -166,6 +166,7 @@ namespace Pointer {
     void exit();
     void move(const Vector2D& pos, Event::SCallbackInfo& info);
     void button(const IPointer::SButtonEvent& e);
+    std::optional<Vector2D> dragPress(PHLWINDOW window);
     /*! Floating or tiled, fullscreen or not: the pointer is placed afresh by
         its next move, and the bar goes above the window or over it. Only a
         window floated is kept on screen: one leaving fullscreen is still on

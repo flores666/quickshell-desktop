@@ -1,0 +1,221 @@
+diff --git a/Overview.hpp b/Overview.hpp
+--- a/Overview.hpp
++++ b/Overview.hpp
+@@ -47,6 +47,8 @@
+         return std::unexpected("active overview is not a scrolling session");
+     }
+ 
++    CBox elasticWindowBox(int tile, PHLWINDOW window) const;
++    void refreshElastic() { redrawAll(); }
+     void setClosing(bool closing) override;
+     void beginCancelSwipe() override;
+     // True once close() has armed the teardown animation. Further gestures must
+@@ -105,6 +107,7 @@
+         bool                     wasActiveOnSource = false;
+         bool                     hadPinnedWindows = false;
+         CBox                     box;
++        CBox                     contentBox, displayBox;
+         // Label textures per state for customization
+         SP<Render::ITexture>     labelTexDefault;
+         SP<Render::ITexture>     labelTexHover;
+@@ -232,6 +235,7 @@
+     Vector2D                     pointerGlobal;
+     Vector2D                     grabOffset;
+     PHLWINDOW                    window;
++    bool                         elastic = false;
+ };
+ 
+ inline SOverviewDragRuntime g_overviewDrag;
+@@ -240,3 +244,6 @@
+ COverview* gridOverviewForMonitorKey(uint64_t key);
+ COverview* gridOverviewForGlobalPoint(const Vector2D& point);
+ void resetOverviewDrag(Hyprexpo::EOverviewDragEventType type = Hyprexpo::EOverviewDragEventType::Cancel, uint64_t monitorKey = 0);
++
++// Optional synchronous presentation boundary; the windows plugin owns motion.
++bool elasticDragEvent(int phase, PHLWINDOW window, const CBox& box = {});
+diff --git a/OverviewInteraction.cpp b/OverviewInteraction.cpp
+--- a/OverviewInteraction.cpp
++++ b/OverviewInteraction.cpp
+@@ -3,6 +3,9 @@
+ #include "OverviewInternal.hpp"
+ #include "HyprexpoLogic.hpp"
+ #include <limits>
++#include <hyprland/src/event/EventBus.hpp>
++#include <hyprland/src/desktop/rule/windowRule/WindowRuleApplicator.hpp>
++#include <hyprland/src/layout/target/Target.hpp>
+ #include <hyprland/src/Compositor.hpp>
+ #include <hyprland/src/config/ConfigValue.hpp>
+ #include <hyprland/src/desktop/state/GlobalWindowController.hpp>
+@@ -22,6 +25,41 @@
+ 
+ using namespace std::chrono_literals;
+ 
++namespace {
++    CHyprSignalListener elasticFinished, elasticRemoved;
++    WP<Event::CEventBus::CCustomEvent> elasticBridge;
++}
++
++bool elasticDragEvent(int phase, PHLWINDOW window, const CBox& box) {
++    static auto enabled = CConfigValue<Config::BOOL>("animations:enabled");
++    if (phase == 0 && (!*enabled || !window || window->m_ruleApplicator->noAnim().valueOrDefault())) return false;
++    const auto found = Event::bus()->m_events.plugin.find("windows.elasticDrag");
++    if (found == Event::bus()->m_events.plugin.end()) return false;
++    if (!elasticRemoved) elasticRemoved = Event::bus()->m_events.pluginEventRemoved.listen([](const std::string& name) {
++        if (name == "windows.elasticDrag" && g_overviewDrag.elastic)
++            resetOverviewDrag(Hyprexpo::EOverviewDragEventType::Cancel);
++    });
++    if (elasticBridge.lock() != found->second) {
++        elasticBridge = found->second;
++        elasticFinished = found->second->m_event.listen([](const auto& args) {
++            if (std::get<int>(args[0]) != 4) return;
++            for (const auto& ov : g_overviews)
++                if (auto* grid = dynamic_cast<COverview*>(ov.get())) grid->refreshElastic();
++        });
++    }
++    return found->second->emit({phase, PHLWINDOWREF{window}, box.x, box.y, box.w, box.h}).has_value();
++}
++
++CBox COverview::elasticWindowBox(int tile, PHLWINDOW window) const {
++    if (!isTileValid(tile) || !window) return {};
++    const auto& image = images[tile];
++    if (image.contentBox.empty() || image.displayBox.empty()) return {};
++    const auto box = window->getWindowMainSurfaceBox();
++    return {image.displayBox.pos() + (box.pos() - image.contentBox.pos()) / image.contentBox.size() * image.displayBox.size(),
++        box.size() / image.contentBox.size() * image.displayBox.size()};
++}
++
++
+ bool COverview::selectHoveredWorkspace() {
+     if (closing)
+         return false;
+@@ -139,6 +177,10 @@
+     if (!MON)
+         return {};
+ 
++    if (isTileValid(id) && !images[id].contentBox.empty() && !images[id].displayBox.empty()) {
++        const auto& image = images[id];
++        return image.contentBox.pos() + (localPoint + MON->m_position - image.displayBox.pos()) / image.displayBox.size() * image.contentBox.size();
++    }
+     const auto tileBox = tileBoxForIndex(id, size->value(), GAP_WIDTH, currentOuterInset(), true);
+     const Vector2D inTile = localPoint - Vector2D{tileBox.x, tileBox.y};
+     // quickshell-desktop: a tile shows the workspace cropped (croppedEdges).
+@@ -247,6 +289,10 @@
+         if (!move.accepted)
+             return;
+         g_overviewDrag.state = move.next;
++        auto box = elasticWindowBox(g_overviewDrag.state.sourceTileIndex, g_overviewDrag.window);
++        box.translate(GLOBAL - g_overviewDrag.pressGlobal);
++        g_overviewDrag.elastic = elasticDragEvent(0, g_overviewDrag.window, box);
++        if (g_overviewDrag.elastic) redrawDraggedWorkspace(images[g_overviewDrag.state.sourceTileIndex].workspaceID);
+     }
+ 
+     std::vector<Hyprexpo::SGlobalTile> tiles;
+@@ -267,6 +313,7 @@
+     if (target.accepted)
+         g_overviewDrag.state = target.next;
+ 
++    if (g_overviewDrag.elastic) elasticDragEvent(1, g_overviewDrag.window);
+     for (const auto key : g_overviewDrag.state.affectedMonitorKeys) {
+         if (auto* const OV = overviewForMonitorKey(key))
+             OV->damage();
+@@ -344,6 +391,23 @@
+         }
+     }
+ 
++    if (g_overviewDrag.elastic) {
++        auto* target = gridOverviewForMonitorKey(STATE.targetMonitorKey);
++        const int tile = STATE.targetTileIndex;
++        auto window = g_overviewDrag.window;
++        if (target && target->isTileValid(tile) && window) {
++            if (window->isFloating()) {
++                const auto point = target->tilePointToWorkspacePoint(tile, g_overviewDrag.pointerGlobal - target->pMonitor->m_position);
++                const auto size = window->getWindowMainSurfaceBox().size();
++                const auto& content = target->images[tile].contentBox;
++                const auto position = (point - g_overviewDrag.grabOffset).clamp(content.pos(), content.pos() + (content.size() - size).clamp({0, 0}, {INFINITY, INFINITY}));
++                window->layoutTarget()->setPositionGlobal({position, size});
++                window->layoutTarget()->warpPositionSize();
++            }
++            elasticDragEvent(2, window, target->elasticWindowBox(tile, window));
++        } else elasticDragEvent(3, window, elasticWindowBox(STATE.sourceTileIndex, window));
++        g_overviewDrag.elastic = false;
++    }
+     resetOverviewDrag(Hyprexpo::EOverviewDragEventType::Release);
+     return CONSUMED;
+ }
+diff --git a/Overview.cpp b/Overview.cpp
+--- a/Overview.cpp
++++ b/Overview.cpp
+@@ -794,7 +794,7 @@
+     for (size_t i = 0; i < images.size(); ++i) {
+         if (!isTileValid(i))
+             continue;
+-        const auto& BOX = images[i].box;
++        const auto BOX = images[i].displayBox.empty() ? images[i].box : images[i].displayBox.copy().translate(-MON->m_position);
+         tiles.push_back({
+             .overviewKey   = overviewMonitorKey(MON),
+             .tileIndex     = static_cast<int>(i),
+@@ -873,11 +873,17 @@
+ }
+ 
+ void resetOverviewDrag(Hyprexpo::EOverviewDragEventType type, uint64_t monitorKey) {
+-    const auto transition = Hyprexpo::transitionOverviewDrag(g_overviewDrag.state, {.type = type, .monitorKey = monitorKey}, liveOverviewMonitorKeys());
++    const auto previous = g_overviewDrag.state;
++    const auto transition = Hyprexpo::transitionOverviewDrag(previous, {.type = type, .monitorKey = monitorKey}, liveOverviewMonitorKeys());
+     g_overviewDrag.state  = transition.next;
+     if (!transition.cleanup)
+         return;
+ 
++    if (g_overviewDrag.elastic) {
++        auto* source = gridOverviewForMonitorKey(previous.sourceMonitorKey);
++        elasticDragEvent(3, g_overviewDrag.window, type == Hyprexpo::EOverviewDragEventType::AllClose && g_overviewDrag.window ? g_overviewDrag.window->getWindowMainSurfaceBox() : source ? source->elasticWindowBox(previous.sourceTileIndex, g_overviewDrag.window) : CBox{});
++    }
++    g_overviewDrag.elastic = false;
+     g_overviewDrag.window      = nullptr;
+     g_overviewDrag.pressGlobal = {};
+     g_overviewDrag.pointerGlobal = {};
+diff --git a/OverviewRender.cpp b/OverviewRender.cpp
+--- a/OverviewRender.cpp
++++ b/OverviewRender.cpp
+@@ -503,6 +503,9 @@
+             const double cropV0 = EDGE.top / MON->m_size.y, cropV1 = 1.0 - EDGE.bottom / MON->m_size.y;
+             const double zoomU  = (cropU1 - cropU0) * crop, zoomV = (cropV1 - cropV0) * crop;
+ 
++            images[id].contentBox = CBox{MON->m_position + Vector2D{(cropU0 + zoomU) * MON->m_size.x, (cropV0 + zoomV) * MON->m_size.y},
++                Vector2D{(cropU1 - cropU0 - 2 * zoomU) * MON->m_size.x, (cropV1 - cropV0 - 2 * zoomV) * MON->m_size.y}};
++            images[id].displayBox = texbox.copy().scale(1.0 / MON->m_scale).translate(MON->m_position);
+             CRegion damage{0, 0, INT16_MAX, INT16_MAX};
+             if (const auto texture = images[id].fb ? images[id].fb->getTexture() : nullptr; texture)
+                 Render::GL::g_pHyprOpenGL->renderTextureInternal(ctx, texture, texbox,
+@@ -844,7 +847,7 @@
+         drawBorderForID(g_overviewDrag.state.sourceTileIndex, sourceBorder, std::string{*PBGREFOC}, RND_FOC, sourceWidth);
+     }
+ 
+-    if (g_overviewDrag.window && g_overviewDrag.state.targetMonitorKey == OVERVIEWKEY && isTileValid(g_overviewDrag.state.targetTileIndex)) {
++    if (!g_overviewDrag.elastic && g_overviewDrag.window && g_overviewDrag.state.targetMonitorKey == OVERVIEWKEY && isTileValid(g_overviewDrag.state.targetTileIndex)) {
+         const auto windowBox = g_overviewDrag.window->getWindowMainSurfaceBox();
+         if (windowBox.w > 0 && windowBox.h > 0) {
+             const int  TARGET             = g_overviewDrag.state.targetTileIndex;
+diff --git a/OverviewCapture.cpp b/OverviewCapture.cpp
+--- a/OverviewCapture.cpp
++++ b/OverviewCapture.cpp
+@@ -1,4 +1,5 @@
+ #include "OverviewCapture.hpp"
++#include <hyprland/src/event/EventBus.hpp>
+ 
+ #include "HyprlandConfigCompat.hpp"
+ #include "HyprexpoConfig.hpp"
+@@ -221,6 +222,14 @@
+         request.animateStartedOnRestore = false;
+         request.blockSurfaceFeedback = true;
+     }
++    // Only workspace previews omit the carried subject. Window snapshots,
++    // screencasts and dock captures retain their ordinary renderer policy.
++    const auto found = Event::bus()->m_events.plugin.find("windows.elasticDrag");
++    const auto bridge = found == Event::bus()->m_events.plugin.end() ? nullptr : found->second;
++    if (bridge) (void)bridge->emit({5, PHLWINDOWREF{}, 0.0, 0.0, 0.0, 0.0});
++    Hyprutils::Utils::CScopeGuard elasticGuard{[bridge] {
++        if (bridge) (void)bridge->emit({6, PHLWINDOWREF{}, 0.0, 0.0, 0.0, 0.0});
++    }};
+     ++g_workspaceCaptureDepth;
+     Hyprutils::Utils::CScopeGuard captureGuard{[] { --g_workspaceCaptureDepth; }};
+     if (!request.monitor || !request.monitor->m_output || !request.startedOn || request.box.w <= 0 || request.box.h <= 0)

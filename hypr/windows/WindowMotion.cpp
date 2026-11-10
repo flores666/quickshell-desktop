@@ -1,6 +1,7 @@
 #include "WindowMotion.hpp"
 #include "DockTargets.hpp"
 #include "Genie.hpp"
+#include "ElasticDrag.hpp"
 
 #include <hyprland/src/animation/AnimationManager.hpp>
 #include <hyprland/src/config/shared/animation/AnimationTree.hpp>
@@ -147,7 +148,8 @@ namespace {
     void draw(void* renderer, Render::CRenderContext& ctx, PHLWINDOW window, PHLMONITOR monitor,
         const Render::SWindowRenderPresentation& presentation, const Time::steady_tp& time, bool decorate,
         Render::eRenderPassMode mode, bool ignorePosition, bool standalone) {
-        if (normal(ctx) && WindowMotion::suppressed(window)) return;
+        if ((ElasticDrag::suppressed(window) && (normal(ctx) || ElasticDrag::capturingOverview())) ||
+            (normal(ctx) && WindowMotion::suppressed(window))) return;
         ((Draw)g_draw->m_original)(renderer, ctx, window, monitor, presentation, time, decorate, mode, ignorePosition, standalone);
     }
 
@@ -229,6 +231,25 @@ void WindowMotion::init(HANDLE handle) {
 
 bool WindowMotion::suppressed(PHLWINDOW window) {
     return window && g_effects.contains(window.get()) && Style::motionEnabled();
+}
+
+bool WindowMotion::available() { return g_draw != nullptr; }
+
+void WindowMotion::takeForDrag(PHLWINDOW window) {
+    // A drag supersedes an unfinished launch/restore. Only one presentation
+    // may draw this live subject, even when it is grabbed immediately on map.
+    g_opening.erase(window.get());
+    g_effects.erase(window.get());
+}
+
+void WindowMotion::paintCarried(Render::CRenderContext& ctx, PHLWINDOW window, PHLMONITOR monitor) {
+    if (!g_draw) return;
+    auto presentation = window->presentation().renderPresentation();
+    presentation.workspaceOffset = presentation.floatingOffset = {};
+    presentation.workspaceAlpha = presentation.fadeAlpha = 1.F;
+    presentation.alphaVisible = true;
+    presentation.workspaceOffsetAnimating = presentation.workspaceScene = false;
+    ((Draw)g_draw->m_original)(g_pHyprRenderer.get(), ctx, window, monitor, presentation, Time::steadyNow(), true, Render::RENDER_PASS_ALL, false, false);
 }
 
 void WindowMotion::exit() {
