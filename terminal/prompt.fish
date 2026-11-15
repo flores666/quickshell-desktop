@@ -40,7 +40,8 @@ function fish_prompt
     set_color -b normal $__soft_raised
     printf \ue0b6
     set_color -b $__soft_raised $__soft_text_soft
-    printf ' %s ' $place
+    # The rounded end supplies the icon's left padding.
+    printf '%s ' $place
     set_color -b $__soft_surface $__soft_text_soft
     printf ' %s ' $cwd
     set_color -b normal $__soft_surface

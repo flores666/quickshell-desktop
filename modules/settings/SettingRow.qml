@@ -27,6 +27,10 @@ Item {
     /*! What the setting resolves to right now, override or default. */
     required property int value
     property string suffix: qsTr("px")
+    /*! Units shown to the user: inner gaps are two half-gaps, and long waits
+        are clearer in seconds. Storage and slider steps keep their own units. */
+    property real displayMultiplier: 1
+    readonly property real displayValue: Number((root.value * root.displayMultiplier).toFixed(3))
     /*! False when the owner cannot report the current value — a Hyprland
         device option is write-only — so the row says so instead of a number. */
     property bool known: true
@@ -59,7 +63,7 @@ Item {
         anchors.rightMargin: reset.visible ? Appearance.s.xs : 0
         anchors.verticalCenter: title.verticalCenter
         text: !root.known ? qsTr("As configured")
-            : root.suffix === "" ? root.value : qsTr("%1 %2").arg(root.value).arg(root.suffix)
+            : root.suffix === "" ? root.displayValue : qsTr("%1 %2").arg(root.displayValue).arg(root.suffix)
         role: Label.Role.Small
         muted: !root.overridden
     }

@@ -15,10 +15,10 @@ import Quickshell.Hyprland
     modules/common/CompositorTheme — a service cannot read config/), and they
     ride the same pushes and re-pushes.
 
-    hyprland.lua stays the source of every default.  A user change is an
-    override in Settings like any other, and the shell pushes it with
-    `hyprctl eval` — so an untouched shell leaves the compositor exactly as
-    configured, and the conf.d files are never rewritten.
+    hyprland.lua stays the source of every default. A user change is an
+    override in Settings like any other, pushed with `hyprctl eval`.
+    The top outer gap is always zero: the panel reserves its own clearance.
+    The conf.d files are never rewritten.
 
     Hyprland forgets runtime options whenever it reloads its config, so on every
     `configreloaded` event the configured values are read afresh and the
@@ -28,7 +28,8 @@ import Quickshell.Hyprland
 
     Every value is an integer on the Settings side, negative meaning unset.
     `kind` says how it maps onto the Hyprland option:
-      int      as-is (gaps are read back as "t r b l" and set as one number)
+      int      as-is (inner gaps are read back as "t r b l")
+      outerGap side/bottom gap; the panel owns the top reservation
       bool     0 or 1
       percent  a float as a percentage: opacity, scroll speed (100 = 1.0)
       speed    0-200 for a -1..1 sensitivity, 100 being Hyprland's neutral 0
@@ -39,7 +40,7 @@ Singleton {
 
     readonly property var spec: ({
         hyprGapsIn:          { option: "general:gaps_in", kind: "int", min: 0, max: 30 },
-        hyprGapsOut:         { option: "general:gaps_out", kind: "int", min: 0, max: 40 },
+        hyprGapsOut:         { option: "general:gaps_out", kind: "outerGap", min: 0, max: 40 },
         hyprBorder:          { option: "general:border_size", kind: "int", min: 0, max: 6 },
         hyprRounding:        { option: "decoration:rounding", kind: "int", min: 0, max: 24 },
         hyprBlur:            { option: "decoration:blur:enabled", kind: "bool" },
@@ -95,6 +96,7 @@ Singleton {
         case "percent": return String(v / 100);
         case "speed": return String((v - 100) / 100);
         case "accel": return v ? "adaptive" : "flat";
+        case "outerGap": return `0 ${v} ${v} ${v}`;
         default: return String(v);
         }
     }
@@ -105,6 +107,12 @@ Singleton {
         case "speed": return Math.round((reply.float + 1) * 100);
         case "accel": return reply.str === "flat" ? 0 : 1;
         case "bool": return reply.bool ? 1 : 0;
+        case "outerGap": {
+            // Read the side, not the deliberately zero top, including after
+            // a shell restart that probes the already-normalized live option.
+            const sides = String(reply.css ?? reply.custom ?? reply.int ?? "0").trim().split(/\s+/);
+            return parseInt(sides[1] ?? sides[0]);
+        }
         default: return reply.int ?? parseInt(String(reply.css ?? reply.custom ?? "0"));
         }
     }
@@ -113,7 +121,12 @@ Singleton {
         API. Keep the old value encoding at the design-system boundary. */
     function assignment(option: string, value: string): string {
         const device = /^device\[(.+)\]:(.+)$/.exec(option);
-        const literal = /^-?\d+(\.\d+)?$/.test(value) ? value : Compositor.luaString(value);
+        let literal = /^-?\d+(\.\d+)?$/.test(value) ? value : Compositor.luaString(value);
+        if (/^general:gaps_(in|out)$/.test(option) && /^-?\d+(?:\s+-?\d+){3}$/.test(value)) {
+            const sides = value.trim().split(/\s+/);
+            const fields = ["top", "right", "bottom", "left"].map((side, i) => side + " = " + sides[i]);
+            literal = "{ " + fields.join(", ") + " }";
+        }
         if (device)
             return `hl.device({ name = ${Compositor.luaString(device[1])}, [${Compositor.luaString(device[2])}] = ${literal} })`;
         const key = Compositor.luaString(option.replace(/:/g, "."));
@@ -138,8 +151,8 @@ Singleton {
     // One push for the several colours a theme switch changes in one go.
     onDerivedChanged: Qt.callLater(root.sync)
 
-    /*! Overrides and derived options as last pushed; cleared whenever Hyprland
-        reloads. */
+    /*! Tracked overrides and composed options as last pushed; cleared whenever
+        Hyprland reloads. Outer gaps are composed even without an override. */
     property var applied: ({})
     property var appliedDerived: ({})
     property var pending: []
@@ -155,20 +168,24 @@ Singleton {
         if (!Settings.ready || probe.running)
             return;
         const next = {};
+        const wanted = Object.assign({}, root.derived, root.detected);
         for (const key of root.keys) {
             const v = Settings[key];
             if (key === "hyprTouchpadSpeed" && !root.hasTouchpad)
                 continue;
             if (v >= 0) {
                 next[key] = v;
-                if (root.applied[key] !== v)
+                if (root.spec[key].kind !== "outerGap" && root.applied[key] !== v)
                     root.pending.push(root.assignment(root.optionFor(key), root.encode(key, v)));
             } else if (root.applied[key] !== undefined) {
                 root.reloadWanted = true;
             }
+            // Normalize configured defaults too: machine config may still
+            // supply a uniform gap. Only the panel owns the top clearance.
+            if (root.spec[key].kind === "outerGap" && root.known(key))
+                wanted[root.optionFor(key)] = root.encode(key, root.value(key));
         }
         root.applied = next;
-        const wanted = Object.assign({}, root.derived, root.detected);
         let restyle = false;
         for (const option in wanted) {
             if (root.appliedDerived[option] !== wanted[option]) {

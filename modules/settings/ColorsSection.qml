@@ -19,20 +19,6 @@ Column {
 
     spacing: Appearance.s.lg
 
-    // While the accent follows the wallpaper this row drives nothing, so it is
-    // not offered.
-    SeedPicker {
-        objectName: "accentPicker"
-        width: root.width
-        visible: !Appearance.followsWallpaper
-        title: qsTr("Accent")
-        seed: "accent"
-        presets: Appearance.seedChoices("accent")
-        current: Settings.accentColor
-        defaultColor: Appearance.c.accent
-        onChosen: value => Settings.setAccentColor(value)
-    }
-
     /*! Absent until the wallpaper has been measured: there would be nothing
         to follow. */
     MenuRow {
@@ -40,14 +26,27 @@ Column {
         width: root.width
         visible: Settings.wallpaperAccent !== ""
         flush: true
-        title: qsTr("Match wallpaper")
-        subtitle: qsTr("Accent from the wallpaper, for GTK apps and the terminal too")
+        title: qsTr("Use wallpaper accent")
+        subtitle: qsTr("Also applies to apps and the terminal")
         onClicked: Settings.setAccentFollowsWallpaper(!Settings.accentFollowsWallpaper)
 
         ToggleSwitch {
             checked: Settings.accentFollowsWallpaper
             onToggled: value => Settings.setAccentFollowsWallpaper(value)
         }
+    }
+
+    // The mode switch comes first, followed by the value it makes available.
+    SeedPicker {
+        objectName: "accentPicker"
+        width: root.width
+        visible: !Appearance.followsWallpaper
+        title: qsTr("Accent color")
+        seed: "accent"
+        presets: Appearance.seedChoices("accent")
+        current: Settings.accentColor
+        defaultColor: Appearance.c.accent
+        onChosen: value => Settings.setAccentColor(value)
     }
 
     SeedPicker {

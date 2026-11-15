@@ -62,6 +62,7 @@ Clickable {
             text: root.subtitle
             role: Label.Role.Small
             muted: true
+            wrapMode: root.flush ? Text.WordWrap : Text.NoWrap
         }
     }
 

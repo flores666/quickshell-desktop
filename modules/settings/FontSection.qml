@@ -114,7 +114,7 @@ Column {
 
     Label {
         width: root.width
-        text: qsTr("Applications use it too, once restarted.")
+        text: qsTr("The font family also applies to apps after they restart.")
         role: Label.Role.Caption
         faint: true
         wrapMode: Text.Wrap

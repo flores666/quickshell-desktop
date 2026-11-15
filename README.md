@@ -256,10 +256,21 @@ This only ever affects the shell. Nothing here touches GTK, Qt or system themes.
 
 ## Settings
 
-One tab per thing that can be configured, and each thing configured in exactly
-one tab: the dock's hide delay is under *Dock* rather than filed with the other
-timings, and the border and corner radius every surface is drawn with are under
-*Appearance* rather than under the panel that happened to need them first.
+Each setting has one place. *Appearance* holds theme, colors, fonts, window
+frames, panel and popup corners, and shared blur and animation controls.
+Blur and its strength are together; matching window corners and the window
+radius are together. *Top panel* and *Dock* each separate layout or behavior
+from appearance. Controls that do nothing in the selected mode stay hidden.
+
+The top panel owns equal clearance above and below itself: its reservation is
+its height plus twice its vertical gap. Window *Side and bottom margins* leave
+the top alone; Hyprland receives zero for the top outer gap. *Between windows*
+shows the full visible distance, while retaining Hyprland's half-gap in saved
+preferences. Notification duration and dock hide delay are shown in seconds
+and still saved in milliseconds. Existing preference keys and values are kept.
+
+*Reset adjustments* restores numeric and compositor overrides. It keeps the
+theme, colors, font family, wallpaper, and panel/dock switches.
 
 *Appearance* also holds the type: any installed family, and one **text size**
 that scales the whole ramp together the way roundness scales the whole set of

@@ -3,42 +3,34 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import "root:/config"
 import "root:/components"
-import "root:/services"
 
-/*! Hyprland's windows: the space around them, their frame, and the effects
-    drawn on them. Defaults are whatever hyprland.conf sets. */
+/*! Window spacing and opacity. Shared frames and effects are in Appearance. */
 Column {
     id: root
 
     spacing: Appearance.s.xl
 
-    component HyprRow: SettingRow {
-        readonly property var limits: CompositorOptions.spec[this.key]
+    SettingGroup {
+        width: root.width
+        title: qsTr("Spacing")
 
-        width: parent.width
-        min: this.limits.min
-        max: this.limits.max
-        known: CompositorOptions.known(this.key)
-        value: this.known ? CompositorOptions.value(this.key) : this.min
+        CompositorSettingRow { key: "hyprGapsIn"; label: qsTr("Between windows"); displayMultiplier: 2 }
+        CompositorSettingRow { key: "hyprGapsOut"; label: qsTr("Side and bottom margins") }
+
+        Label {
+            width: parent.width
+            text: qsTr("The top margin follows the top panel's gap above and below.")
+            role: Label.Role.Caption
+            faint: true
+            wrapMode: Text.Wrap
+        }
     }
 
     SettingGroup {
         width: root.width
-        title: qsTr("Layout")
+        title: qsTr("Opacity")
 
-        HyprRow { key: "hyprGapsIn"; label: qsTr("Gap around each window") }
-        HyprRow { key: "hyprGapsOut"; label: qsTr("Gap from the screen edge") }
-        HyprRow { key: "hyprBorder"; label: qsTr("Border") }
-        HyprRow { key: "hyprRounding"; label: qsTr("Corner radius") }
-    }
-
-    SettingGroup {
-        width: root.width
-        title: qsTr("Effects")
-
-        SettingToggle { width: parent.width; key: "hyprBlur"; title: qsTr("Blur") }
-        SettingToggle { width: parent.width; key: "hyprAnimations"; title: qsTr("Animations") }
-        HyprRow { key: "hyprActiveOpacity"; label: qsTr("Focused window opacity"); suffix: qsTr("%") }
-        HyprRow { key: "hyprInactiveOpacity"; label: qsTr("Other windows' opacity"); suffix: qsTr("%") }
+        CompositorSettingRow { key: "hyprActiveOpacity"; label: qsTr("Focused window"); suffix: qsTr("%") }
+        CompositorSettingRow { key: "hyprInactiveOpacity"; label: qsTr("Other windows"); suffix: qsTr("%") }
     }
 }

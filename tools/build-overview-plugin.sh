@@ -2,9 +2,9 @@
 # Build and install the hyprexpo compositor plugin that provides the overview.
 #
 # hyprexpo was dropped from the official hyprland-plugins repo as unmaintained,
-# so this uses the maintained sandwichfarm fork, pinned to the tag that matches
-# the installed Hyprland. Hyprland refuses to load a plugin built against
-# different headers, so it has to be rebuilt after every Hyprland update:
+# so this uses the maintained sandwichfarm fork, pinned to a patched and tested
+# revision for the installed Hyprland series. Hyprland refuses to load a plugin
+# built against different headers, so it must be rebuilt after every update:
 # with --if-stale this does nothing unless the plugin is missing or was built
 # against another Hyprland or other patches, and hyprland.lua runs that at
 # every login.
@@ -15,11 +15,20 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo=https://github.com/sandwichfarm/hyprexpo.git
 dest="${XDG_DATA_HOME:-$HOME/.local/share}/hyprexpo"
 # What the installed plugin was built from, written after each build: the
-# Hyprland it was built against and the patches below, so that a patch changed
-# in the project rebuilds it as an update of Hyprland does.
+# Hyprland it was built against, upstream revision and patches below, so a
+# source change rebuilds it as an update of Hyprland does.
 stamp="$dest/built-for"
 hypr_version="$(pkg-config --modversion hyprland)"
-built_for="$hypr_version $(cat "$script_dir"/hyprexpo-*.patch | sha256sum | cut -d' ' -f1)"
+# Keep the patch base explicit: a newer upstream tag in the same Hyprland
+# series can change the source enough that our patches no longer apply.
+case "$hypr_version" in
+    0.57.*)
+        tag=v0.57.1
+        revision=00a44bf1296ee64c719aec7ae6c8d2fa08fef0dd
+        ;;
+    *) echo "no patched hyprexpo revision for Hyprland ${hypr_version}" >&2; exit 1 ;;
+esac
+built_for="$hypr_version $revision $(cat "$script_dir"/hyprexpo-*.patch | sha256sum | cut -d' ' -f1)"
 
 if [[ "${1:-}" == --if-stale ]]; then
     [[ -e "$dest/hyprexpo.so" && "$(cat "$stamp" 2>/dev/null)" == "$built_for" ]] && exit 0
@@ -54,19 +63,13 @@ echo "Hyprland ${hypr_version}"
 git clone --quiet "$repo" "$work/src"
 cd "$work/src"
 
-# Newest tag whose major.minor matches the installed Hyprland; the tags are
-# named after the Hyprland release they track.
-series="${hypr_version%.*}"
-tag="$(git tag --list "v${series}*" --sort=-v:refname | head -1)"
-[[ -n "$tag" ]] || { echo "no hyprexpo tag for Hyprland ${series}" >&2; exit 1; }
-echo "building hyprexpo ${tag}"
-git checkout --quiet "$tag"
+echo "building hyprexpo ${tag} (${revision})"
+git checkout --quiet "$revision"
 
 # hyprexpo's wallpaper_bg draws MON->m_background, which is Hyprland's built-in
 # wall*.png asset rather than the background layer surface hyprpaper paints, so the
 # overview backdrop ends up being a stock wallpaper nobody chose. The patch draws the
-# real one instead, blurred. Not upstreamed, so this is the step that breaks when the
-# tag moves.
+# real one instead, blurred. Revalidate every patch when updating the pinned revision.
 patch="$script_dir/hyprexpo-real-wallpaper-bg.patch"
 # Upstream moved its sources under src/ at v0.56.2+2 without touching the code the
 # patch edits, so follow the file rather than the path the patch was cut against.

@@ -16,7 +16,8 @@ import "root:/services"
     straight onto it: no wells and no rules between them, only the space that
     keeps them apart.  The window is taller than the panel
     — it holds the gap above and room for the shadow to fall below — but only
-    the panel is reserved from the screen, and only the panel takes input.
+    the panel and equal gaps above and below it are reserved from the screen,
+    and only the panel takes input.
 
     One instance per monitor.  It gives up its space — and gets out of the way —
     whenever the monitor is showing a fullscreen window.
@@ -49,7 +50,7 @@ PanelWindow {
     color: "transparent"
     implicitHeight: Appearance.m.barFootprint + Appearance.shadowFor(panel.elevation).pad
     exclusionMode: ExclusionMode.Normal
-    exclusiveZone: Appearance.m.barFootprint
+    exclusiveZone: Appearance.m.barReservation
     anchors { top: true; left: true; right: true }
 
     WlrLayershell.namespace: "shell-bar"

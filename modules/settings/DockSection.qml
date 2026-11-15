@@ -15,6 +15,7 @@ Column {
 
     SettingGroup {
         width: root.width
+        title: qsTr("Behavior")
 
         MenuRow {
             width: parent.width
@@ -29,11 +30,38 @@ Column {
             }
         }
 
+        SettingRow {
+            width: parent.width
+            visible: Settings.dockAutoHide
+            key: "dockHideDelay"
+            label: qsTr("Hide delay")
+            min: Dock.hideDelayRange.min
+            max: Dock.hideDelayRange.max
+            step: 100
+            value: Dock.hideDelay
+            suffix: qsTr("s")
+            displayMultiplier: 0.001
+        }
+    }
+
+    SettingGroup {
+        width: root.width
+        title: qsTr("Appearance")
+
+        SettingRow {
+            width: parent.width
+            key: "dockIcon"
+            label: qsTr("Icon size")
+            min: Tuning.spec.dockIcon.min
+            max: Tuning.spec.dockIcon.max
+            value: Appearance.m.dockIcon
+        }
+
         MenuRow {
             width: parent.width
             flush: true
-            title: qsTr("Match top panel")
-            subtitle: qsTr("Use the top panel's opacity")
+            title: qsTr("Match panel opacity")
+            subtitle: qsTr("Use the top panel's transparency")
             onClicked: Settings.setDockOpacityFollowsBar(!Settings.dockOpacityFollowsBar)
 
             ToggleSwitch {
@@ -53,30 +81,6 @@ Column {
             max: Tuning.spec.dockOpacity.max
             value: Tuning.pick("dockOpacity")
             suffix: qsTr("%")
-        }
-
-        SettingRow {
-            width: parent.width
-            key: "dockIcon"
-            label: qsTr("Icon size")
-            min: Tuning.spec.dockIcon.min
-            max: Tuning.spec.dockIcon.max
-            value: Appearance.m.dockIcon
-        }
-
-        /*! A timing rather than a size, so the range is the one Dock clamps to
-            rather than anything in Tuning. A dock that never hides has no use
-            for it, so it is not offered then. */
-        SettingRow {
-            width: parent.width
-            visible: Settings.dockAutoHide
-            key: "dockHideDelay"
-            label: qsTr("Hide delay")
-            min: Dock.hideDelayRange.min
-            max: Dock.hideDelayRange.max
-            step: 100
-            value: Dock.hideDelay
-            suffix: qsTr("ms")
         }
     }
 
@@ -101,7 +105,7 @@ Column {
             width: parent.width
             visible: Settings.dockMagnificationEnabled
             key: "dockZoom"
-            label: qsTr("Zoom amount")
+            label: qsTr("Enlargement")
             min: Tuning.spec.dockZoom.min
             max: Tuning.spec.dockZoom.max
             value: Tuning.pick("dockZoom")
@@ -124,7 +128,7 @@ Column {
             width: parent.width
             visible: Settings.dockMagnificationEnabled
             key: "dockWaveWidth"
-            label: qsTr("Wave width")
+            label: qsTr("Spread")
             min: Tuning.spec.dockWaveWidth.min
             max: Tuning.spec.dockWaveWidth.max
             step: 5

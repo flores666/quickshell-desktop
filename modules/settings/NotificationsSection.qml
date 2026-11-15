@@ -33,12 +33,13 @@ Column {
         SettingRow {
             width: parent.width
             key: "notificationTimeout"
-            label: qsTr("Dwell")
+            label: qsTr("Default display time")
             min: Notifs.timeoutRange.min
             max: Notifs.timeoutRange.max
             step: 500
             value: Notifs.defaultTimeout
-            suffix: qsTr("ms")
+            suffix: qsTr("s")
+            displayMultiplier: 0.001
         }
     }
 }

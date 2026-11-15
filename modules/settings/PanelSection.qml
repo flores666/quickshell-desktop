@@ -13,6 +13,7 @@ Column {
 
     SettingGroup {
         width: root.width
+        title: qsTr("Layout")
 
         SettingRow {
             width: parent.width
@@ -26,7 +27,7 @@ Column {
         SettingRow {
             width: parent.width
             key: "barGap"
-            label: qsTr("Gap above")
+            label: qsTr("Gap above and below")
             min: Tuning.spec.barGap.min
             max: Tuning.spec.barGap.max
             value: Appearance.m.barGap
@@ -35,11 +36,16 @@ Column {
         SettingRow {
             width: parent.width
             key: "barSideGap"
-            label: qsTr("Gap at the sides")
+            label: qsTr("Side margins")
             min: Tuning.spec.barSideGap.min
             max: Tuning.spec.barSideGap.max
             value: Appearance.m.barSideGap
         }
+    }
+
+    SettingGroup {
+        width: root.width
+        title: qsTr("Appearance")
 
         SettingRow {
             width: parent.width

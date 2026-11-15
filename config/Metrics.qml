@@ -19,13 +19,15 @@ QtObject {
     readonly property int barIconGap: 12
     /*! The language indicator has a little more room on either side. */
     readonly property int barLayoutPadding: root.barIconGap / 2 + 3
-    /*! The gap above the bar. Tighter than the one beside it by default:
-        vertical room is taken from every window on the screen, and horizontal
-        room is not. */
+    /*! Equal clearance above the bar and between it and tiled windows.
+        The panel reserves both; Hyprland adds no top outer gap. */
     readonly property int barGap: Tuning.pick("barGap")
     readonly property int barSideGap: Tuning.pick("barSideGap")
     /*! How much of the screen the bar occupies, including the gap above it. */
     readonly property int barFootprint: root.barHeight + root.barGap
+    /*! The work area starts one more gap below the painted panel. Popups use
+        barFootprint and their own popupGap instead of this reservation. */
+    readonly property int barReservation: root.barFootprint + root.barGap
 
     /*!
         The dock, from the inside out. Every application, and the launcher,

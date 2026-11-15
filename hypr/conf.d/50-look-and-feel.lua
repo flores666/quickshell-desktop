@@ -5,7 +5,8 @@
 hl.config({
     general = {
         gaps_in = 6,
-        gaps_out = 6,
+        -- The top panel reserves its own clearance above and below.
+        gaps_out = { top = 0, right = 6, bottom = 6, left = 6 },
 
         border_size = 0,
 

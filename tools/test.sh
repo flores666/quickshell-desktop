@@ -50,7 +50,7 @@ for test in "${tests[@]}"; do
     session=()
     notification_bus=""
     mpris_bus=""
-    if [[ "$name" == Notification*Test ]]; then
+    if [[ "$name" == Notification*Test || "$name" == WindowGapsTest || "$name" == SettingsTest ]]; then
         session=(setsid dbus-run-session --)
         notification_bus=private
     fi
@@ -59,6 +59,7 @@ for test in "${tests[@]}"; do
         mpris_bus=private
     fi
     exec {out}< <(exec "${session[@]}" env XDG_STATE_HOME="$work/state/$name" XDG_CACHE_HOME="$work/cache" \
+        XDG_CONFIG_HOME="$work/config/$name" QT_QPA_PLATFORM=wayland \
         XDG_DATA_HOME="$work/data" QML_IMPORT_PATH="$work/native/qml" \
         PATH="$work/bin/$name:$work/tree/tests/bin:$PATH" TEST_BIN="$work/bin/$name" \
         TEST_GSETTINGS="$work/gsettings" TEST_SIGNALS="$work/signals" TEST_NOTIFY="$work/notify" \

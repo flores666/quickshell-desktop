@@ -10,11 +10,9 @@ import "root:/modules/common"
     The settings surface: everything about the shell a user is allowed to change.
 
     One tab per thing that can be configured, and each thing in exactly one tab:
-    the dock's hide delay is under Dock rather than filed with the other
-    timings, and the border and corner radius every surface is drawn with are
-    under Appearance rather than under the panel that happened to need them
-    first.  Somewhere to look is worth more than a tidy grouping of like
-    controls.
+    behavior stays with the panel or dock it controls; frames, corners and
+    shared effects stay together in Appearance. A mode switch precedes the
+    value it enables, and each value is shown in the units the user sees.
 
     Sections down the left, one of them on the right, and a search above that
     narrows the sections to those holding what was typed.  A list rather than the
@@ -97,6 +95,7 @@ ShellOverlay {
     readonly property var current: root.sections.find(s => s.key === root.section)
 
     property string section: "appearance"
+    onSectionChanged: scroller.contentY = 0
 
     // A search that leaves the open section out moves to the first it keeps.
     onMatchesChanged: if (root.matches.length > 0 && !root.matches.includes(root.current))

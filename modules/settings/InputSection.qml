@@ -6,21 +6,15 @@ import "root:/components"
 import "root:/services"
 
 /*! How the pointer feels. The touchpad half is absent on a machine without
-    one. Defaults are whatever hyprland.conf sets. */
+    one. Defaults are whatever hyprland.lua sets. */
 Column {
     id: root
 
     spacing: Appearance.s.xl
 
-    component HyprRow: SettingRow {
-        readonly property var limits: CompositorOptions.spec[this.key]
-
-        width: parent.width
-        min: this.limits.min
-        max: this.limits.max
+    component HyprRow: CompositorSettingRow {
         suffix: qsTr("%")
         step: 5
-        known: CompositorOptions.known(this.key)
         // Speeds are centred on 100, Hyprland's neutral.
         value: this.known ? CompositorOptions.value(this.key) : 100
     }
@@ -29,7 +23,7 @@ Column {
         width: root.width
         title: qsTr("Mouse")
 
-        HyprRow { key: "hyprMouseSpeed"; label: qsTr("Speed") }
+        HyprRow { key: "hyprMouseSpeed"; label: qsTr("Pointer speed") }
         SettingToggle {
             width: parent.width
             key: "hyprMouseAccel"
@@ -44,7 +38,7 @@ Column {
         visible: CompositorOptions.hasTouchpad
         title: qsTr("Touchpad")
 
-        HyprRow { key: "hyprTouchpadSpeed"; label: qsTr("Speed") }
+        HyprRow { key: "hyprTouchpadSpeed"; label: qsTr("Pointer speed") }
         HyprRow { key: "hyprTouchpadScroll"; label: qsTr("Scroll speed") }
         SettingToggle { width: parent.width; key: "hyprNaturalScroll"; title: qsTr("Natural scrolling"); subtitle: qsTr("Content moves with your fingers") }
         SettingToggle { width: parent.width; key: "hyprTapToClick"; title: qsTr("Tap to click") }
