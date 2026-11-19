@@ -46,6 +46,8 @@ QtObject {
         whole range.
     */
     readonly property int dockIcon: Tuning.pick("dockIcon")
+    /*! The grid glyph reads smaller within the same icon box. */
+    readonly property int dockLauncherIcon: Math.round(root.dockIcon * 0.8)
     readonly property int dockInset: 2
     readonly property int dockClearance: 8
     /*! A window dot: round, this across, and how far under its slot. */
@@ -54,6 +56,7 @@ QtObject {
     /*! Between neighbouring slots, so their icons stand 12px apart. */
     readonly property int dockGap: 8
     readonly property int dockSlot: root.dockIcon + root.dockInset * 2
+    readonly property int dockNotesWidth: 176
     /*! At defaults, a broad Gaussian: one stride away is 117.2%, two is 111.1%. */
     readonly property real dockMagnification: 1 + Tuning.pick("dockZoom") / 100
     readonly property real dockWaveSpread: 1.85 * Tuning.pick("dockWaveWidth") / 100
@@ -67,7 +70,7 @@ QtObject {
     readonly property int dockBase: root.dockBackground
         ? root.dockClearance : root.dockDotGap + root.dockDot
     readonly property int dockHeight: root.dockFrame + root.dockSlot + root.dockBase
-    /*! The divider before the launcher, as a share of an icon: shorter than
+    /*! The dock divider, as a share of an icon: shorter than
         the icons, it reads as a pause rather than a wall. */
     readonly property int dockDivider: Math.round(root.dockIcon * 0.6)
     /*! How tall the dock is on screen, including the gap under it: what it
@@ -98,6 +101,7 @@ QtObject {
         back out to it: a toast, and a row leaving the notification centre. */
     readonly property int notificationSlide: 40
     readonly property int popoverWidth: 372
+    readonly property int dailyNotesHeight: 392
     readonly property int touchTarget: 32
     /*! How tall a text field stands. Named once so the search fields and the
         password wells cannot drift apart. */

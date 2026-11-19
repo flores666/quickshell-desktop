@@ -79,9 +79,9 @@ Item {
     function start(): void {
         root.row.forceLayout();
         const apps = root.row.children.filter(item => item instanceof DockSlot && !item.entry.leaving)
-            .map(item => root.find(item, child => child instanceof DockItem));
+            .map(item => item.control).filter(control => control instanceof DockItem);
         root.app = apps[0]; root.other = apps[1];
-        root.launcher = root.row.children.find(item => item instanceof DockButton);
+        root.launcher = root.row.children.find(item => item instanceof DockSlot && item.launcher).control;
         check.equal("two real application icons available", apps.length >= 2, true);
         root.restingWidth = root.row.width;
         root.restingCenter = root.app.centerX();

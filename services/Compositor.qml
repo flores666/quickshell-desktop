@@ -26,6 +26,30 @@ Singleton {
 
     readonly property var workspaces: Hyprland.workspaces.values.filter(w => w && w.id > 0)
     readonly property var toplevels: Hyprland.toplevels.values.filter(t => t)
+    signal windowAppIdsRead(var appIds)
+    signal windowClosed
+
+    /*! A snapshot for restoring positions before Wayland has reported its
+        existing toplevels. A failed read has no evidence about what closed. */
+    function readWindowAppIds(): void { windowApps.run(); }
+
+    Probe {
+        id: windowApps
+        command: ["hyprctl", "-j", "clients"]
+        stdout: StdioCollector { id: clients }
+
+        onExited: code => {
+            let appIds = null;
+            if (code === 0) {
+                try {
+                    appIds = JSON.parse(clients.text).map(client => root.ipcAppId(client));
+                } catch (e) {
+                    console.warn("Could not read existing windows:", e);
+                }
+            }
+            root.windowAppIdsRead(appIds);
+        }
+    }
 
     readonly property ShellScreen focusedScreen: {
         const name = root.focusedMonitor?.name ?? "";
@@ -75,8 +99,11 @@ Singleton {
         const wayland = toplevel.wayland;
         if (wayland && wayland.appId !== "")
             return wayland.appId;
-        const ipc = toplevel.lastIpcObject;
-        return String(ipc.class ?? ipc.initialClass ?? "");
+        return root.ipcAppId(toplevel.lastIpcObject);
+    }
+
+    function ipcAppId(client: var): string {
+        return String(client.class ?? client.initialClass ?? "");
     }
 
     /*!
@@ -260,6 +287,8 @@ Singleton {
         // a foreign one has them all read; the shell's own, which open with
         // every popup and toast, are skipped.
         function onRawEvent(event: HyprlandEvent): void {
+            if (event.name === "closewindow")
+                root.windowClosed();
             if (event.name === "configreloaded") {
                 root.dockTargetsDirty = true;
                 Qt.callLater(root.pushDockTargets);

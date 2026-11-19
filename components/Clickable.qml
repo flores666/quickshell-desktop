@@ -59,6 +59,7 @@ Item {
     signal pointerPressed(var event)
     signal pointerMoved(var event)
     signal pointerReleased(var event)
+    signal pointerCanceled
 
     onPointerOverChanged: root.hoverReady = false
     onHoverDelayChanged: root.hoverReady = false
@@ -116,6 +117,7 @@ Item {
         }
         onPositionChanged: event => root.pointerMoved(event)
         onReleased: event => root.pointerReleased(event)
+        onCanceled: root.pointerCanceled()
 
         onClicked: event => {
             if (event.button === Qt.RightButton)

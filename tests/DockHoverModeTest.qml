@@ -80,9 +80,10 @@ Item {
     })
     function start(): void {
         root.row.forceLayout();
-        const slot = root.row.children.find(item => item instanceof DockSlot && !item.entry.leaving);
-        root.app = root.find(slot, item => item instanceof DockItem);
-        root.launcher = root.row.children.find(item => item instanceof DockButton);
+        const slot = root.row.children.find(item => item instanceof DockSlot
+            && !item.entry.leaving && item.control instanceof DockItem);
+        root.app = slot.control;
+        root.launcher = root.row.children.find(item => item instanceof DockSlot && item.launcher).control;
         root.restingWidth = root.row.width;
         root.onMode();
     }

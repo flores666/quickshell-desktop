@@ -17,10 +17,11 @@ JsonAdapter {
     /*! On, the dock takes the top panel's opacity instead of its own. */
     property bool dockOpacityFollowsBar: false
     property bool dockMagnificationEnabled: true
+    property bool dailyNotesEnabled: false
     property list<string> pinnedApps: []
-    /*! Application keys in the order the dock shows them. Keys that are
-        neither pinned nor running are ignored, so it never needs pruning. */
-    property list<string> dockOrder: []
+    /*! Application keys and { widget } records in dock order. Older profiles
+        contain only application keys. */
+    property var dockOrder: []
     /*! App ids whose windows the window plugin (hypr/windows) draws no title
         bar on; toggled from the dock's menu. */
     property list<string> hiddenTitleBars: []

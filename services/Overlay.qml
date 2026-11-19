@@ -26,6 +26,7 @@ Singleton {
     readonly property string dockMenu: "dockMenu"
     readonly property string settings: "settings"
     readonly property string taskManager: "taskManager"
+    readonly property string dailyNotes: "dailyNotes"
 
     property string active: root.none
     property ShellScreen screen: null

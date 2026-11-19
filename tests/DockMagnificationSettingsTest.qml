@@ -49,7 +49,7 @@ Item {
         return row.children.filter(child => child instanceof DockSlot)[index];
     }
     function launcher(): var {
-        return row.children.find(child => child instanceof DockButton);
+        return row.children.find(child => child instanceof DockSlot && child.launcher);
     }
     function pointAt(index: real): void {
         row.pointerX = (row.screen.width - row.original.width) / 2
@@ -97,7 +97,8 @@ Item {
         root.clamps();
         row.drawn = Array.from({ length: 9 }, (_, i) => ({ key: "settings-" + i,
             leaving: false, arriving: false,
-            item: { key: "settings-" + i, name: "Test", icon: "utilities-terminal", windows: [] } }));
+            item: { key: "settings-" + i, name: "Test", icon: "utilities-terminal", windows: [] } }))
+            .concat([{ key: Dock.launcherSlot.key, item: Dock.launcherSlot, leaving: false, arriving: false }]);
         row.forceLayout();
         root.wave();
     }

@@ -9,8 +9,8 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    The bottom dock: a glass capsule holding the pinned applications and every
-    one that has a window open, then the application grid (DockRow). Resting
+    The bottom dock: a glass capsule holding pinned and running applications,
+    widgets and the application grid (DockRow). Resting
     on or clicking the icon of an application with several windows open
     previews them (DockPreview).
     The overview is Super+Tab and the three-finger swipe; it has no button here.
@@ -29,7 +29,7 @@ import "root:/services"
     dock's opacity (Appearance.dockOpacity); at 0 they go, the dock tightens
     round its icons (Metrics.dockFrame) and the icons stand on their own.
     What the dock draws itself — the window dots, the grid's glyph, the
-    highlights and the divider — takes the colours that read on its own part
+    highlights and the dividers — takes the colours that read on its own part
     of it (Surface.schemeOver), from where the dock rests, so it does not
     change as the dock slides in.
 */
@@ -56,7 +56,7 @@ PanelWindow {
     readonly property int dockHeight: Appearance.m.dockHeight
 
     /*! Which dock child the pointer is on, so hiding is never ambiguous. */
-    property string hoveredKey: ""
+    property var hoveredKey: ""
     /*! Whether that child is named by the tooltip, which waits for the
         preview to be away: crossing an icon on the way to the preview does
         not name it. */
@@ -65,6 +65,7 @@ PanelWindow {
     readonly property bool pointerNear: dockHover.hovered || triggerHover.hovered || preview.hovered
     /*! Stay out while a menu of ours is up, or a drag is in progress. */
     readonly property bool held: Overlay.isOpen(Overlay.dockMenu) || layout.drag !== null
+        || (Overlay.isOpen(Overlay.dailyNotes) && Overlay.screen === root.modelData)
 
     /*! Whether the pointer has called the dock out; it goes on tracking that
         while auto-hide is off, so turning it back on starts from the truth. */
@@ -138,9 +139,10 @@ PanelWindow {
         named by the tooltip. The preview hears of every icon, since one it
         is open over may be on the pointer's way to it. `x` is across the
         window. */
-    function onChildHover(key: string, label: string, x: real, entered: bool): void {
+    function onChildHover(key: var, label: string, x: real, entered: bool): void {
+        const appKey = typeof key === "string" ? key : "";
         if (!entered) {
-            preview.leave(key);
+            preview.leave(appKey);
             if (root.hoveredKey === key) {
                 root.hoveredKey = "";
                 root.naming = false;
@@ -152,8 +154,8 @@ PanelWindow {
         if (root.hoveredKey !== key)
             root.naming = false;
         root.hoveredKey = key;
-        preview.enter(key, x);
-        root.naming = !preview.offersKey(key);
+        preview.enter(appKey, x);
+        root.naming = !preview.offersKey(appKey);
         if (root.naming) {
             tip.text = label;
             tip.anchorX = x;
@@ -250,16 +252,6 @@ PanelWindow {
         HoverHandler {
             id: dockHover
             margin: Appearance.m.dockIcon * (Appearance.m.dockMagnification - 1)
-        }
-
-        // Midway across the gap before the launcher, level with the icons'
-        // centres; outside the row, so it adds nothing to its spacing.
-        DockSeparator {
-            id: separator
-            visible: Dock.items.length > 0
-            color: surface.schemeOver(separator).border
-            x: layout.x + layout.launcherX - Math.round((Appearance.m.dockGap + width) / 2)
-            y: layout.y + Math.round((Appearance.m.dockSlot - height) / 2)
         }
 
         DockRow {

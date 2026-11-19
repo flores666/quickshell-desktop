@@ -7,11 +7,8 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    The dock's icons: every application Dock lists, in its order, then the
-    application grid. An icon dragged sideways opens a gap where it would land
-    and moves there when dropped. An application that starts grows into its
-    place and one that quits shrinks out of it (DockSlot), so what is drawn is
-    Dock's list plus whatever is still on its way out, where it stood.
+    The dock's arranged slots, preserving identities during reorder,
+    arrival and departure.
 */
 Row {
     id: root
@@ -19,24 +16,52 @@ Row {
     required property ShellScreen screen
     /*! The glass the icons stand on, whose colours they take (DockItem). */
     required property Surface panel
-    /*! Where the grid's button is, for the divider before it. */
-    readonly property real launcherX: launcher.x
+    /*! Separate the app icons from the controls at either edge of the row. */
+    readonly property var separators: {
+        const order = root.drawn.slice();
+        const from = root.dragSource;
+        const to = root.dragTarget;
+        if (from >= 0 && to >= 0 && from !== to)
+            order.splice(to, 0, order.splice(from, 1)[0]);
+        const edges = new Map();
+        if (!order.some(entry => !entry.leaving && Dock.isAppSlot(entry.item)))
+            return edges;
+        const first = order.findIndex(entry => Dock.isAppSlot(entry.item));
+        let last = order.length - 1;
+        while (!Dock.isAppSlot(order[last].item))
+            last--;
+        if (first > 0) edges.set(order[first - 1].key, Qt.RightEdge);
+        if (last + 1 < order.length) edges.set(order[last + 1].key, Qt.LeftEdge);
+        return edges;
+    }
     /*! Pointer coordinates across the dock's window. */
     property real pointerX: 0
     property bool magnifying: false
     property int geometryRevision: 0
     readonly property var original: {
         void root.geometryRevision;
-        const centers = [];
-        let width = 0;
+        const byKey = new Map();
         for (let i = 0; i < slots.count; ++i) {
-            const slot = slots.itemAt(i);
-            const presence = slot ? slot.presence : 0;
-            centers.push(width + Appearance.m.dockSlot * presence / 2);
-            width += root.slotStride * presence;
+            const slot = slots.itemAt(i) as DockSlot;
+            if (slot)
+                byKey.set(slot.entry.key, slot);
         }
-        centers.push(width + Appearance.m.dockSlot / 2);
-        return { centers, width: width + Appearance.m.dockSlot };
+        // Repeater updates its indices during a move. Measure the current
+        // order by identity even before its index bookkeeping has settled.
+        const centers = [];
+        const offsets = [0];
+        const gaps = [];
+        let width = 0;
+        for (let i = 0; i < root.drawn.length; ++i) {
+            const slot = byKey.get(root.drawn[i].key);
+            const gap = slot?.gap ?? 0;
+            gaps.push(gap);
+            centers.push(width + (root.isAfterLauncher(i) ? gap : 0)
+                + (slot ? slot.contentWidth * slot.presence / 2 : 0));
+            width += slot?.width ?? 0;
+            offsets.push(width);
+        }
+        return { centers, offsets, gaps, width };
     }
     /*! Resting artwork in monitor-local coordinates, also while the dock is
         hidden. The native owner chooses the window's monitor. Hover and drag
@@ -47,7 +72,7 @@ Row {
         const y = (root.screen?.height ?? 0) - Appearance.m.screenGap
             - Appearance.m.dockBase - Appearance.m.dockInset - size;
         root.drawn.forEach((entry, index) => {
-            if (entry.leaving) return;
+            if (entry.leaving || !Dock.isAppSlot(entry.item)) return;
             const x = ((root.screen?.width ?? 0) - root.original.width) / 2
                 + root.original.centers[index] - size / 2;
             targets.push({ item: entry.item, rect: { x, y, width: size, height: size } });
@@ -78,49 +103,86 @@ Row {
 
     /*! Reported to the dock, which owns the tooltip and the preview, and
         decides what a click on an application does. */
-    signal childHover(string key, string label, real centerX, bool entered)
+    signal childHover(var key, string label, real centerX, bool entered)
     signal activated(var item, real centerX)
 
-    /*!
-        The drag in flight: the application keys it came from and would land
-        on. Indices can change while an application starts or quits.
-
-        One property and not two. Assigning a pair of them leaves a frame in
-        which `slideFor` sees the new drag against the last drop — QML
-        re-evaluates every binding on the first write, before the second has
-        happened — and with the drop still at its cleared -1 every icon left of
-        the drag reads as being inside the gap. Measured on the frame a drag
-        began: both icons to its left kicked 46px sideways and animated back,
-        which is the cascade the dock used to show for a drag that had not
-        reordered anything yet.
-    */
+    /*! The source and destination keys change together. Arrivals and exits
+        can change slot indices, and bindings must see a single drag state. */
     property var drag: null
-    /*!
-        Whether the icons ease aside for `drag`. Not `drag !== null`: at the
-        drop this has to be off before the offsets go, and two bindings on one
-        property hear of its change in whatever order QML happened to connect
-        them. Measured, the offsets went first and eased away over the new
-        order: every icon that had stepped aside started a slot further over
-        and slid back. Written before `drag` at either end, so the order is
-        this file's.
-    */
+    /*! Disable slide animation before clearing offsets and committing a drop. */
     property bool rearranging: false
 
     readonly property int slotStride: Appearance.m.dockSlot + Appearance.m.dockGap
+    readonly property int launcherIndex: root.indexOf(Dock.launcherSlot.key)
+    readonly property int dragSource: root.drag ? root.indexOf(root.drag.from) : -1
+    readonly property int dragTarget: root.drag ? root.indexOf(root.drag.to) : -1
 
-    /*! How far an icon has to step aside to open a gap where the drag will land. */
-    function slideFor(slot: int): real {
-        if (!root.drag || slot === -1)
+    function isAfterLauncher(index: int): bool {
+        return root.launcherIndex !== -1 && index > root.launcherIndex;
+    }
+
+    function indexOf(key: var): int {
+        return root.drawn.findIndex(entry => !entry.leaving && entry.key === key);
+    }
+
+    function slideFor(index: int): real {
+        const from = root.dragSource;
+        const to = root.dragTarget;
+        if (from === -1 || to === -1 || index === from)
             return 0;
-        const from = Dock.appKeys.indexOf(root.drag.from);
-        const to = Dock.appKeys.indexOf(root.drag.to);
-        if (from === -1 || to === -1 || slot === from)
-            return 0;
-        if (slot > from && slot <= to)
-            return -root.slotStride;
-        if (slot < from && slot >= to)
-            return root.slotStride;
+        const { offsets, gaps } = root.original;
+        // A slot crossed by the launcher moves its gap to the other side.
+        const width = offsets[from + 1] - offsets[from]
+            + (from === root.launcherIndex ? gaps[index] ?? 0 : 0);
+        if (index > from && index <= to)
+            return -width;
+        if (index < from && index >= to)
+            return width;
         return 0;
+    }
+
+    /*! Pick the closest resting place for the carried item. Crossing an item
+        shifts the source by that item's stride, which can vary by slot. */
+    function updateDrag(key: var, dx: real): void {
+        const from = root.indexOf(key);
+        if (from === -1 || (root.drag && root.drag.from !== key))
+            return;
+        const { offsets, gaps } = root.original;
+        const wasAfterLauncher = root.isAfterLauncher(from);
+        let nearest = from;
+        let distance = Infinity;
+        for (let to = 0; to < root.drawn.length; ++to) {
+            if (root.drawn[to].leaving)
+                continue;
+            let shift = to > from ? offsets[to + 1] - offsets[from + 1] : offsets[to] - offsets[from];
+            const endsAfterLauncher = root.isAfterLauncher(to) || (to === root.launcherIndex && to > from);
+            if (endsAfterLauncher !== wasAfterLauncher)
+                shift += endsAfterLauncher ? gaps[from] : -gaps[from];
+            const delta = Math.abs(dx - shift);
+            if (delta <= distance) {
+                nearest = to;
+                distance = delta;
+            }
+        }
+        const target = root.drawn[nearest].key;
+        if (!root.drag || root.drag.to !== target) {
+            root.rearranging = true;
+            root.drag = { from: key, to: target };
+        }
+    }
+
+    function finishDrag(key: var, dropped: bool): void {
+        const drag = root.drag;
+        if (!drag || drag.from !== key)
+            return;
+        // Drop offsets before changing the real order and lay out immediately
+        // so that pointer hover sees the dropped slot in its new place.
+        root.rearranging = false;
+        root.drag = null;
+        if (dropped) {
+            Dock.moveSlot(drag.from, drag.to);
+            root.forceLayout();
+        }
     }
 
     /*! Stable records with { key, item, leaving, arriving }: what the row draws. */
@@ -129,18 +191,18 @@ Row {
     Component {
         id: record
         QtObject {
-            required property string key
+            required property var key
             required property var item
             required property bool arriving
             property bool leaving: false
         }
     }
 
-    /*! Dock's list, with each application that has left kept after the one
+    /*! Dock's list, with each slot that has left kept after the one
         it stood behind until it has shrunk away. */
     function reconcile(arriving: bool): void {
         const previous = new Map(root.drawn.map(e => [e.key, e]));
-        const out = Dock.items.map(item => {
+        const out = Dock.slots.map(item => {
             const kept = previous.get(item.key);
             if (kept) {
                 kept.item = item;
@@ -161,9 +223,11 @@ Row {
             out.splice(behind, 0, e);
         }
         root.drawn = out;
+        if (root.drag && root.dragSource === -1)
+            root.finishDrag(root.drag.from, false);
     }
 
-    function forget(key: string): void {
+    function forget(key: var): void {
         const leaving = root.drawn.find(e => e.key === key && e.leaving);
         if (!leaving)
             return;
@@ -175,10 +239,10 @@ Row {
 
     Connections {
         target: Dock
-        function onItemsChanged(): void { root.reconcile(true); }
+        function onSlotsChanged(): void { root.reconcile(true); }
     }
 
-    // Each slot carries the gap after it, so one shrinking takes its gap along.
+    // Slots carry the gap toward the launcher, so their gaps shrink with them.
     spacing: 0
     height: Appearance.m.dockSlot
 
@@ -198,15 +262,14 @@ Row {
         DockSlot {
             required property int index
             required property var modelData
-            readonly property int slot: Dock.appKeys.indexOf(this.modelData.key)
-
             entry: this.modelData
             screen: root.screen
             panel: root.panel
-            slide: root.slideFor(this.slot)
+            afterLauncher: root.isAfterLauncher(this.index)
+            slide: root.slideFor(this.index)
             rearranging: root.rearranging
-            targetMagnification: root.magnifications[this.index] ?? 1
-            onIndexChanged: root.geometryRevision++
+            separatorEdge: root.separators.get(this.modelData.key) ?? 0
+            targetMagnification: this.widget ? 1 : root.magnifications[this.index] ?? 1
             onClicked: (item, centerX) => root.activated(item, centerX)
             onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)
             // Not inside the slot's signal, which dropping it destroys. Each
@@ -214,40 +277,9 @@ Row {
             // simultaneous batch of exits and forgets only its last key.
             onGone: key => Qt.callLater(() => root.forget(key))
 
-            onDragMoved: dx => {
-                root.rearranging = true;
-                root.drag = ({
-                    from: this.modelData.key,
-                    to: Dock.appKeys[Math.max(0, Math.min(Dock.items.length - 1,
-                        this.slot + Math.round(dx / root.slotStride)))]
-                });
-            }
-            onDragEnded: {
-                const drag = root.drag;
-                // Cleared before the move, so the offsets are already gone by
-                // the time the new order is laid out, and not eased away.
-                root.rearranging = false;
-                root.drag = null;
-                if (drag) {
-                    Dock.moveItem(Dock.appKeys.indexOf(drag.from), Dock.appKeys.indexOf(drag.to));
-                    // Laid out now, not at the next frame's polish: Qt checks
-                    // hover before that, and found the old order's icon under
-                    // the pointer, its wash on for six frames.
-                    root.forceLayout();
-                }
-            }
+            onDragMoved: dx => root.updateDrag(this.modelData.key, dx)
+            onDragEnded: root.finishDrag(this.modelData.key, true)
+            onDragCanceled: root.finishDrag(this.modelData.key, false)
         }
-    }
-
-    DockButton {
-        id: launcher
-        icon: "apps"
-        tipText: qsTr("Applications")
-        selected: Overlay.isOpen(Overlay.launcher)
-        targetMagnification: root.magnifications[slots.count] ?? 1
-        y: Appearance.m.dockSlot - height
-        scheme: root.panel.schemeOver(launcher)
-        onActivated: Overlay.toggle(Overlay.launcher, root.screen, launcher.centerX())
-        onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)
     }
 }

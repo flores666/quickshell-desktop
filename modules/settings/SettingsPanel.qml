@@ -42,6 +42,7 @@ ShellOverlay {
         { key: "wallpaper", title: qsTr("Wallpaper"), icon: "wallpaper", component: wallpaperSection },
         { key: "panel", title: qsTr("Top panel"), icon: "display", component: panelSection },
         { key: "dock", title: qsTr("Dock"), icon: "apps", component: dockSection },
+        { key: "widgets", title: qsTr("Widgets"), icon: "grid", component: widgetsSection },
         { key: "notifications", title: qsTr("Notifications"), icon: "bell", component: notificationsSection },
         { key: "windows", title: qsTr("Windows"), icon: "window", component: windowsSection },
         { key: "input", title: qsTr("Input"), icon: "mouse", component: inputSection },
@@ -265,6 +266,7 @@ ShellOverlay {
     Component { id: wallpaperSection; WallpaperSection { width: pane.width } }
     Component { id: panelSection; PanelSection { width: pane.width } }
     Component { id: dockSection; DockSection { width: pane.width } }
+    Component { id: widgetsSection; WidgetsSection { width: pane.width } }
     Component { id: notificationsSection; NotificationsSection { width: pane.width } }
     Component { id: windowsSection; WindowsSection { width: pane.width } }
     Component { id: inputSection; InputSection { width: pane.width } }

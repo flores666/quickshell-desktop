@@ -73,7 +73,7 @@ Item {
         row.drawn = Array.from({ length: 9 }, (_, i) => ({
             key: "response-" + i, leaving: false, arriving: false,
             item: { key: "response-" + i, name: "Test", icon: "utilities-terminal", windows: [] }
-        }));
+        })).concat([{ key: Dock.launcherSlot.key, item: Dock.launcherSlot, leaving: false, arriving: false }]);
         row.forceLayout();
         root.pointAt(4);
         row.magnifying = true;
@@ -110,7 +110,7 @@ Item {
         root.pointAt(9);
         row.magnifying = true;
         root.after(136, () => {
-            const launcher = row.children.find(child => child instanceof DockButton);
+            const launcher = root.slots().find(slot => slot.launcher);
             check.near("launcher uses the same prompt response", launcher.magnification, 1.2);
             row.magnifying = false;
             root.pointerChecks();
@@ -122,7 +122,7 @@ Item {
         check.equal("real dock row is available", live !== null, true);
         if (!live) { check.done(); return; }
         const slot = live.children.find(child => child instanceof DockSlot);
-        root.inputIcon = slot ? slot.children[0] : live.children.find(child => child instanceof DockButton);
+        root.inputIcon = slot?.control;
         // Begin outside the chrome before entering its clickable artwork.
         pointer.mouseMove(dock.contentItem, 0, 0, -1, Qt.NoButton, Qt.NoModifier);
         root.moveOnIcon(false);

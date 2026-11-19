@@ -1,52 +1,35 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
 import "root:/config"
 import "root:/components"
 import "root:/services"
 
 /*! A non-application action in the dock: the application grid. */
-Clickable {
+DockDraggable {
     id: root
 
-    property string icon: ""
-    property string tipText: ""
-    property alias targetMagnification: wave.targetScale
-    readonly property real magnification: wave.value
+    readonly property string tipText: qsTr("Applications")
+    property real magnification: 1
 
-    DockMagnification { id: wave }
-
-    signal activated
-    signal hoverChanged(string key, string label, real centerX, bool entered)
-
-    implicitWidth: Appearance.m.dockSlot
-    implicitHeight: Appearance.m.dockSlot + Appearance.m.dockIcon * (root.magnification - 1)
-    // The slot an application has, highlight and all (see DockItem).
-    radius: Appearance.r.capsule(root.height)
-    focusable: false
     hoverDelay: Settings.dockMagnificationEnabled ? Appearance.t.dockHover : 0
     showStateLayer: !Settings.dockMagnificationEnabled
-    cursorShape: root.hovered ? Qt.PointingHandCursor : Qt.ArrowCursor
+    selected: Overlay.isOpen(Overlay.launcher)
+    Accessible.role: Accessible.Button
+    Accessible.name: root.tipText
+    onInvoked: Overlay.toggle(Overlay.launcher, root.screen, root.centerX())
+    onDraggingChanged: if (root.dragging && root.selected) Overlay.close()
+    onPointerOverChanged: root.hoverChanged(Dock.launcherSlot.key, root.tipText, root.centerX(), root.pointerOver)
 
-    /*! Its middle across the dock's window, as a DockItem reports it. */
-    function centerX(): real {
-        const surface = root.QsWindow.contentItem;
-        return surface ? root.mapToItem(surface, root.width / 2, 0).x : 0;
-    }
-
-    onClicked: root.activated()
-    onPointerOverChanged: root.hoverChanged(root.tipText, root.tipText, root.centerX(), root.pointerOver)
-
-    // In an application icon's own box, so as wide as their artwork: the
-    // glyph's dots fill two thirds of its box, about what an icon's artwork
-    // does of its own.
+    // Center the smaller drawing in the shared icon box so it moves with the wave.
     Icon {
         id: artwork
-        x: (root.width - artwork.size) / 2
-        y: root.height - Appearance.m.dockInset - artwork.size
-        name: root.icon
-        size: Appearance.m.dockIcon
+        x: (root.width - width) / 2
+        y: root.height - Appearance.m.dockInset - height
+        width: Appearance.m.dockIcon
+        height: width
+        name: "apps"
+        size: Appearance.m.dockLauncherIcon
         color: root.selected ? root.scheme.accent : root.scheme.text
         transformOrigin: Item.Bottom
         property real pressScale: root.down ? 0.9 : 1

@@ -5,8 +5,8 @@ import QtQuick
 import Quickshell
 
 /*!
-    What the dock shows: the applications the user arranged, then anything
-    pinned it has not heard of, then anything else that is running.
+    What the dock shows: the slots the user arranged, then anything pinned
+    it has not heard of, then anything else that is running.
 
     One icon per application, however many windows it has open — three
     terminals are one icon carrying a count, and the dock's preview tells them
@@ -33,9 +33,8 @@ Singleton {
         stored in terms of; `windows` its open windows in Hyprland's order,
         empty for a pinned application that is not running.
     */
-    readonly property var items: {
+    readonly property var applications: {
         const out = [];
-        const claimed = ({});
 
         /*!
             Whether a window is one a taskbar should stand for. Both tests are
@@ -70,19 +69,16 @@ Singleton {
 
         // Group the open windows by the desktop entry they resolve to, keeping
         // Hyprland's own ordering so icons do not shuffle as focus moves.
-        const byApp = ({});
-        const order = [];
+        const byApp = new Map();
         for (const w of Compositor.toplevels) {
             if (!isTaskbarWindow(w))
                 continue;
             const appId = Compositor.appIdOf(w);
             const entry = Apps.byAppId(appId);
-            const key = entry ? entry.id : (appId !== "" ? appId : "window");
-            if (!(key in byApp)) {
-                byApp[key] = { entry, appId, windows: [] };
-                order.push(key);
-            }
-            byApp[key].windows.push(w);
+            const key = entry ? entry.id : appId;
+            if (!byApp.has(key))
+                byApp.set(key, { entry, appId, windows: [] });
+            byApp.get(key).windows.push(w);
         }
 
         // The application key a pinned id resolves to, so a pin and a running
@@ -90,34 +86,18 @@ Singleton {
         // application is not installed here is left out, not drawn as an icon
         // that launches nothing — pins travel with the profile, and come back
         // when the application does.
-        const pinnedKeys = ({});
+        const pins = new Map();
         for (const id of Settings.pinnedApps) {
             const pinnedEntry = Apps.byId(id);
             if (pinnedEntry)
-                pinnedKeys[pinnedEntry.id] = id;
+                pins.set(pinnedEntry.id, { entry: pinnedEntry, id });
         }
 
-        // Whatever the user dragged into place first, then pins it has not been
-        // told about, then the rest of what is running, in Hyprland's order.
-        const keys = [];
-        function want(key) {
-            if (claimed[key] || (!(key in byApp) && !(key in pinnedKeys)))
-                return;
-            claimed[key] = true;
-            keys.push(key);
-        }
-        for (const key of Settings.dockOrder)
-            want(key);
-        for (const key of Object.keys(pinnedKeys))
-            want(key);
-        for (const key of order)
-            want(key);
-
-        for (const key of keys) {
-            const group = byApp[key];
-            const entry = group ? group.entry : Apps.byId(pinnedKeys[key]);
-            const appId = group ? group.appId
-                : (entry.startupClass !== "" ? entry.startupClass : pinnedKeys[key]);
+        for (const key of new Set([...pins.keys(), ...byApp.keys()])) {
+            const group = byApp.get(key);
+            const pinned = pins.get(key);
+            const entry = group ? group.entry : pinned.entry;
+            const appId = group ? group.appId : (entry.startupClass || pinned.id);
             out.push({
                 key,
                 entry,
@@ -131,7 +111,7 @@ Singleton {
                 // its hover, flashing the cursor. Whoever needs either reads it
                 // off the toplevel, which only re-evaluates that one binding.
                 windows: group ? group.windows : [],
-                pinned: key in pinnedKeys,
+                pinned: Boolean(pinned),
                 running: Boolean(group)
             });
         }
@@ -139,8 +119,44 @@ Singleton {
         return out;
     }
 
+    /*! Built-in controls use non-string keys so they cannot collide with apps. */
+    readonly property var notesSlot: ({ key: null, widget: "daily-notes" })
+    readonly property var launcherSlot: ({ key: 1, widget: "applications" })
+    readonly property var controls: [root.notesSlot, root.launcherSlot]
+
+    function isAppSlot(entry: var): bool {
+        return typeof entry?.key === "string";
+    }
+
+    function keyForOrder(entry: var): var {
+        return typeof entry === "string" ? entry : root.controls.find(control => control.widget === entry?.widget)?.key;
+    }
+
+    readonly property var layoutKeys: {
+        const saved = Settings.dockOrder.map(entry => root.keyForOrder(entry)).filter(key => key !== undefined);
+        const keys = new Set(saved.includes(root.notesSlot.key) ? saved : [root.notesSlot.key, ...saved]);
+        for (const app of root.applications)
+            keys.add(app.key);
+        keys.add(root.launcherSlot.key);
+        return [...keys];
+    }
+
+    readonly property var slots: {
+        const byKey = new Map(root.applications.map(app => [app.key, app]));
+        byKey.set(root.launcherSlot.key, root.launcherSlot);
+        if (Settings.dailyNotesEnabled)
+            byKey.set(root.notesSlot.key, root.notesSlot);
+        return root.layoutKeys.filter(key => byKey.has(key)).map(key => byKey.get(key));
+    }
+    readonly property var slotKeys: root.slots.map(entry => entry.key)
+
     /*! The applications the dock is showing, in the order it shows them. */
+    readonly property var items: root.slots.filter(entry => root.isAppSlot(entry))
     readonly property var appKeys: root.items.map(item => item.key)
+
+    // Settings can load before the compositor reports its existing windows.
+    // Keep saved app positions around moved controls until the apps appear.
+    property var awaitingApps: null
 
     /*! A closed, unpinned application has given up its place. Keeping its
         old key made the next launch appear among the arranged icons instead
@@ -149,32 +165,82 @@ Singleton {
     function forgetClosed(): void {
         if (!Settings.ready)
             return;
+        const saved = Settings.dockOrder;
         const present = new Set(root.appKeys);
-        const keys = Settings.dockOrder.filter(key => present.has(key) || Settings.isPinned(key));
-        if (keys.length !== Settings.dockOrder.length)
+        const arranged = saved.findIndex(entry => root.keyForOrder(entry) === root.notesSlot.key) > 0
+            || saved.some(entry => root.keyForOrder(entry) === root.launcherSlot.key);
+        if (root.awaitingApps === null) {
+            root.awaitingApps = new Set(arranged ? saved.filter(key => typeof key === "string"
+                && !present.has(key) && !Settings.isPinned(key)) : []);
+            if (root.awaitingApps.size > 0)
+                Compositor.readWindowAppIds();
+        }
+        if (!arranged)
+            root.awaitingApps.clear();
+        for (const key of root.awaitingApps) {
+            if (!saved.includes(key))
+                root.awaitingApps.delete(key);
+        }
+        const keys = saved.filter(entry => typeof entry === "string"
+            ? present.has(entry) || Settings.isPinned(entry) || root.awaitingApps.has(entry)
+            : root.keyForOrder(entry) !== undefined);
+        if (keys.length !== saved.length)
             Settings.setDockOrder(keys);
     }
 
-    onItemsChanged: Qt.callLater(root.forgetClosed)
+    onItemsChanged: {
+        if (root.awaitingApps?.size > 0) {
+            for (const item of root.items)
+                root.awaitingApps.delete(item.key);
+        }
+        Qt.callLater(root.forgetClosed);
+    }
     Component.onCompleted: Qt.callLater(root.forgetClosed)
     Connections {
         target: Settings
         function onReadyChanged(): void { Qt.callLater(root.forgetClosed); }
     }
 
+    Connections {
+        target: Compositor
+        function onWindowAppIdsRead(appIds: var): void {
+            if (appIds === null || !root.awaitingApps?.size)
+                return;
+            const open = new Set(appIds.map(id => Apps.byAppId(id)?.id ?? id));
+            for (const key of root.awaitingApps) {
+                if (!open.has(key))
+                    root.awaitingApps.delete(key);
+            }
+            Qt.callLater(root.forgetClosed);
+        }
+        function onWindowClosed(): void {
+            if (root.awaitingApps?.size > 0)
+                Compositor.readWindowAppIds();
+        }
+    }
+
+    function saveLayout(keys: var): void {
+        // An implicit launcher follows new apps; an implicit widget starts the row.
+        const start = keys[0] === root.notesSlot.key ? 1 : 0;
+        const end = keys[keys.length - 1] === root.launcherSlot.key ? -1 : keys.length;
+        Settings.setDockOrder(keys.slice(start, end).map(key => typeof key === "string" ? key
+            : { widget: root.controls.find(control => control.key === key).widget }));
+    }
+
+    /*! Move among visible slots, retaining the order of hidden entries. */
+    function moveSlot(from: var, to: var): void {
+        const source = root.slotKeys.indexOf(from);
+        const target = root.slotKeys.indexOf(to);
+        if (!Settings.ready || source === -1 || target === -1 || source === target)
+            return;
+        const keys = root.layoutKeys.filter(key => key !== from);
+        keys.splice(keys.indexOf(to) + (target > source ? 1 : 0), 0, from);
+        root.saveLayout(keys);
+    }
+
     /*! Move the application at `from` to where the one at `to` is now. */
     function moveItem(from: int, to: int): void {
-        const items = root.items;
-        if (from < 0 || to < 0 || from >= items.length || to >= items.length)
-            return;
-        const moved = items[from].key;
-        const onto = items[to].key;
-        if (moved === onto)
-            return;
-        const keys = root.appKeys.filter(k => k !== moved);
-        const at = keys.indexOf(onto);
-        keys.splice(to > from ? at + 1 : at, 0, moved);
-        Settings.setDockOrder(keys);
+        root.moveSlot(root.appKeys[from], root.appKeys[to]);
     }
 
     /*!
@@ -215,7 +281,7 @@ Singleton {
         // application ahead of everything unpinned, and its icon would jump out
         // from under the pointer that just asked for it. An application
         // pinned from the launcher with no window open joins the end.
-        Settings.setDockOrder(root.appKeys);
+        root.saveLayout(root.layoutKeys);
         Settings.pin(entry.id);
     }
 }

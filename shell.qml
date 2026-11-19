@@ -5,6 +5,7 @@ import QtQuick
 import "root:/services"
 import "root:/modules/bar"
 import "root:/modules/dock"
+import "root:/modules/widgets"
 import "root:/modules/panels"
 import "root:/modules/common"
 import "root:/modules/launcher"
@@ -83,6 +84,7 @@ ShellRoot {
         TrayMenu {}
         VpnMenu {}
         DockMenu {}
+        DailyNotesPanel {}
     }
 
     // The password prompt, above the popups: what asks is often one of them.

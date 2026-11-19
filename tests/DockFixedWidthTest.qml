@@ -50,8 +50,7 @@ Item {
         return null;
     }
     function icons(): var {
-        return root.row.children.filter(item => item instanceof DockSlot || item instanceof DockButton)
-            .map(item => item instanceof DockSlot ? root.find(item, child => child instanceof DockItem) : item);
+        return root.row.children.filter(item => item instanceof DockSlot && !item.widget).map(item => item.control);
     }
     function geometry(): var {
         root.row.forceLayout();

@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
 import "root:/config"
 import "root:/components"
 import "root:/services"
@@ -9,94 +8,23 @@ import "root:/services"
 /*! One application in the dock: its icon in the slot every dock item has
     (see Metrics), a dot under it for each window it has open, and the slot's
     highlight while one of them has focus. */
-Clickable {
+DockDraggable {
     id: root
 
     required property var item
-    required property ShellScreen screen
-    /*! The glass it stands on: its highlight takes the colours that read
-        on its slot there, its dots those that read on their own strip. */
-    required property Surface panel
     readonly property ColorScheme dotScheme: root.panel.schemeOver(dots)
     property real magnification: 1
 
     /*! Whether one of its windows has focus; read here, not in the model. */
     readonly property bool active: root.item.windows.some(w => w?.activated ?? false)
-    /*! Reported to the dock, which owns the tooltip and the preview. */
-    signal hoverChanged(string key, string label, real centerX, bool entered)
-
-    /*! How far the dock wants this icon shifted to make room for a drag. */
-    property real slide: 0
-    /*! Whether a drag is still in flight somewhere in the dock. */
-    property bool rearranging: false
-    readonly property bool dragging: dragging_.active
-    /*!
-        How far the icon has been carried, measured from where the drag became
-        active. `activeTranslation` cannot be used for this: it counts from the
-        press, so it opens a whole drag threshold wide — 15px, measured — and
-        the icon would leap that far sideways the moment it is picked up.
-    */
-    readonly property real dragX: dragging_.centroid.scenePosition.x - root.dragOrigin
-    /*! Where the pointer was when the drag became active. */
-    property real dragOrigin: 0
-
-    signal dragMoved(real dx)
-    signal dragEnded
-
     implicitWidth: Appearance.m.dockSlot
     // Grow the clickable area upwards with the artwork while keeping its
     // horizontal centre and the dots underneath at their resting positions.
     implicitHeight: Appearance.m.dockSlot + Appearance.m.dockIcon * (root.magnification - 1)
-    radius: Appearance.r.capsule(root.height)
-    focusable: false
     hoverDelay: Settings.dockMagnificationEnabled ? Appearance.t.dockHover : 0
     showStateLayer: !Settings.dockMagnificationEnabled
-    cursorShape: root.hovered ? Qt.PointingHandCursor : Qt.ArrowCursor
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     selected: root.active
-    scheme: root.panel.schemeOver(root)
-
-    Behavior on slide {
-        // Only while a drag is in flight. At the drop the dock's order changes
-        // in the same frame, so every offset has to vanish with it; animating
-        // them away instead leaves the icons sliding out of a layout that no
-        // longer exists (DockRow.rearranging).
-        enabled: root.rearranging
-        NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
-    }
-
-    // Not eased itself: the icon under the pointer has to track the hand
-    // exactly, and lands at once. Its own slide is always 0.
-    transform: Translate {
-        x: root.dragging ? root.dragX : root.slide
-    }
-
-    /*!
-        Rearranging the dock. `target: null` because the icon is moved by the
-        transform above, which leaves the Row's layout alone — the dock decides
-        where the icon lands, and only when the drag ends.
-    */
-    DragHandler {
-        id: dragging_
-
-        target: null
-        yAxis.enabled: false
-        cursorShape: Qt.ClosedHandCursor
-        onActiveChanged: {
-            if (dragging_.active)
-                root.dragOrigin = dragging_.centroid.scenePosition.x;
-            else
-                root.dragEnded();
-        }
-        onCentroidChanged: if (dragging_.active) root.dragMoved(root.dragX)
-    }
-
-    /*! Its middle, across the dock's window: where a tooltip, the preview
-        or the menu is centred. A click is the dock's to act on (DockPanel). */
-    function centerX(): real {
-        const surface = root.QsWindow.contentItem;
-        return surface ? root.mapToItem(surface, root.width / 2, 0).x : 0;
-    }
 
     onMiddleClicked: Dock.launchNew(root.item)
     onRightClicked: {

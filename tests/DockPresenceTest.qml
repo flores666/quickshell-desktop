@@ -31,7 +31,7 @@ Item {
         delay.start();
     }
     function settled(then: var): void { root.after(Appearance.t.base + Appearance.t.grace, then); }
-    function slots(): var { return row.children.filter(c => c instanceof DockSlot); }
+    function slots(): var { return row.children.filter(c => c instanceof DockSlot && c.control instanceof DockItem); }
     function slot(key: string): var { return root.slots().find(s => s.entry.key === key); }
     function remember(): void {
         const kept = ({});
@@ -54,7 +54,8 @@ Item {
             if (slot.width > 0) check.near(label + " slot " + slot.entry.key, slot.x, x);
             x += row.slotStride * slot.presence;
         }
-        check.near(label + " launcher", row.launcherX, x);
+        const launcher = row.children.find(c => c instanceof DockSlot && c.launcher);
+        check.near(label + " launcher", launcher.x, x);
         check.near(label + " total width", row.width, x + Appearance.m.dockSlot);
         check.near(label + " wave geometry", row.original.width, row.width);
     }

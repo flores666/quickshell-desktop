@@ -18,7 +18,7 @@ Singleton {
     readonly property bool nightLightEnabled: store.nightLightEnabled
     readonly property int nightLightTemperature: store.nightLightTemperature
     readonly property var pinnedApps: store.pinnedApps
-    readonly property var dockOrder: store.dockOrder
+    readonly property var dockOrder: typeof store.dockOrder?.map === "function" ? Array.from(store.dockOrder) : []
     readonly property var hiddenTitleBars: store.hiddenTitleBars
     readonly property string accentColor: store.accentColor
     readonly property string backgroundLight: store.backgroundLight
@@ -51,15 +51,13 @@ Singleton {
     /*! The dock lays down the top panel's opacity rather than its own. */
     readonly property bool dockOpacityFollowsBar: store.dockOpacityFollowsBar
     readonly property bool dockMagnificationEnabled: store.dockMagnificationEnabled
+    readonly property bool dailyNotesEnabled: store.dailyNotesEnabled
 
-    // ------------------------------------------------------------- overrides
-    //
-    // Every one of these replaces a value the design system or a service tuned
+    // Every override replaces a value the design system or a service tuned
     // by hand.  A negative value means "unset", exactly as an empty string does
-    // for the colour seeds above, so a fresh settings.json reproduces the
-    // built-in look precisely.  The legal range for each lives with whoever owns
+    // for the colour seeds above. The legal range for each lives with whoever owns
     // the value — the layout keys in Appearance.m.adjustable, the timings in the
-    // service that acts on them — so nothing here has an opinion about them.
+    // service that acts on them.
 
     readonly property int barHeight: store.barHeight
     readonly property int barGap: store.barGap
@@ -140,6 +138,10 @@ Singleton {
 
     function setDockMagnificationEnabled(on: bool): void {
         store.dockMagnificationEnabled = on;
+    }
+
+    function setDailyNotesEnabled(on: bool): void {
+        store.dailyNotesEnabled = on;
     }
 
     function setAccentColor(value: string): void {
@@ -280,7 +282,7 @@ Singleton {
             : store.hiddenTitleBars.concat([appId]);
     }
 
-    /*! The order the user dragged the dock into, as application keys. */
+    /*! The order the user dragged the dock into. */
     function setDockOrder(keys: var): void {
         store.dockOrder = keys;
     }
