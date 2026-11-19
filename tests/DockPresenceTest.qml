@@ -48,15 +48,19 @@ Item {
     }
     function geometry(label: string): void {
         row.forceLayout();
-        let x = 0;
-        for (const slot of root.slots()) {
-            // Row deliberately ignores a zero-width item until it grows.
-            if (slot.width > 0) check.near(label + " slot " + slot.entry.key, slot.x, x);
-            x += row.slotStride * slot.presence;
+        const slots = root.slots();
+        for (let i = 0; i < slots.length; ++i) {
+            const slot = slots[i];
+            if (slot.presence > 0)
+                check.near(label + " slot " + slot.entry.key, slot.control.mapToItem(row, slot.control.width / 2, 0).x,
+                    row.original.centers[i]);
         }
-        const launcher = row.children.find(c => c instanceof DockSlot && c.launcher);
-        check.near(label + " launcher", launcher.x, x);
-        check.near(label + " total width", row.width, x + Appearance.m.dockSlot);
+        const iconSpans = slots.reduce((width, slot) => width + row.slotStride * slot.presence, 0);
+        const mostPresent = Math.max(0, ...slots.map(slot => slot.presence));
+        const m = Appearance.m;
+        const padding = Math.max(0, m.dockSlot - m.dockLauncherIcon - m.dockGap);
+        check.near(label + " total width", row.width, iconSpans + padding
+            + m.dockLauncherIcon + m.dockGap + (m.dockDividerWidth + m.dockGap) * mostPresent);
         check.near(label + " wave geometry", row.original.width, row.width);
     }
 

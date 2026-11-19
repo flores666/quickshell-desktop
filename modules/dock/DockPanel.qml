@@ -27,7 +27,7 @@ import "root:/services"
     its footprint the way the bar does, so windows stop above it rather than
     sitting under it for good. Its glass, edge and shadow are laid down at the
     dock's opacity (Appearance.dockOpacity); at 0 they go, the dock tightens
-    round its icons (Metrics.dockFrame) and the icons stand on their own.
+    round its icons (Metrics.dockFrame) and its controls center in that height.
     What the dock draws itself — the window dots, the grid's glyph, the
     highlights and the dividers — takes the colours that read on its own part
     of it (Surface.schemeOver), from where the dock rests, so it does not
@@ -76,6 +76,7 @@ PanelWindow {
         it; the glass itself fades in Surface. */
     property real frame: Appearance.m.dockFrame
     property real base: Appearance.m.dockBase
+    readonly property real controlExtension: root.base * (1 - root.frame / Appearance.m.dockClearance)
 
     Behavior on frame {
         NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
@@ -180,6 +181,7 @@ PanelWindow {
         id: trigger
 
         anchors.horizontalCenter: parent.horizontalCenter
+        anchors.alignWhenCentered: false
         anchors.bottom: parent.bottom
         width: surface.width
         // While the dock is out, the strip stretches up to meet it, so moving
@@ -212,10 +214,11 @@ PanelWindow {
         id: surface
 
         anchors.horizontalCenter: parent.horizontalCenter
+        anchors.alignWhenCentered: false
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.shown
             ? Appearance.m.screenGap : -(root.dockHeight + Appearance.m.screenGap)
-        width: layout.implicitWidth + root.frame * 2
+        width: layout.displayWidth + root.frame * 2
         height: root.dockHeight
         radius: Appearance.r.capsule(root.dockHeight)
         glass: Appearance.dockOpacity
@@ -260,10 +263,12 @@ PanelWindow {
             // there is room below the slots for their dots and none above, and
             // from the bottom the row moves only as far as that room changes.
             anchors.horizontalCenter: parent.horizontalCenter
+            anchors.alignWhenCentered: false
             anchors.bottom: parent.bottom
             anchors.bottomMargin: root.base
             screen: root.modelData
             panel: surface
+            controlExtension: root.controlExtension
             pointerX: dockHover.point.scenePosition.x
             magnifying: dockHover.hovered && root.shown
             onAnimationTargetsChanged: Compositor.setDockTargets(root.targetScreen, layout.animationTargets)

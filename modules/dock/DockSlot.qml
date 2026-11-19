@@ -7,8 +7,8 @@ import "root:/components"
 import "root:/services"
 
 /*!
-    A movable item and its gap toward the launcher. Its neighbors make room as it
-    arrives or leaves, and the application artwork can magnify in place.
+    A movable item with its position and span measured by DockLayout. Its
+    artwork magnifies without changing that horizontal footprint.
 */
 Item {
     id: root
@@ -20,9 +20,10 @@ Item {
     readonly property bool widget: root.entry.key === Dock.notesSlot.key
     readonly property bool launcher: root.entry.key === Dock.launcherSlot.key
     readonly property real contentWidth: root.widget ? Appearance.m.dockNotesWidth : Appearance.m.dockSlot
-    readonly property real gap: root.launcher ? 0 : Appearance.m.dockGap * root.presence
-    property bool afterLauncher: false
-    property int separatorEdge: 0
+    readonly property real artworkWidth: root.widget ? Appearance.m.dockNotesWidth
+        : root.launcher ? Appearance.m.dockLauncherIcon : Appearance.m.dockIcon
+    required property real centerOffset
+    required property real controlExtension
     property real slide: 0
     property bool rearranging: false
     readonly property DockDraggable control: button.item as DockDraggable
@@ -58,9 +59,6 @@ Item {
         onTriggered: root.gone(root.entry.key)
     }
 
-    // Magnification grows upwards inside a fixed horizontal place. Only an
-    // slot arriving or leaving changes the row's footprint.
-    width: root.contentWidth * root.presence + root.gap
     height: Appearance.m.dockSlot
     opacity: root.presence
     // Above its neighbours while it is being carried, so it is never clipped
@@ -70,21 +68,12 @@ Item {
     Loader {
         id: button
         enabled: !root.entry.leaving
-        x: root.contentWidth * (root.presence - 1) / 2 + (root.afterLauncher ? root.gap : 0)
-        y: -root.growth
+        x: root.centerOffset - width / 2
+        y: -root.growth + (root.widget ? root.controlExtension / 2 : 0)
         width: root.contentWidth
-        height: root.height + root.growth
+        height: root.height + root.growth + (root.launcher ? root.controlExtension : 0)
         scale: root.presence
         sourceComponent: root.widget ? noteButton : root.launcher ? launcherButton : appButton
-    }
-
-    Loader {
-        parent: root.control ?? root
-        active: root.separatorEdge !== 0 && !root.dragging
-        x: (root.separatorEdge === Qt.LeftEdge ? -Appearance.m.dockGap : parent.width)
-            + Math.floor((Appearance.m.dockGap - width) / 2)
-        y: parent.height - Math.round((Appearance.m.dockSlot + height) / 2)
-        sourceComponent: DockSeparator { color: root.panel.schemeOver(this).border }
     }
 
     Component {
@@ -105,6 +94,7 @@ Item {
         DockButton {
             screen: root.screen
             panel: root.panel
+            controlExtension: root.controlExtension
             magnification: root.magnification
             slide: root.slide
             rearranging: root.rearranging

@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import "root:/config"
 
@@ -35,6 +36,8 @@ Item {
     property bool bordered: true
     /*! Popup cards and standalone notifications share this material. */
     property bool clearGlass: false
+    /*! Layer in surface coordinates marking where children supply their own glass. */
+    property Item glassCutoutMask: null
     property color borderColor: root.scheme.border
     /*! How much of its glass it lays down: its fill, hairline and shadow
         together, its content untouched — the bar and the dock at the user's
@@ -85,23 +88,35 @@ Item {
         opacity: root.glass
     }
 
-    Rectangle {
+    Item {
         id: inner
         anchors.fill: parent
-        radius: root.radius
-        color: root.clearGlass ? Qt.alpha(PopupStyle.tint, root.scheme.glass * root.glass)
-            : Qt.alpha(root.color, root.color.a * root.glass)
-        border.width: root.bordered && !root.clearGlass ? Appearance.m.border : 0
-        border.color: Qt.alpha(root.borderColor, root.borderColor.a * root.glass)
-        antialiasing: root.radius > 0
 
-        Loader {
+        Rectangle {
             anchors.fill: parent
-            active: root.clearGlass && root.visible && root.glass > 0
-            sourceComponent: GlassFinish {
-                radius: root.radius
-                borderWidth: root.bordered ? Appearance.m.border : 0
-                opacity: root.glass
+            radius: root.radius
+            color: root.clearGlass ? Qt.alpha(PopupStyle.tint, root.scheme.glass * root.glass)
+                : Qt.alpha(root.color, root.color.a * root.glass)
+            border.width: root.bordered && !root.clearGlass ? Appearance.m.border : 0
+            border.color: Qt.alpha(root.borderColor, root.borderColor.a * root.glass)
+            antialiasing: root.radius > 0
+            layer.enabled: root.glassCutoutMask !== null && root.visible
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: root.glassCutoutMask
+                maskInverted: true
+                maskThresholdMin: 0.5
+                maskSpreadAtMin: 1
+            }
+
+            Loader {
+                anchors.fill: parent
+                active: root.clearGlass && root.visible && root.glass > 0
+                sourceComponent: GlassFinish {
+                    radius: root.radius
+                    borderWidth: root.bordered ? Appearance.m.border : 0
+                    opacity: root.glass
+                }
             }
         }
     }

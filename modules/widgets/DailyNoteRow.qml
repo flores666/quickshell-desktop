@@ -13,9 +13,12 @@ Clickable {
     readonly property string range: DailyNotes.rangeText(root.note)
     readonly property bool done: root.note?.done ?? false
     readonly property bool tracked: root.note !== null && DailyNotes.trackedId === root.note.id
+    readonly property real trailingWidth: more.width + Appearance.s.xs
+        + (root.tracked ? pin.width + Appearance.s.xs : 0)
 
-    implicitHeight: Math.max(more.height, labels.implicitHeight) + Appearance.s.xs * 2
+    implicitHeight: Math.max(more.height, labels.implicitHeight + Appearance.s.xs * 2)
     acceptedButtons: Qt.LeftButton | Qt.RightButton
+    cursorShape: Qt.ArrowCursor
     enabled: DailyNotes.ready && root.note !== null
     Accessible.role: Accessible.CheckBox
     Accessible.name: root.note?.title ?? ""
@@ -53,7 +56,7 @@ Clickable {
 
     Rectangle {
         id: checkmark
-        x: Appearance.s.md
+        x: Appearance.s.xs
         anchors.verticalCenter: parent.verticalCenter
         width: Appearance.m.iconLg
         height: width
@@ -75,13 +78,15 @@ Clickable {
         id: labels
         anchors.verticalCenter: parent.verticalCenter
         x: checkmark.x + checkmark.width + Appearance.s.md
-        width: (root.tracked ? pin.x : more.x) - x - Appearance.s.xs
+        width: Math.max(0, root.width - x - root.trailingWidth)
 
         Label {
             width: parent.width
             text: root.note?.title ?? ""
             muted: root.done
             font.strikeout: root.done
+            wrapMode: Text.Wrap
+            elide: Text.ElideNone
         }
 
         Label {
@@ -109,6 +114,8 @@ Clickable {
         anchors.verticalCenter: parent.verticalCenter
         size: Appearance.m.compactButton
         icon: "more"
+        cursorShape: Qt.ArrowCursor
+        iconColor: root.hovered || more.hovered || more.activeFocus ? Appearance.c.text : Appearance.c.textFaint
         Accessible.role: Accessible.Button
         Accessible.name: qsTr("Task actions")
         onClicked: root.openMenu()

@@ -10,8 +10,8 @@ import "root:/services"
     the picture there, as hyprpaper lays it — scaled to cover the screen and
     centred, the overflow cut off. The bar and the dock read it where the user
     has thinned their glass (Surface.schemeOver), so that what is drawn on them
-    stays legible over a pale sky and a dark forest alike. And its main colour
-    (mainColor), which the accent may follow (Settings.wallpaperAccent).
+    stays legible over a pale sky and a dark forest alike. The same sample
+    supplies the main colour the accent may follow (Settings.wallpaperAccent).
 
     Each screen's picture is measured once, by that screen's bar
     (BackdropProbe), and kept as a summed-area table: the mean under any
@@ -53,7 +53,7 @@ QtObject {
     function measure(screen: ShellScreen, path: string, gauge: size, image: var): void {
         const w = image.width;
         const h = image.height;
-        if (w === 0 || h === 0)
+        if (w === 0 || h === 0 || path === "" || path !== Wallpaper.current)
             return;
         // Read once, natively: indexing the canvas's own array element by
         // element costs more than all the rest together.
@@ -66,9 +66,8 @@ QtObject {
         const next = Object.assign({}, root.tables);
         next[screen.name] = { path, gauge: gauge.toString(), width: w, height: h, sums };
         root.tables = next;
-        // Kept, so that an accent following the wallpaper has it at login.
-        if (path === Wallpaper.current)
-            Settings.setWallpaperAccent(root.mainColor(px, w, h).toString());
+        // Keep the main colour so a following accent has it at login.
+        Settings.setWallpaperAccent(root.mainColor(px, w, h).toString());
     }
 
     /*! Adds row `y` of the picture's pixels to the table. */

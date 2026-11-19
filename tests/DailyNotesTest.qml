@@ -46,6 +46,15 @@ Item {
         check.equal("new document has no read error", DailyNotes.error, "");
         check.equal("new document has no notes", DailyNotes.document.notes.length, 0);
         check.equal("new document begins with identity one", DailyNotes.document.nextId, 1);
+        check.equal("new checklist starts without categories", JSON.stringify(DailyNotes.categories), '[]');
+        check.equal("category creation cannot submit the retired name", DailyNotes.canAddCategory("  iNbox  "), false);
+        check.equal("category creation can submit a valid name", DailyNotes.canAddCategory("  Work  "), true);
+        check.equal("blank category is rejected", DailyNotes.addCategory("  "), null);
+        check.equal("retired category name is rejected", DailyNotes.addCategory("  iNbox  "), null);
+        check.equal("category name is trimmed", DailyNotes.addCategory("  Work  "), "Work");
+        check.equal("duplicate category resolves its canonical key", DailyNotes.addCategory("work"), "Work");
+        check.equal("second category saves", DailyNotes.addCategory("Personal"), "Personal");
+        check.equal("duplicate category is not appended", JSON.stringify(DailyNotes.categories), '["Work","Personal"]');
         check.equal("empty document has no tracked task", DailyNotes.trackedId, "");
         check.equal("empty document has no preview", DailyNotes.preview, null);
         check.equal("missing identity resolves to null", DailyNotes.find("missing"), null);
@@ -64,21 +73,26 @@ Item {
             check.equal("invalid range rejected: " + pair.join("/"), DailyNotes.validRange(...pair), false);
         }
         const before = JSON.stringify(DailyNotes.document);
-        check.equal("blank title cannot add", DailyNotes.save(root.earlier, "", "  ", "", ""), false);
-        check.equal("invalid date cannot add", DailyNotes.save("2023-02-29", "", "Task", "", ""), false);
-        check.equal("partial range cannot add", DailyNotes.save(root.earlier, "", "Task", "09:00", ""), false);
+        check.equal("blank title cannot add", DailyNotes.save(root.earlier, "", "  ", "", "", "Work"), false);
+        check.equal("invalid date cannot add", DailyNotes.save("2023-02-29", "", "Task", "", "", "Work"), false);
+        check.equal("partial range cannot add", DailyNotes.save(root.earlier, "", "Task", "09:00", "", "Work"), false);
+        check.equal("omitted category cannot add", DailyNotes.save(root.earlier, "", "Task", "", ""), false);
+        check.equal("empty category cannot add", DailyNotes.save(root.earlier, "", "Task", "", "", ""), false);
+        check.equal("unknown category cannot add", DailyNotes.save(root.earlier, "", "Task", "", "", "Missing"), false);
         root.unchanged("rejected additions do not allocate identities", before);
 
-        check.equal("first historical task saves", DailyNotes.save(root.earlier, "", "  First task  ", "", ""), true);
+        check.equal("first historical task saves", DailyNotes.save(root.earlier, "", "  First task  ", "", "", "Personal"), true);
         root.firstId = DailyNotes.preview.id;
         check.equal("task title is trimmed", DailyNotes.find(root.firstId).title, "First task");
+        check.equal("first task uses the requested category", DailyNotes.find(root.firstId).category, "Personal");
         check.equal("untimed range has no label", DailyNotes.rangeText(DailyNotes.preview), "");
         check.equal("missing range has no label", DailyNotes.rangeText(null), "");
-        check.equal("second day task saves", DailyNotes.save(root.later, "", "Second task", " 09:00 ", " 10:30 "), true);
+        check.equal("second day task saves", DailyNotes.save(root.later, "", "Second task", " 09:00 ", " 10:30 ", "Work"), true);
         root.secondId = DailyNotes.preview.id;
+        check.equal("task receives selected category", DailyNotes.find(root.secondId).category, "Work");
         check.equal("range fields are trimmed", DailyNotes.find(root.secondId).start, "09:00");
         check.equal("timed range has a label", DailyNotes.rangeText(DailyNotes.preview), "09:00–10:30");
-        check.equal("adding to an older day saves", DailyNotes.save(root.earlier, "", "Third task", "", ""), true);
+        check.equal("adding to an older day saves", DailyNotes.save(root.earlier, "", "Third task", "", "", "Personal"), true);
         root.thirdId = DailyNotes.preview.id;
         check.equal("preview follows newest addition across dates", DailyNotes.preview.id, root.thirdId);
         check.equal("history lists distinct sorted days", DailyNotes.days.join(","), root.earlier + "," + root.later);
@@ -103,6 +117,16 @@ Item {
         check.equal("edit preserves day", edited.day, root.later);
         check.equal("edit trims replacement title", edited.title, "Edited second");
         check.equal("edit updates range", edited.start + "/" + edited.end, "11:00/12:00");
+        check.equal("legacy edit preserves category", edited.category, "Work");
+        check.equal("task can move to another category",
+            DailyNotes.save(root.later, root.secondId, "Edited second", "11:00", "12:00", "Personal"), true);
+        check.equal("category assignment updates the note", DailyNotes.find(root.secondId).category, "Personal");
+        check.equal("category assignment preserves identity and order", DailyNotes.document.notes[1].id, root.secondId);
+        const checklist = DailyNotes.checklist(root.later);
+        check.equal("historical checklist counts tasks", checklist.total, 1);
+        check.equal("historical checklist omits empty categories", checklist.groups.length, 1);
+        check.equal("checklist groups by saved category", checklist.groups[0].category, "Personal");
+        check.equal("checklist uses stable identity keys", [...checklist.groups[0].notes.keys()].join(","), root.secondId);
         check.equal("edit preserves newest-first ordering", DailyNotes.preview.id, root.thirdId);
         const unchanged = JSON.stringify(DailyNotes.document);
         check.equal("unchanged edit succeeds",
@@ -111,7 +135,8 @@ Item {
 
         DailyNotes.toggleTracking(root.firstId);
         check.equal("manual tracking selects an older task", DailyNotes.preview.id, root.firstId);
-        check.equal("newer task can be added while tracking", DailyNotes.save(root.later, "", "Newest task", "", ""), true);
+        check.equal("newer task can be added while tracking",
+            DailyNotes.save(root.later, "", "Newest task", "", "", "Work"), true);
         root.newestId = DailyNotes.document.notes[0].id;
         check.equal("manual tracking survives newer additions", DailyNotes.preview.id, root.firstId);
         check.equal("all allocated identities are unique", new Set(DailyNotes.document.notes.map(note => note.id)).size, 4);
@@ -121,6 +146,7 @@ Item {
             const data = root.parse(text);
             check.equal("persisted document passes schema validation", DailyNotes.validDocument(data), true);
             check.equal("persisted tracking retains the selected identity", data?.trackedId, root.firstId);
+            check.equal("persisted task retains its category", data?.notes.find(note => note.id === root.secondId)?.category, "Personal");
             check.equal("writes leave service ready", DailyNotes.ready, true);
             check.equal("successful writes leave no error", DailyNotes.error, "");
             check.attempt("completion and tracking lifecycle", root.complete);
@@ -143,6 +169,10 @@ Item {
         DailyNotes.toggleDone(root.secondId);
         check.equal("completion preserves edited title", DailyNotes.find(root.secondId).title, "Edited second");
         check.equal("completion preserves edited range", DailyNotes.find(root.secondId).start, "11:00");
+        check.equal("completion preserves category", DailyNotes.find(root.secondId).category, "Personal");
+        check.equal("checklist counts completed tasks", DailyNotes.checklist(root.later).done, 1);
+        check.equal("category counts completed tasks",
+            DailyNotes.checklist(root.later).groups.find(group => group.category === "Personal").done, 1);
         DailyNotes.toggleDone(root.secondId);
         check.equal("uncompletion preserves manual tracking reset", DailyNotes.trackedId, "");
         check.equal("uncompletion leaves newer unfinished preview first", DailyNotes.preview.id, root.newestId);
@@ -174,6 +204,7 @@ Item {
         written.until(root.path, text => text === expected, text => {
             check.equal("completion, deletion and history persist", text, expected);
             check.equal("final disk document remains valid", DailyNotes.validDocument(root.parse(text)), true);
+            check.equal("empty categories remain available", JSON.stringify(DailyNotes.categories), '["Work","Personal"]');
             check.equal("all operations leave service ready", DailyNotes.ready, true);
             root.retryWrite();
         });
@@ -184,13 +215,15 @@ Item {
         mode.run('chmod u-w "$1" && printf locked', [root.path], locked => {
             check.equal("state file can be made read-only", locked, "locked");
             if (locked !== "locked") { check.done(); return; }
-            check.equal("write failure is reported", DailyNotes.save(root.later, "", "Retry this task", "", ""), false);
+            check.equal("write failure is reported", DailyNotes.save(root.later, "", "Retry this task", "", "", "Work"), false);
+            check.equal("category write failure is reported", DailyNotes.addCategory("Not saved"), null);
             root.unchanged("failed write preserves the last saved document", before);
+            check.equal("failed category never becomes selectable", DailyNotes.categories.includes("Not saved"), false);
             check.equal("failed write leaves an error for the editor", DailyNotes.error !== "", true);
             Qt.callLater(() => mode.run('chmod u+w "$1" && printf unlocked', [root.path], unlocked => {
                 check.equal("state file is writable again", unlocked, "unlocked");
                 check.equal("retrying the same change writes to disk",
-                    DailyNotes.save(root.later, "", "Retry this task", "", ""), true);
+                    DailyNotes.save(root.later, "", "Retry this task", "", "", "Work"), true);
                 check.equal("successful retry clears the error", DailyNotes.error, "");
                 check.equal("successful retry publishes the saved task", DailyNotes.preview?.title, "Retry this task");
                 check.done();

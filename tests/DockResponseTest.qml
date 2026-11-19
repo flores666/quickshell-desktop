@@ -61,7 +61,7 @@ Item {
 
     function pointAt(index: real): void {
         row.pointerX = (row.screen.width - row.original.width) / 2
-            + Appearance.m.dockSlot / 2 + index * row.slotStride;
+            + (row.original.centers[index] ?? row.original.centers[0] + index * row.slotStride);
     }
 
     Component.onCompleted: wait.until(Settings.readyChanged, () => Settings.ready, () => {
@@ -132,7 +132,7 @@ Item {
             root.after(16, () => {
                 check.near("horizontal movement over artwork is delivered", live.pointerX, root.expectedX);
                 const gap = root.inputIcon.mapToItem(dock.contentItem,
-                    root.inputIcon.width + Appearance.m.dockGap / 2, root.inputIcon.height / 2);
+                    (root.inputIcon.width + root.liveRow.slotStride) / 2, root.inputIcon.height / 2);
                 root.expectedX = Math.round(gap.x);
                 pointer.mouseMove(dock.contentItem, gap.x, gap.y, -1, Qt.NoButton, Qt.NoModifier);
                 root.after(16, () => {

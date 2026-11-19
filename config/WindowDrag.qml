@@ -9,6 +9,9 @@ QtObject {
     readonly property int lift: 120
     readonly property int settle: 180
     readonly property int landing: 300
+    // Qt equivalents of ElasticMath::smooth and ElasticMath::landing.
+    readonly property var smoothCurve: [1 / 3, 0, 2 / 3, 1, 1, 1]
+    readonly property real landingOvershoot: 0.6
     readonly property int edgeDwell: 350
     readonly property int workspaceSlide: 350
     readonly property int edge: 24

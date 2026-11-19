@@ -11,6 +11,7 @@ DockDraggable {
 
     readonly property string tipText: qsTr("Applications")
     property real magnification: 1
+    property real controlExtension: 0
 
     hoverDelay: Settings.dockMagnificationEnabled ? Appearance.t.dockHover : 0
     showStateLayer: !Settings.dockMagnificationEnabled
@@ -25,7 +26,7 @@ DockDraggable {
     Icon {
         id: artwork
         x: (root.width - width) / 2
-        y: root.height - Appearance.m.dockInset - height
+        y: root.height - Appearance.m.dockInset - height - root.controlExtension / 2
         width: Appearance.m.dockIcon
         height: width
         name: "apps"

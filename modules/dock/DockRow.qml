@@ -16,52 +16,34 @@ Row {
     required property ShellScreen screen
     /*! The glass the icons stand on, whose colours they take (DockItem). */
     required property Surface panel
-    /*! Separate the app icons from the controls at either edge of the row. */
-    readonly property var separators: {
-        const order = root.drawn.slice();
-        const from = root.dragSource;
-        const to = root.dragTarget;
-        if (from >= 0 && to >= 0 && from !== to)
-            order.splice(to, 0, order.splice(from, 1)[0]);
-        const edges = new Map();
-        if (!order.some(entry => !entry.leaving && Dock.isAppSlot(entry.item)))
-            return edges;
-        const first = order.findIndex(entry => Dock.isAppSlot(entry.item));
-        let last = order.length - 1;
-        while (!Dock.isAppSlot(order[last].item))
-            last--;
-        if (first > 0) edges.set(order[first - 1].key, Qt.RightEdge);
-        if (last + 1 < order.length) edges.set(order[last + 1].key, Qt.LeftEdge);
-        return edges;
-    }
+    property real controlExtension: 0
     /*! Pointer coordinates across the dock's window. */
     property real pointerX: 0
     property bool magnifying: false
     property int geometryRevision: 0
-    readonly property var original: {
-        void root.geometryRevision;
-        const byKey = new Map();
-        for (let i = 0; i < slots.count; ++i) {
-            const slot = slots.itemAt(i) as DockSlot;
-            if (slot)
-                byKey.set(slot.entry.key, slot);
+    readonly property var original: placement.resting
+    readonly property real displayWidth: placement.preview.width
+
+    DockLayout {
+        id: placement
+        source: root.dragSource
+        target: root.dragTarget
+        slots: {
+            void root.geometryRevision;
+            // During a move the repeater's indices can still describe the
+            // previous order. Take each measure by identity.
+            const byKey = new Map();
+            for (let i = 0; i < slotRepeater.count; ++i) {
+                const slot = slotRepeater.itemAt(i) as DockSlot;
+                if (slot)
+                    byKey.set(slot.entry.key, slot);
+            }
+            return root.drawn.map(entry => {
+                const slot = byKey.get(entry.key);
+                return { key: entry.key, app: Dock.isAppSlot(entry.item),
+                    artwork: slot?.artworkWidth ?? 0, presence: slot?.presence ?? 0 };
+            });
         }
-        // Repeater updates its indices during a move. Measure the current
-        // order by identity even before its index bookkeeping has settled.
-        const centers = [];
-        const offsets = [0];
-        const gaps = [];
-        let width = 0;
-        for (let i = 0; i < root.drawn.length; ++i) {
-            const slot = byKey.get(root.drawn[i].key);
-            const gap = slot?.gap ?? 0;
-            gaps.push(gap);
-            centers.push(width + (root.isAfterLauncher(i) ? gap : 0)
-                + (slot ? slot.contentWidth * slot.presence / 2 : 0));
-            width += slot?.width ?? 0;
-            offsets.push(width);
-        }
-        return { centers, offsets, gaps, width };
     }
     /*! Resting artwork in monitor-local coordinates, also while the dock is
         hidden. The native owner chooses the window's monitor. Hover and drag
@@ -112,33 +94,19 @@ Row {
     /*! Disable slide animation before clearing offsets and committing a drop. */
     property bool rearranging: false
 
-    readonly property int slotStride: Appearance.m.dockSlot + Appearance.m.dockGap
-    readonly property int launcherIndex: root.indexOf(Dock.launcherSlot.key)
+    readonly property int slotStride: Appearance.m.dockIcon + Appearance.m.dockGap
     readonly property int dragSource: root.drag ? root.indexOf(root.drag.from) : -1
     readonly property int dragTarget: root.drag ? root.indexOf(root.drag.to) : -1
-
-    function isAfterLauncher(index: int): bool {
-        return root.launcherIndex !== -1 && index > root.launcherIndex;
-    }
 
     function indexOf(key: var): int {
         return root.drawn.findIndex(entry => !entry.leaving && entry.key === key);
     }
 
-    function slideFor(index: int): real {
-        const from = root.dragSource;
-        const to = root.dragTarget;
-        if (from === -1 || to === -1 || index === from)
+    function slideFor(key: var): real {
+        if (root.drag === null || root.drag.from === key)
             return 0;
-        const { offsets, gaps } = root.original;
-        // A slot crossed by the launcher moves its gap to the other side.
-        const width = offsets[from + 1] - offsets[from]
-            + (from === root.launcherIndex ? gaps[index] ?? 0 : 0);
-        if (index > from && index <= to)
-            return -width;
-        if (index < from && index >= to)
-            return width;
-        return 0;
+        return (placement.preview.byKey.get(key)?.center ?? 0) + placement.previewOffset
+            - (root.original.byKey.get(key)?.center ?? 0);
     }
 
     /*! Pick the closest resting place for the carried item. Crossing an item
@@ -147,28 +115,25 @@ Row {
         const from = root.indexOf(key);
         if (from === -1 || (root.drag && root.drag.from !== key))
             return;
-        const { offsets, gaps } = root.original;
-        const wasAfterLauncher = root.isAfterLauncher(from);
+        if (!root.drag) {
+            root.rearranging = true;
+            root.drag = { from: key, to: key };
+        }
+        const offsets = placement.dropOffsets;
         let nearest = from;
         let distance = Infinity;
         for (let to = 0; to < root.drawn.length; ++to) {
             if (root.drawn[to].leaving)
                 continue;
-            let shift = to > from ? offsets[to + 1] - offsets[from + 1] : offsets[to] - offsets[from];
-            const endsAfterLauncher = root.isAfterLauncher(to) || (to === root.launcherIndex && to > from);
-            if (endsAfterLauncher !== wasAfterLauncher)
-                shift += endsAfterLauncher ? gaps[from] : -gaps[from];
-            const delta = Math.abs(dx - shift);
+            const delta = Math.abs(dx - offsets[to]);
             if (delta <= distance) {
                 nearest = to;
                 distance = delta;
             }
         }
         const target = root.drawn[nearest].key;
-        if (!root.drag || root.drag.to !== target) {
-            root.rearranging = true;
+        if (root.drag.to !== target)
             root.drag = { from: key, to: target };
-        }
     }
 
     function finishDrag(key: var, dropped: bool): void {
@@ -242,12 +207,43 @@ Row {
         function onSlotsChanged(): void { root.reconcile(true); }
     }
 
-    // Slots carry the gap toward the launcher, so their gaps shrink with them.
     spacing: 0
     height: Appearance.m.dockSlot
 
+    Item {
+        // Row culls children with no size. Put its measured dividers in a
+        // sibling so they draw without taking a second span in the row.
+        parent: root.parent
+        x: root.x
+        y: root.y
+        width: root.width
+        height: root.height
+        visible: root.visible
+
+        Repeater {
+            model: 2
+            DockSeparator {
+                id: divider
+                required property int index
+                readonly property var position: placement.preview.dividers[divider.index]
+
+                x: (divider.position?.center ?? 0) + placement.previewOffset - width / 2
+                y: (root.height + root.controlExtension - height) / 2
+                opacity: divider.position?.presence ?? 0
+                width: Appearance.m.dockDividerWidth * opacity
+                visible: divider.position !== null
+                color: root.panel.schemeOver(divider).border
+
+                Behavior on x {
+                    enabled: root.rearranging && divider.visible
+                    NumberAnimation { duration: Appearance.t.base; easing.type: Appearance.t.emphasizedEasing }
+                }
+            }
+        }
+    }
+
     Repeater {
-        id: slots
+        id: slotRepeater
         onItemAdded: root.geometryRevision++
         onItemRemoved: root.geometryRevision++
         // Keep record identities stable and update their properties directly.
@@ -265,10 +261,11 @@ Row {
             entry: this.modelData
             screen: root.screen
             panel: root.panel
-            afterLauncher: root.isAfterLauncher(this.index)
-            slide: root.slideFor(this.index)
+            controlExtension: root.controlExtension
+            width: root.original.byKey.get(this.modelData.key)?.width ?? 0
+            centerOffset: root.original.byKey.get(this.modelData.key)?.offset ?? 0
+            slide: root.slideFor(this.modelData.key)
             rearranging: root.rearranging
-            separatorEdge: root.separators.get(this.modelData.key) ?? 0
             targetMagnification: this.widget ? 1 : root.magnifications[this.index] ?? 1
             onClicked: (item, centerX) => root.activated(item, centerX)
             onHoverChanged: (key, label, centerX, entered) => root.childHover(key, label, centerX, entered)

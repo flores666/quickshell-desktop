@@ -35,6 +35,7 @@ Surface {
         to, what it rolls out of its `door` to, and what its contents are
         laid out at. */
     property rect rest
+    property alias glassCutouts: snapshot.glassCutouts
     /*! Its rest on the way to a new height, its contents already laid out at
         that height (ShellOverlay.liveHeight). */
     property bool resizing: false
@@ -121,6 +122,7 @@ Surface {
     radius: Appearance.r.panel
     glass: Appearance.popupOpacity
     clearGlass: true
+    glassCutoutMask: snapshot.cutoutMask
     // A card in flight is the one that was there: as strong as that one was
     // from its first frame, whatever its own fade has reached, and coming in
     // with its fade from there.
@@ -171,16 +173,17 @@ Surface {
         itself, it takes off with it at once, the picture being all it waits
         for. Given up when there is nothing on screen to hand over. */
     function depart(): void {
-        const ratio = card.Screen.devicePixelRatio;
-        const grabbed = card.settled && stage.grabToImage(result => {
-            const self = card.renewing && Overlay.flight.contents === null;
+        const pending = Overlay.flight;
+        const grabbed = card.settled && snapshot.capture(result => {
+            if (Overlay.flight !== pending)
+                return;
+            const self = card.renewing && pending.contents === null;
             if (!card.holding && !self)
                 return;
-            Overlay.depart(card.overlayId, Qt.rect(card.x, card.y, card.width, card.height),
-                card.opacity, result);
+            Overlay.depart(card.overlayId, Qt.rect(card.x, card.y, card.width, card.height), card.opacity, result);
             if (self)
                 card.arrive();
-        }, Qt.size(Math.ceil(card.width * ratio), Math.ceil(card.height * ratio)));
+        });
         if (!grabbed)
             Overlay.abandon(card.overlayId);
     }
@@ -257,14 +260,15 @@ Surface {
             layer.enabled: card.opacity < 1 || card.flying
         }
 
-        Image {
-            anchors.centerIn: parent
-            width: card.from.width
-            height: card.from.height
-            visible: card.flying && card.leftBehind !== null
-            source: card.leftBehind?.url ?? ""
-            opacity: card.outgoing
-            cache: false
+        OverlayCardSnapshot {
+            id: snapshot
+            anchors.fill: parent
+            captureSource: stage
+            frame: body
+            picture: card.leftBehind
+            pictureSize: Qt.size(card.from.width, card.from.height)
+            incoming: card.incoming
+            outgoing: card.outgoing
         }
     }
 

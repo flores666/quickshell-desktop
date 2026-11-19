@@ -76,6 +76,7 @@ Item {
 
     default property alias content: card.contentData
     readonly property alias cardItem: card
+    property alias glassCutouts: card.glassCutouts
     /*! The screen the popups are on. */
     readonly property ShellScreen screen: Overlay.screen
 

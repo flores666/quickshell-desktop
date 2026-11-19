@@ -9,7 +9,10 @@ Column {
     id: root
 
     required property var draft
+    required property string category
+    property alias input: taskTitle.input
     signal finished
+    signal categoryRequested(Item anchor)
 
     readonly property bool validTimes: DailyNotes.validRange(start.text.trim(), end.text.trim())
     readonly property bool canSave: DailyNotes.ready && taskTitle.text.trim() !== "" && root.validTimes
@@ -17,14 +20,13 @@ Column {
     spacing: Appearance.s.md
 
     function save(): void {
-        if (root.canSave && DailyNotes.save(root.draft.day, root.draft.id, taskTitle.text, start.text, end.text))
+        if (root.canSave && DailyNotes.save(root.draft.day, root.draft.id,
+                taskTitle.text, start.text, end.text, root.category))
             root.finished();
     }
 
-    Component.onCompleted: Qt.callLater(() => taskTitle.input.forceActiveFocus())
-
     Label {
-        text: root.draft.id === "" ? qsTr("New Task") : qsTr("Edit Task")
+        text: qsTr("Edit Task")
         role: Label.Role.Subtitle
     }
 
@@ -35,6 +37,13 @@ Column {
         text: root.draft.title
         placeholder: qsTr("Task name")
         onAccepted: root.save()
+    }
+
+    DailyNoteCategoryButton {
+        objectName: "editNoteCategory"
+        width: Math.min(implicitWidth, root.width)
+        category: root.category
+        onClicked: root.categoryRequested(this)
     }
 
     Label {

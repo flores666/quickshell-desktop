@@ -52,6 +52,11 @@ Item {
         if (root.started)
             return;
         root.started = true;
+        if (Quickshell.env("TEST_BIN") === "" || Quickshell.screens.length === 0) {
+            check.report("isolated wallpaper fixture required", false, "run tools/test.sh WallpaperColorTest in nested Hyprland");
+            check.done();
+            return;
+        }
         const sky = [["#2a3f66", 0.7], ["#e8702a", 0.3]];
 
         check.attempt("muted blue over most, vivid orange over the rest", () =>
@@ -74,18 +79,28 @@ Item {
             Settings.setWallpaperAccent("");
             Settings.setWallpaper(root.current);
             const screen = Quickshell.screens[0];
-            Backdrop.measure(screen, root.current, Qt.size(40, 25), root.picture(sky));
+            const gauge = Backdrop.gauge(screen);
+            const sampled = root.picture([["#2a3f66", 0.685], ["#e8702a", 0.3], ["#00ff00", 0.015]]);
+            Backdrop.measure(screen, root.current, gauge, sampled);
             check.sameColor("the wallpaper measured: its main colour kept",
                 Qt.color(Settings.wallpaperAccent), "#2a3f66", 2);
-            Backdrop.measure(screen, "/nonexistent/another.png", Qt.size(40, 25),
-                root.picture([["#c03030", 1]]));
+
+            const next = "/nonexistent/another.png";
+            const neutral = root.picture([["#808080", 1]]);
+            Backdrop.measure(screen, next, gauge, neutral);
             check.sameColor("another picture measured: nothing kept",
                 Qt.color(Settings.wallpaperAccent), "#2a3f66", 2);
+            check.equal("another picture cannot replace the current measurement", Backdrop.measured(screen), true);
+            Settings.setWallpaper(next);
+            check.equal("a new wallpaper waits for its own measurement", Backdrop.measured(screen), false);
+            Backdrop.measure(screen, next, gauge, neutral);
+            check.sameColor("a neutral wallpaper contributes its gray", Qt.color(Settings.wallpaperAccent), "#808080", 2);
         });
 
         check.attempt("put back", () => {
             Settings.setWallpaper("");
             Settings.setWallpaperAccent("");
+            check.equal("clearing the wallpaper invalidates its measurement", Backdrop.measured(Quickshell.screens[0]), false);
         });
         check.done();
     }

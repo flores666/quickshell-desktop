@@ -278,6 +278,8 @@ Singleton {
         case 1: layers = [{ y: 1, blur: 4, alpha: 0.7 * k }]; break;
         case 2: layers = [{ y: 2, blur: 6, alpha: 0.85 * k }]; break;
         case 3: layers = root.windowShadow; break;
+        case 4: layers = [{ y: root.windowDrag.shadowDrop, blur: root.windowDrag.shadowRange * 3 / 4 - 1,
+                            alpha: root.windowDrag.shadowOpacity }]; break;
         default: layers = []; break;
         }
         const pad = Math.max(0, ...layers.map(l => Math.ceil(l.y + l.blur * 1.5)));

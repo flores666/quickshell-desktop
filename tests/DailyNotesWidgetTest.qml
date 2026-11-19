@@ -14,7 +14,6 @@ import "root:/modules/widgets"
 
 Item {
     id: root
-
     Check { id: check }
     TestEvent { id: input }
     Until { id: ready }
@@ -37,13 +36,11 @@ Item {
     readonly property string historyDay: "2001-01-02"
     property var apps: []
     property var afterAnimation: null
-
     Timer {
         id: animation
         interval: Math.max(Appearance.t.base, Appearance.t.popupFade) + Appearance.t.grace
         onTriggered: root.afterAnimation()
     }
-
     function after(then: var): void {
         root.afterAnimation = then;
         animation.restart();
@@ -61,7 +58,6 @@ Item {
     function named(name: string): Item {
         return root.find(notes.cardItem, child => child.objectName === name);
     }
-
     function click(item: Item, button: int): void {
         input.mouseClick(item, item.width / 2, item.height / 2, button, Qt.NoModifier, -1);
     }
@@ -69,7 +65,6 @@ Item {
     function widget(): DockSlot {
         return root.find(root.row, child => child instanceof DockSlot && child.widget) as DockSlot;
     }
-
     function app(key: string): DockSlot {
         return root.find(root.row, child => child instanceof DockSlot && child.entry.key === key) as DockSlot;
     }
@@ -79,17 +74,18 @@ Item {
     }
 
     function expectDividers(label: string, widgetEdge: int, launcher: bool): void {
-        const slot = root.widget();
-        const widget = slot ? root.find(slot, child => child instanceof DockSeparator) : null;
-        const launcherSlot = root.row.children.find(child => child instanceof DockSlot && child.launcher);
-        const grid = root.find(launcherSlot, child => child instanceof DockSeparator);
-        check.equal(label + " launcher divider", grid?.visible ?? false, launcher);
-        check.equal(label + " widget divider", widget?.visible ?? false, widgetEdge !== 0);
-        if (widget && widgetEdge !== 0) {
-            const x = widget.mapToItem(slot.control, 0, 0).x;
-            const gapStart = widgetEdge === Qt.LeftEdge ? -Appearance.m.dockGap : slot.contentWidth;
-            check.equal(label + " divider is inside the gap",
-                x >= gapStart && x + widget.width <= gapStart + Appearance.m.dockGap, true);
+        const line = root.find(root.row.panel, child => child instanceof DockSeparator);
+        const dividers = line.parent.children.filter(child => child instanceof DockSeparator && child.visible);
+        check.equal(label + " divider count", dividers.length, Number(launcher) + Number(widgetEdge !== 0));
+        if (widgetEdge !== 0 && !root.row.rearranging) {
+            const control = root.widget().control;
+            const edge = widgetEdge === Qt.LeftEdge ? 0 : control.width;
+            const x = control.mapToItem(root.row, edge, 0).x;
+            const gap = Appearance.m.dockGap;
+            check.equal(label + " widget divider has the shared spacing", dividers.some(divider => {
+                const lineX = divider.mapToItem(root.row, 0, 0).x;
+                return Math.abs((widgetEdge === Qt.LeftEdge ? x - lineX - divider.width : lineX - x) - gap) < 0.001;
+            }), true);
         }
     }
 
@@ -130,7 +126,8 @@ Item {
         for (const key of root.apps) Settings.pin(key);
         check.equal("existing settings leave the new widget off by default", Settings.dailyNotesEnabled, false);
         root.expectOrder("legacy app order is preserved", root.apps);
-        check.equal("historical fixture saves", DailyNotes.save(root.historyDay, "", "Historical task", "", ""), true);
+        for (const category of ["Other", "Tasks"]) DailyNotes.addCategory(category);
+        check.equal("historical fixture saves", DailyNotes.save(root.historyDay, "", "Historical task", "", "", "Tasks"), true);
         root.toggleFromSettings(root.arrange);
     }
 
@@ -153,9 +150,11 @@ Item {
         root.expectOrder("widget drops between applications", [first, null, second, third]);
         root.expectDividers("between applications", 0, true);
         check.equal("reordering retains the widget delegate", root.widget(), slot);
-        check.near("mixed-width centers reflect the new order immediately", root.row.original.centers[1],
-            root.row.slotStride + slot.contentWidth / 2);
-        root.carry(slot, root.row.slotStride * 2, third, () => root.expectDividers("drag beside the launcher", 0, false));
+        check.near("mixed-width centers reflect the new order immediately",
+            root.row.original.centers[1] - root.row.original.centers[0],
+            (Appearance.m.dockIcon + slot.contentWidth) / 2 + Appearance.m.dockGap);
+        root.carry(slot, root.row.slotStride * 2, third,
+            () => root.expectDividers("drag beside the launcher", Qt.LeftEdge, false));
         root.expectOrder("widget drops beside the launcher", [first, second, third, null]);
         root.expectDividers("right edge", Qt.LeftEdge, false);
         root.carry(root.app(third), slot.width, null, () => root.expectDividers("drag an icon past the widget", 0, true));
@@ -199,18 +198,47 @@ Item {
         check.equal("click opens the notes overlay", Overlay.active, Overlay.dailyNotes);
         check.near("popup anchors to the relocated widget", Overlay.anchorXOf[Overlay.dailyNotes], anchor);
         check.equal("the dock stays out while its popup is open", dock.held, true);
+        root.after(root.compose);
+    }
+
+    function compose(): void {
+        check.equal("input is confined to the notes card", surface.mask.item, notes.cardItem);
+        check.equal("notes opens on today's date", notes.day, DailyNotes.today);
+        const entry = root.named("quickNote") as InputField;
+        check.equal("popup initially focuses quick entry", entry.input.activeFocus, true);
+        input.keyClick(Qt.Key_X, Qt.NoModifier, -1);
+        check.equal("typing on open reaches the task field", entry.text.toLowerCase(), "x");
+        check.equal("opening the widget defaults to the last task's category", notes.targetCategory, "Tasks");
+        entry.text = "Today's task";
+        input.keyClick(Qt.Key_Return, Qt.NoModifier, -1);
+        check.equal("Enter clears the draft on success", entry.text, "");
+        check.equal("adding a task in the default category refreshes the Dock preview",
+            DailyNotes.preview?.title === "Today's task" && DailyNotes.preview?.category === "Tasks", true);
+        const task = root.find(notes.cardItem, child => child instanceof DailyNoteRow) as DailyNoteRow;
+        check.equal("the category renders its task", task?.note.title, "Today's task");
+        if (!task) { check.done(); return; }
         root.after(() => {
-            check.equal("input is confined to the notes card", surface.mask.item, notes.cardItem);
-            check.equal("notes opens on today's date", notes.day, DailyNotes.today);
-            root.click(root.named("addNote"), Qt.LeftButton);
-            (root.named("noteTitle") as InputField).text = "Today's task";
-            (root.named("noteStart") as InputField).text = "18:00";
-            (root.named("noteEnd") as InputField).text = "09:00";
-            check.equal("reverse deadline is rejected in the editor", root.named("saveNote").enabled, false);
-            (root.named("noteEnd") as InputField).text = "19:15";
-            root.click(root.named("saveNote"), Qt.LeftButton);
-            check.equal("adding a task refreshes the Dock preview", DailyNotes.preview?.title, "Today's task");
-            check.equal("task keeps its time window", DailyNotes.rangeText(DailyNotes.preview), "18:00–19:15");
+            root.click(task, Qt.RightButton);
+            root.after(root.editToday);
+        });
+    }
+
+    function editToday(): void {
+        const edit = root.find(notes.cardItem, child => child instanceof MenuItemRow && child.label === "Edit");
+        check.equal("editing is offered after the popup grows", edit?.visible, true);
+        if (!edit) { check.done(); return; }
+        root.click(edit, Qt.LeftButton);
+        root.after(root.saveToday);
+    }
+
+    function saveToday(): void {
+        (root.named("noteStart") as InputField).text = "18:00";
+        (root.named("noteEnd") as InputField).text = "09:00";
+        check.equal("reverse deadline is rejected in the editor", root.named("saveNote").enabled, false);
+        (root.named("noteEnd") as InputField).text = "19:15";
+        root.click(root.named("saveNote"), Qt.LeftButton);
+        check.equal("task keeps its time window", DailyNotes.rangeText(DailyNotes.preview), "18:00–19:15");
+        root.after(() => {
             root.click(root.named("previousNoteDay"), Qt.LeftButton);
             check.equal("history jumps to the day with notes", notes.day, root.historyDay);
             root.after(root.track);
@@ -239,8 +267,10 @@ Item {
         root.click(task, Qt.LeftButton);
         check.equal("checkbox completes the task", task.done, true);
         check.equal("completing it returns to the latest open task", DailyNotes.preview?.title, "Today's task");
-        root.click(root.named("todayNotes"), Qt.LeftButton);
-        check.equal("Today returns to the current checklist", notes.day, DailyNotes.today);
+        DailyNotes.remove(task.note.id);
+        check.equal("removing the last historical task keeps its day open", notes.day, root.historyDay);
+        root.click(root.named("nextNoteDay"), Qt.LeftButton);
+        check.equal("next day returns to current checklist from empty history", notes.day, DailyNotes.today);
         for (const key of root.apps) Settings.unpin(key);
         root.after(() => {
             root.expectOrder("only the widget and launcher remain", [null]);
@@ -250,7 +280,6 @@ Item {
             check.done();
         });
     }
-
     Component.onCompleted: {
         if (Quickshell.env("TEST_BIN") === "") {
             check.report("private state required", false, "run with tools/test.sh");

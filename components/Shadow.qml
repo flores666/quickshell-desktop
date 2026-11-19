@@ -19,7 +19,7 @@ import "root:/config"
 Item {
     id: root
 
-    /*! 0 = none, 1 = resting chrome, 2 = raised card, 3 = floating overlay. */
+    /*! 0 = none, 1 = resting chrome, 2 = raised card, 3 = floating overlay, 4 = drag lift. */
     property int level: 2
     property int radius: Appearance.r.md
     /*! Transmitting popup glass must not look through the shadow's solid core. */

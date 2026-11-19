@@ -3,9 +3,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import "root:/config"
 
-/*! A divider that sits inside an existing dock gap. */
+/*! The hairline between a dock's application group and its edge controls. */
 Rectangle {
-    implicitWidth: 1
+    implicitWidth: Appearance.m.dockDividerWidth
     implicitHeight: Appearance.m.dockDivider
     color: Appearance.c.border
 }

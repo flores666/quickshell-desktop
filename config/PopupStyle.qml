@@ -46,6 +46,18 @@ Singleton {
     readonly property color success: root.readable(Appearance.c.success)
     readonly property color accentIndicator: root.readable(Appearance.c.accent)
 
+    // Category glass meets the wallpaper directly. The hue order matches across themes.
+    readonly property list<color> noteCategoryTints: Appearance.dark
+        ? ["#421227", "#3d240c", "#102a15", "#0b2b29", "#142345", "#2b153b"]
+        : ["#ffd0dc", "#ffe2a6", "#ccefb8", "#b8ebe4", "#c7e2ff", "#e2ceff"]
+    readonly property real noteCategoryCoverage: 0.25
+
+    function noteCategoryFill(index: int, glass: real): color {
+        const base = Appearance.c.glass * glass;
+        return Qt.alpha(root.noteCategoryTints[index % root.noteCategoryTints.length],
+            base + (1 - base) * root.noteCategoryCoverage);
+    }
+
     function accentGlass(): var {
         let alpha = Appearance.c.glass * Appearance.popupOpacity * root.tileAccentCoverage;
         for (let step = 0; step < 8; step++) {

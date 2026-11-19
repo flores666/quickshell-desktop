@@ -73,6 +73,8 @@ QtObject {
     /*! With magnification on, the dock's hand and name wait together;
         magnification itself and input still follow the pointer immediately. */
     readonly property int dockHover: 300
+    /*! Scroll a notes board while a category is held at its edge, in pixels per second. */
+    readonly property int noteDragScrollSpeed: 520
     /*! How long the dock's preview stays once the pointer has left it and the
         icons, so a path that strays off them for a moment does not close it. */
     readonly property int linger: 250

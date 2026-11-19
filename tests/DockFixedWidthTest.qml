@@ -186,10 +186,11 @@ Item {
         root.watching = false;
         root.row.magnifying = false;
         root.removed = Dock.items.find(item => item.pinned && !item.running);
+        const dividerSpan = Dock.items.length === 1 ? Appearance.m.dockGap + Appearance.m.dockDividerWidth : 0;
         Settings.unpin(root.removed.key);
         root.after(Appearance.t.base + Appearance.t.grace, () => {
             check.near("application leaving still shrinks the dock", root.row.original.width,
-                root.resting.width - root.row.slotStride);
+                root.resting.width - root.row.slotStride - dividerSpan);
             Settings.pin(root.removed.key);
             root.after(Appearance.t.base + Appearance.t.grace, () => {
                 check.near("application arriving restores its footprint", root.row.width, root.resting.width);

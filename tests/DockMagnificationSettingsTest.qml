@@ -53,7 +53,7 @@ Item {
     }
     function pointAt(index: real): void {
         row.pointerX = (row.screen.width - row.original.width) / 2
-            + Appearance.m.dockSlot / 2 + index * row.slotStride;
+            + (row.original.centers[index] ?? row.original.centers[0] + index * row.slotStride);
     }
 
     Component.onCompleted: wait.until(Settings.readyChanged, () => Settings.ready,

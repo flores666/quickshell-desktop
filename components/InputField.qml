@@ -13,9 +13,12 @@ FieldWell {
 
     property alias text: field.text
     property alias placeholder: placeholderLabel.text
+    property alias placeholderColor: placeholderLabel.color
     property alias input: field
     /*! TextInput.Password for a secret: dots in place of what is typed. */
     property alias echoMode: field.echoMode
+    /*! Space for controls placed in the well's trailing layer. */
+    property real rightInset: Appearance.s.lg
 
     signal accepted
 
@@ -26,7 +29,7 @@ FieldWell {
 
         anchors.verticalCenter: parent.verticalCenter
         x: Appearance.s.lg
-        width: root.width - Appearance.s.lg * 2
+        width: Math.max(0, root.width - x - root.rightInset)
         color: Appearance.c.text
         font.family: Appearance.fontFamily
         font.pixelSize: Appearance.font.body

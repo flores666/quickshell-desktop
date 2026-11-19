@@ -53,10 +53,12 @@ QtObject {
     /*! A window dot: round, this across, and how far under its slot. */
     readonly property int dockDot: 3
     readonly property int dockDotGap: 2
-    /*! Between neighbouring slots, so their icons stand 12px apart. */
-    readonly property int dockGap: 8
+    /*! Clear space between adjacent artwork boxes and on both sides of a divider. */
+    readonly property int dockGap: 12
     readonly property int dockSlot: root.dockIcon + root.dockInset * 2
     readonly property int dockNotesWidth: 176
+    readonly property int dockNotesRing: 22
+    readonly property int dockNotesRingStroke: 3
     /*! At defaults, a broad Gaussian: one stride away is 117.2%, two is 111.1%. */
     readonly property real dockMagnification: 1 + Tuning.pick("dockZoom") / 100
     readonly property real dockWaveSpread: 1.85 * Tuning.pick("dockWaveWidth") / 100
@@ -73,6 +75,7 @@ QtObject {
     /*! The dock divider, as a share of an icon: shorter than
         the icons, it reads as a pause rather than a wall. */
     readonly property int dockDivider: Math.round(root.dockIcon * 0.6)
+    readonly property int dockDividerWidth: 1
     /*! How tall the dock is on screen, including the gap under it: what it
         reserves while it is always shown, and what popups and the OSD keep
         clear of either way. */
@@ -101,7 +104,12 @@ QtObject {
         back out to it: a toast, and a row leaving the notification centre. */
     readonly property int notificationSlide: 40
     readonly property int popoverWidth: 372
-    readonly property int dailyNotesHeight: 392
+    readonly property int dailyNotesWidth: 504
+    readonly property int dailyNotesTileMinimum: 180
+    /*! A small visual lift keeps focused notes within the popup's paint gutter. */
+    readonly property real dailyNotesFocusScale: 1.06
+    readonly property real dailyNotesOtherScale: 2 - root.dailyNotesFocusScale
+    readonly property int dailyNotesCategoryRows: 4
     readonly property int touchTarget: 32
     /*! How tall a text field stands. Named once so the search fields and the
         password wells cannot drift apart. */

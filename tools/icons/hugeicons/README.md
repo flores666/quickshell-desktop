@@ -20,7 +20,7 @@ them with round globally. Most strokes are 1.5 units; gamepad button dots use 2.
 Circles remain circles in the source artwork. No fonts or application theme are
 needed to render these icons.
 
-`map.json` preserves the shell's 143 semantic keys. The battery aliases use five
+`map.json` defines the shell's semantic icon keys. The battery aliases use five
 upstream levels (`BatteryEmpty`, `BatteryLow`, `BatteryMedium01`,
 `BatteryMedium02`, `BatteryFull`), with separate charging and external-supply
 symbols; the displayed battery percentage stays exact. Wi-Fi uses the matching

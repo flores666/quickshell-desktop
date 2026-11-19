@@ -16,6 +16,7 @@ Item {
     Until { id: ready }
     FileWait { id: saved }
     TestEvent { id: input }
+    TestResult { id: pixels }
     DockPanel { id: dock; modelData: Quickshell.screens[0] }
     FileView { id: external; path: root.statePath; blockWrites: true; printErrors: false }
 
@@ -25,12 +26,12 @@ Item {
     readonly property var notes: Dock.notesSlot.key
     readonly property string missing: "quickshell-launcher-test-missing"
     property var apps: []
-    property real widthBeforeDrag: 0
 
     Timer {
         id: settle
+        property var then: root.exerciseDrag
         interval: Appearance.t.base + Appearance.t.grace
-        onTriggered: root.exerciseDrag()
+        onTriggered: settle.then()
     }
 
     function find(item: Item, matches: var): Item {
@@ -49,25 +50,46 @@ Item {
     function expectOrder(label: string, keys: var): void {
         check.equal(label, JSON.stringify(Dock.slotKeys), JSON.stringify(keys));
         root.row.forceLayout();
-        check.near(label + " keeps the dock width", root.row.width, root.widthBeforeDrag);
+        check.near(label + " covers the laid-out slots", root.row.width, root.row.original.width);
         check.equal(label + " resting centers match the slots", keys.every((key, i) => {
             const control = root.slot(key)?.control;
             return control && Math.abs(control.mapToItem(root.row, control.width / 2, 0).x
                 - root.row.original.centers[i]) < 0.001;
         }), true);
+        const parts = keys.map(key => root.artworkBox(root.slot(key)));
+        for (const divider of root.dividers())
+            parts.push({ x: divider.mapToItem(root.row, 0, 0).x, width: divider.width });
+        parts.sort((a, b) => a.x - b.x);
+        for (let i = 1; i < parts.length; ++i)
+            check.near(label + " equal artwork gap " + i, parts[i].x - parts[i - 1].x - parts[i - 1].width,
+                Appearance.m.dockGap);
+    }
+
+    function dividers(): var {
+        const first = root.find(root.row.panel, item => item instanceof DockSeparator);
+        return first.parent.children.filter(item => item instanceof DockSeparator && item.visible);
+    }
+
+    function artworkBox(slot: DockSlot): var {
+        const control = slot.control;
+        return { x: control.mapToItem(root.row, (control.width - slot.artworkWidth) / 2, 0).x,
+            width: slot.artworkWidth };
     }
 
     function expectDividers(label: string, notesEdge: int, launcherEdge: int): void {
+        const dividers = root.dividers();
+        const count = Number(notesEdge !== 0) + Number(launcherEdge !== 0);
+        check.equal(label + " divider count", dividers.length, count);
+        if (root.row.rearranging)
+            return;
         for (const [key, edge] of [[root.notes, notesEdge], [root.launcher, launcherEdge]]) {
-            const slot = root.slot(key);
-            const divider = root.find(slot, item => item instanceof DockSeparator);
-            check.equal(label + " separator visibility " + key, divider?.visible ?? false, edge !== 0);
-            if (divider && edge !== 0) {
-                const x = divider.mapToItem(slot.control, 0, 0).x;
-                const start = edge === Qt.LeftEdge ? -Appearance.m.dockGap : slot.contentWidth;
-                check.equal(label + " separator is in the gap " + key,
-                    x >= start && x + divider.width <= start + Appearance.m.dockGap, true);
-            }
+            if (edge === 0)
+                continue;
+            const box = root.artworkBox(root.slot(key));
+            const x = edge === Qt.LeftEdge ? box.x - Appearance.m.dockGap - Appearance.m.dockDividerWidth
+                : box.x + box.width + Appearance.m.dockGap;
+            check.equal(label + " divider sits by " + key,
+                dividers.some(divider => Math.abs(divider.mapToItem(root.row, 0, 0).x - x) < 0.001), true);
         }
     }
 
@@ -106,7 +128,6 @@ Item {
         check.near("launcher and app artwork share a centerline",
             glyph.mapToItem(root.row, 0, glyph.height / 2).y, artwork.mapToItem(root.row, 0, artwork.height / 2).y);
         check.equal("controls publish no app icon targets", root.row.iconTargets.length, root.apps.length);
-        root.widthBeforeDrag = Appearance.m.dockNotesWidth + 4 * root.row.slotStride;
         root.expectOrder("legacy order keeps Applications on the right", [root.notes, ...root.apps, root.launcher]);
         root.expectDividers("both edges", Qt.RightEdge, Qt.LeftEdge);
 
@@ -157,10 +178,48 @@ Item {
                 Qt.callLater(() => {
                     root.expectOrder("right-side controls reload in the saved order", order);
                     root.expectDividers("two controls at the right edge", 0, Qt.LeftEdge);
-                    check.done();
+                    Settings.setDockOpacityFollowsBar(false);
+                    Settings.setOverride("dockOpacity", 0);
+                    settle.then = root.transparent;
+                    settle.start();
                 });
             });
         });
+    }
+
+    function transparent(): void {
+        const panel = root.row.panel;
+        const control = root.slot(root.launcher).control;
+        const glyph = root.find(control, item => item instanceof Icon && item.name === "apps") as Icon;
+        const widget = root.slot(root.notes).control;
+        check.near("transparent widget keeps its compact height", widget.height, Appearance.m.dockSlot);
+        check.near("transparent widget keeps its width", widget.width, Appearance.m.dockNotesWidth);
+        check.near("widget is vertically centered in the transparent dock",
+            widget.mapToItem(panel, 0, widget.height / 2).y, panel.height / 2);
+        check.near("Applications starts at the top of the transparent dock", control.mapToItem(panel, 0, 0).y, 0);
+        check.near("Applications fills the reserved height", control.height, panel.height);
+        check.near("Applications artwork is vertically centered in the transparent dock",
+            glyph.mapToItem(panel, 0, glyph.height / 2).y, panel.height / 2);
+        check.near("transparent dock reserves its compact height and screen gap", dock.exclusiveZone,
+            panel.height + Appearance.m.screenGap);
+        const app = root.slot(root.apps[0]).control;
+        check.near("app icons keep their own slot height", app.height, Appearance.m.dockSlot);
+        check.attempt("capture the transparent dock", root.verifyPaintedDivider);
+        check.done();
+    }
+
+    function verifyPaintedDivider(): void {
+        const panel = root.row.panel;
+        const divider = root.dividers()[0];
+        const image = pixels.grabImage(panel);
+        const scale = image.width / panel.width;
+        const at = divider.mapToItem(panel, 0, divider.height / 2);
+        const y = Math.floor(at.y * image.height / panel.height);
+        const gap = image.pixel(Math.floor((at.x - Appearance.m.dockGap / 2) * scale), y);
+        let painted = false;
+        for (let x = Math.floor(at.x * scale); x < Math.ceil((at.x + divider.width) * scale); ++x)
+            painted = painted || !Qt.colorEqual(image.pixel(x, y), gap);
+        check.equal("the divider paints pixels in the transparent dock", painted, true);
     }
 
     Component.onCompleted: {

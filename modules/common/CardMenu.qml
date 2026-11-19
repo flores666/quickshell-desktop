@@ -29,21 +29,34 @@ Item {
     readonly property var menu: root.active ? Overlay.menu : null
     /*! The item it opens beside goes with its delegate; the menu goes too. */
     readonly property bool open: root.menu !== null && (root.menu.source ?? null) !== null
+    readonly property Item customItem: custom.item as Item
 
     visible: root.open
 
-    /*! What had the keyboard when the menu took it, given back as it closes:
-        its rows go with it, and the keyboard would be left with nothing. */
+    /*! Where to return focus as the menu goes away, supplied by content
+        menus or remembered when opening a menu with the keyboard. */
     property Item returnFocus: null
 
-    onOpenChanged: {
-        if (root.open && InputMode.keyboard) {
-            root.returnFocus = root.Window.activeFocusItem;
-            Qt.callLater(() => rows.itemAt(0)?.forceActiveFocus());
-        } else if (!root.open) {
+    onMenuChanged: {
+        const request = root.menu;
+        if (!request?.source)
+            return;
+        if (request.content)
+            root.returnFocus = request.returnFocus;
+        else if (InputMode.keyboard)
+            root.returnFocus = root.returnFocus ?? root.Window.activeFocusItem;
+        else
+            return;
+        Qt.callLater(() => {
+            if (root.menu === request)
+                (request.content ? root.customItem : rows.itemAt(0))?.forceActiveFocus();
+        });
+    }
+
+    onOpenChanged: if (!root.open) {
+        if (root.active)
             root.returnFocus?.forceActiveFocus();
-            root.returnFocus = null;
-        }
+        root.returnFocus = null;
     }
 
     MouseArea {
@@ -79,12 +92,22 @@ Item {
         x: Math.max(panel.edge, Math.min(root.width - panel.width - panel.edge, panel.at.x))
         y: panel.below + panel.height <= root.height - panel.edge ? panel.below
             : Math.max(panel.edge, panel.at.y - panel.height - Appearance.s.xs)
-        width: Appearance.m.menuWidth
-        height: column.implicitHeight + Appearance.s.xs * 2
+        width: root.customItem ? Math.max(0, Math.min(root.width - panel.edge * 2,
+            root.customItem.implicitWidth + Appearance.s.xs * 2)) : Appearance.m.menuWidth
+        height: root.customItem ? Math.max(0, Math.min(root.height - panel.edge * 2,
+            root.customItem.implicitHeight + Appearance.s.xs * 2)) : column.implicitHeight + Appearance.s.xs * 2
         radius: Appearance.r.md
         color: Appearance.c.surface
         borderColor: Appearance.c.borderStrong
         elevation: 3
+
+        Loader {
+            id: custom
+            anchors.fill: parent
+            anchors.margins: Appearance.s.xs
+            active: root.open
+            sourceComponent: root.menu?.content ?? null
+        }
 
         Column {
             id: column

@@ -198,9 +198,9 @@ Singleton {
     }
 
     /*!
-        A context menu inside the popup that is open: `{ source, entries }`,
-        where `source` is the item it opens beside and each entry is
-        `{ label, icon, danger, run }`.
+        A context menu inside the popup that is open. It opens beside source
+        and shows either action entries ({ label, icon, danger, run }) or
+        a content component with a keyboard focus target to restore.
 
         Held here rather than by a popup because there is only ever one popup
         for it to be in, and it has to go when that popup does, however the
@@ -210,6 +210,10 @@ Singleton {
 
     function openMenu(source: Item, entries: var): void {
         root.menu = { source: source, entries: entries };
+    }
+
+    function openMenuContent(source: Item, content: Component, returnFocus: Item): void {
+        root.menu = { source, content, returnFocus };
     }
 
     function closeMenu(): void {

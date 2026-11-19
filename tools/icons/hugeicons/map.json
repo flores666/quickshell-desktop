@@ -121,6 +121,7 @@
   "shutdown": "Power",
   "speakers": "Speaker01",
   "suspend": "Moon02",
+  "target": "Target01",
   "trash": "Delete02",
   "upload": "ArrowUp02",
   "user": "UserCircle",
