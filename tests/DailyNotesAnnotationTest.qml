@@ -173,7 +173,34 @@ Item {
         check.equal("the first keys append one note and keep the same field focused",
             field.activeFocus && root.named("taskAnnotationInput")[0] === field
                 && DailyNotes.find(root.taskId).annotations.join(",") === "Updated second,Keep me,ab", true);
+        field.selectAll();
+        input.keyClick(Qt.Key_Backspace, Qt.NoModifier, -1);
+        check.equal("erasing a new note removes its autosave and keeps its placeholder focused",
+            field.activeFocus && root.named("taskAnnotationInput")[0] === field
+                && DailyNotes.find(root.taskId).annotations.join(",") === "Updated second,Keep me", true);
+        field.text = "Retyped note";
         input.keyClick(Qt.Key_Return, Qt.NoModifier, -1);
+        check.equal("retyping the same draft adds just one note", DailyNotes.find(root.taskId).annotations.join(","),
+            "Updated second,Keep me,Retyped note");
+        root.afterLayout(() => root.openAddMenu(root.acceptBlankNote));
+    }
+
+    function acceptBlankNote(): void {
+        const field = root.named("taskAnnotationInput")[0] as TextEdit;
+        field.text = "   ";
+        input.keyClick(Qt.Key_Return, Qt.NoModifier, -1);
+        check.equal("Enter closes a whitespace-only placeholder without adding a note",
+            notes.draft === null && DailyNotes.find(root.taskId).annotations.length === 3, true);
+        root.afterLayout(() => root.openAddMenu(root.dismissErasedNote));
+    }
+
+    function dismissErasedNote(): void {
+        const field = root.named("taskAnnotationInput")[0] as TextEdit;
+        field.text = "Temporary note";
+        field.text = " ";
+        root.click(root.named("noteCheckbox")[0], Qt.LeftButton);
+        check.equal("dismissing a cleared new note leaves no note behind",
+            notes.draft === null && DailyNotes.find(root.taskId).annotations.length === 3, true);
         root.afterLayout(() => root.openAddMenu(root.dismissBlankNote));
     }
 

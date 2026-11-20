@@ -16,18 +16,31 @@ Item {
 
     implicitHeight: taskTitle.implicitHeight
 
-    function persist(): bool {
-        const annotation = root.draft?.annotation;
-        if (annotation) {
-            if (!DailyNotes.saveAnnotation(root.draft.id, root.annotationSnapshot, annotation.index, taskTitle.text))
+    function persistAnnotation(annotation: var, text: string): bool {
+        if (text === "") {
+            // Clearing a new draft can undo its own autosave. Existing notes
+            // retain their last valid text and are deleted through their menu.
+            if (annotation.index < (annotation.snapshot?.length ?? 0))
                 return false;
-            root.annotationSnapshot = DailyNotes.find(root.draft.id).annotations;
-            return true;
+            if (annotation.index === (root.annotationSnapshot?.length ?? 0))
+                return true;
         }
+        if (!DailyNotes.saveAnnotation(root.draft.id, root.annotationSnapshot, annotation.index, text === "" ? null : text))
+            return false;
+        root.annotationSnapshot = DailyNotes.find(root.draft.id).annotations;
+        return true;
+    }
+
+    function persist(): bool {
+        const text = taskTitle.text.trim();
+        if (root.editingAnnotation)
+            return root.persistAnnotation(root.draft.annotation, text);
+        if (text === "")
+            return false;
         const note = DailyNotes.find(root.draft?.id ?? "");
         if (!note)
             return false;
-        return DailyNotes.save(note.day, note.id, taskTitle.text, note.deadline);
+        return DailyNotes.save(note.day, note.id, text, note.deadline);
     }
 
     TextEdit {
@@ -53,10 +66,10 @@ Item {
             taskTitle.text = root.draft?.text ?? "";
             taskTitle.initialized = true;
         }
-        onTextChanged: if (taskTitle.initialized && taskTitle.text.trim() !== "") root.persist()
+        onTextChanged: if (taskTitle.initialized) root.persist()
         Keys.onPressed: event => {
             if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
-                if (taskTitle.text.trim() !== "" && root.persist())
+                if (root.persist())
                     root.finished();
                 event.accepted = true;
             }
