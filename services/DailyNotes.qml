@@ -12,6 +12,7 @@ Singleton {
     property var document: ({ nextId: 1, boards: {}, notes: [] })
     property bool ready: false
     property string error: ""
+    signal taskAdded(string day, string category, string id)
 
     readonly property string today: Qt.formatDate(Time.now, "yyyy-MM-dd")
     readonly property var emptyBoard: ({ categories: [] })
@@ -241,8 +242,11 @@ Singleton {
         if (!Number.isSafeInteger(nextId + 1))
             return false;
         const added = Object.assign({ id: String(nextId), day, done: false }, fields);
-        return root.commit(Object.assign({}, root.document,
+        const saved = root.commit(Object.assign({}, root.document,
             { nextId: nextId + 1, notes: [added, ...root.document.notes] }));
+        if (saved)
+            root.taskAdded(day, key, added.id);
+        return saved;
     }
 
     function replace(note: var, fields: var): bool {
@@ -278,7 +282,6 @@ Singleton {
     }
 
     Component.onCompleted: root.load()
-
     DailyNotesDocument { id: documentFormat }
 
     FileView {
@@ -290,11 +293,8 @@ Singleton {
         blockWrites: true
         atomicWrites: true
         printErrors: false
-
         onLoaded: file.readResult = FileViewError.Success
         onLoadFailed: error => file.readResult = error
-        onSaveFailed: error => {
-            console.warn("Daily notes write failed:", FileViewError.toString(error));
-        }
+        onSaveFailed: error => console.warn("Daily notes write failed:", FileViewError.toString(error))
     }
 }

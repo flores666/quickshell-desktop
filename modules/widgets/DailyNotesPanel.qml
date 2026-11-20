@@ -108,6 +108,18 @@ ShellOverlay {
         }
     }
 
+    function presentAddedTask(day: string, category: string, id: string): void {
+        if (!root.shown || root.day !== day)
+            return;
+        const tile = board.tiles.get(category) as DailyNoteCategory;
+        const row = tile?.showAddedTask(id);
+        // A compact popup is still growing to fit the row. Scroll only at the screen limit.
+        if (row && root.cardHeight >= root.height) {
+            const top = row.mapToItem(list.viewport.contentItem, 0, 0).y;
+            list.revealBounds(top, row.height * tile.layoutScale);
+        }
+    }
+
     function editTask(id: string, index: var): void {
         if (!root.shown || !DailyNotes.ready || root.draft || Overlay.menu !== null)
             return;
@@ -186,6 +198,10 @@ ShellOverlay {
 
     Connections {
         target: DailyNotes
+        function onTaskAdded(day: string, category: string, id: string): void {
+            if (root.shown && root.day === day)
+                Qt.callLater(root.presentAddedTask, day, category, id);
+        }
         function onDocumentChanged(): void {
             if (root.draft && !DailyNotes.find(root.draft.id))
                 root.finishEdit();

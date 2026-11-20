@@ -17,6 +17,7 @@ Clickable {
     property Component taskEditor: null
     property bool taskDestination: false
     property bool reorderEnabled: false
+    property bool animateInsertion: true
     property bool carried: false
     property real lift: 0
     property real layoutScale: 1
@@ -30,6 +31,54 @@ Clickable {
     signal stepRequested(int delta)
 
     readonly property int count: root.group?.notes.size ?? 0
+    property DailyNoteRow insertionRow: null
+    property real insertionProgress: 0
+    readonly property real insertionRise: Appearance.t.noteInsertionRise / Appearance.t.noteInsertion
+    readonly property real insertionStrength: {
+        if (!root.insertionRow)
+            return 0;
+        const p = root.insertionProgress;
+        const peak = root.insertionRise;
+        const distance = (p - peak) / (p < peak ? peak : 1 - peak);
+        // Three standard deviations on either side, normalized to rest at both ends.
+        const tail = Math.exp(-4.5);
+        return (Math.exp(-4.5 * distance * distance) - tail) / (1 - tail);
+    }
+
+    onAnimateInsertionChanged: if (!root.animateInsertion) root.clearInsertion()
+    onEnabledChanged: if (!root.enabled) root.clearInsertion()
+
+    function showAddedTask(id: string): DailyNoteRow {
+        if (!root.group?.notes.has(id))
+            return null;
+        const index = [...root.group.notes.keys()].indexOf(id);
+        const row = rows.itemAt(index) as DailyNoteRow;
+        if (row?.note?.id !== id)
+            return null;
+        contents.forceLayout();
+        if (root.animateInsertion) {
+            root.clearInsertion();
+            root.insertionProgress = 0;
+            root.insertionRow = row;
+            insertion.start();
+        }
+        return row;
+    }
+
+    function clearInsertion(): void {
+        insertion.stop();
+        root.insertionRow = null;
+    }
+
+    NumberAnimation {
+        id: insertion
+        target: root
+        property: "insertionProgress"
+        from: 0
+        to: 1
+        duration: Appearance.t.noteInsertion
+        onFinished: root.insertionRow = null
+    }
 
     implicitHeight: contents.implicitHeight + Appearance.s.md * 2
     height: implicitHeight
@@ -179,15 +228,39 @@ Clickable {
         }
 
         Repeater {
+            id: rows
             model: ScriptModel { values: root.group ? [...root.group.notes.keys()] : [] }
+            onItemRemoved: (index, item) => {
+                if (item === root.insertionRow)
+                    root.clearInsertion();
+            }
 
             DailyNoteRow {
+                id: row
                 required property string modelData
+                readonly property real lensWeight: {
+                    const center = root.insertionRow;
+                    if (!center)
+                        return 0;
+                    const distance = (row.y + row.height / 2 - center.y - center.height / 2)
+                        / Appearance.m.dailyNotesInsertionSpread;
+                    return Math.exp(-distance * distance / 2);
+                }
+                readonly property real magnification: root.insertionStrength * row.lensWeight
 
                 width: contents.width
                 note: root.group?.notes.get(this.modelData) ?? null
                 draft: this.modelData === root.draft?.id ? root.draft : null
                 editor: root.taskEditor
+                transform: Scale {
+                    origin.x: row.width / 2
+                    origin.y: row.height / 2
+                    // Grow within the card padding and each row's share of the gap.
+                    xScale: 1 + row.magnification * Math.min(Appearance.m.dailyNotesInsertionZoom,
+                        2 * contents.x / Math.max(1, row.width))
+                    yScale: 1 + row.magnification * Math.min(Appearance.m.dailyNotesInsertionZoom,
+                        contents.spacing / Math.max(1, row.height))
+                }
                 onEditRequested: (id, index) => root.editRequested(id, index)
             }
         }

@@ -251,6 +251,7 @@ Item {
             draft: root.draft
             taskEditor: root.taskEditor
             reorderEnabled: root.canReorder
+            animateInsertion: root.animated
             carried: motion.tile === tile
             lift: tile.carried ? motion.lift : 0
             z: tile.carried ? 2 : tile.layoutScale > 1 ? 1 : 0

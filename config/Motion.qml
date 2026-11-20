@@ -53,6 +53,8 @@ QtObject {
     readonly property int popupFade: Math.round(root.fast / root.popupPace)
     readonly property int popupMove: Math.round(root.base / root.popupPace)
     readonly property int popupResize: Math.round(root.resize / root.popupPace)
+    readonly property int noteInsertion: root.popupFade + root.popupResize
+    readonly property int noteInsertionRise: root.popupFade
     /*! How much quicker the window switcher comes and goes than a popup's
         card, and its title changes: it is up only while Alt is held, and
         must not keep the hand on it waiting. `popupFade` and `popupMove` at
