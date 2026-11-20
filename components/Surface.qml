@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import "root:/config"
 
@@ -36,7 +35,8 @@ Item {
     property bool bordered: true
     /*! Popup cards and standalone notifications share this material. */
     property bool clearGlass: false
-    /*! Layer in surface coordinates marking where children supply their own glass. */
+    /*! Layer in surface coordinates. Alpha is geometric cutout coverage, and
+        premultiplied red is the opacity painted over the glass at each pixel. */
     property Item glassCutoutMask: null
     property color borderColor: root.scheme.border
     /*! How much of its glass it lays down: its fill, hairline and shadow
@@ -101,12 +101,10 @@ Item {
             border.color: Qt.alpha(root.borderColor, root.borderColor.a * root.glass)
             antialiasing: root.radius > 0
             layer.enabled: root.glassCutoutMask !== null && root.visible
-            layer.effect: MultiEffect {
-                maskEnabled: true
-                maskSource: root.glassCutoutMask
-                maskInverted: true
-                maskThresholdMin: 0.5
-                maskSpreadAtMin: 1
+            layer.effect: ShaderEffect {
+                property var source
+                property Item cutoutMask: root.glassCutoutMask
+                fragmentShader: "shaders/glass-cutout.frag.qsb"
             }
 
             Loader {

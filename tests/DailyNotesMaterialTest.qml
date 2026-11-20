@@ -19,6 +19,7 @@ Item {
     property point restingEdge
     property point cardCenter
     property point cardGap
+    property real cardPaintOpacity
 
     OverlaySurface {
         DailyNotesPanel { id: notes }
@@ -40,7 +41,9 @@ Item {
                 context.clearRect(0, 0, pixels.width, pixels.height);
                 context.drawImage(root.capture.url, 0, 0, pixels.width, pixels.height);
                 if (root.transferring) {
-                    check.within("the outgoing mask carries the category cutout", root.alphaAt(context, root.cardCenter), 1, 2 / 255);
+                    const cutout = root.pixelAt(context, root.cardCenter);
+                    check.within("the outgoing mask carries the category cutout", cutout[3] / 255, 1, 2 / 255);
+                    check.within("the outgoing mask retains the category's paint opacity", cutout[0] / 255, root.cardPaintOpacity, 2 / 255);
                     check.within("the outgoing mask excludes the gap", root.alphaAt(context, root.cardGap), 0, 2 / 255);
                 } else {
                     check.attempt("category glass pixels", () => root.checkPixels(context));
@@ -76,25 +79,45 @@ Item {
             pixels.requestPaint();
     }
 
-    function tile(item: Item, key: string): DailyNoteCategory {
-        const category = item as DailyNoteCategory;
-        if (category?.category === key)
-            return category;
+    function find(item: Item, matches: var): Item {
+        if (matches(item))
+            return item;
         for (const child of item.children) {
-            const found = root.tile(child, key);
+            const found = root.find(child, matches);
             if (found)
                 return found;
         }
         return null;
     }
 
+    function tile(key: string): DailyNoteCategory {
+        return root.find(notes.cardItem, item => item instanceof DailyNoteCategory && item.category === key) as DailyNoteCategory;
+    }
+
+    function pixelAt(context: var, point: point): var {
+        return context.getImageData(Math.round(point.x), Math.round(point.y), 1, 1).data;
+    }
+
     function alphaAt(context: var, point: point): real {
-        return context.getImageData(Math.round(point.x), Math.round(point.y), 1, 1).data[3] / 255;
+        return root.pixelAt(context, point)[3] / 255;
+    }
+
+    function cornerShortfall(context: var, card: DailyNoteCategory): real {
+        const from = card.mapToItem(notes.cardItem, 0, 0);
+        const to = card.mapToItem(notes.cardItem, card.radius, card.radius);
+        let shortfall = 0;
+        for (let y = Math.ceil(from.y); y < to.y; y++) {
+            const glass = root.alphaAt(context, Qt.point(from.x - Appearance.s.xs, y));
+            const minimum = Math.min(glass, card.fill.a);
+            for (let x = Math.ceil(from.x); x < to.x; x++)
+                shortfall = Math.max(shortfall, minimum - root.alphaAt(context, Qt.point(x, y)));
+        }
+        return shortfall;
     }
 
     function checkPixels(context: var): void {
-        const work = root.tile(notes.cardItem, "Work");
-        const personal = root.tile(notes.cardItem, "Personal");
+        const work = root.tile("Work");
+        const personal = root.tile("Personal");
         const left = work.mapToItem(notes.cardItem, 0, work.height / 2);
         const center = work.mapToItem(notes.cardItem, work.width / 2, work.height - Appearance.s.xs);
         const right = work.mapToItem(notes.cardItem, work.width, work.height / 2);
@@ -103,13 +126,16 @@ Item {
         const rim = Qt.point(Appearance.s.xs, gap.y);
         const tolerance = 2 / 255;
         check.within("the card transmits through its own fill", root.alphaAt(context, center), work.fill.a, tolerance);
-        const pixel = context.getImageData(Math.round(center.x), Math.round(center.y), 1, 1).data;
+        const pixel = root.pixelAt(context, center);
         check.sameColor("the category tint has no popup material beneath it",
             Qt.rgba(pixel[0] / 255, pixel[1] / 255, pixel[2] / 255, pixel[3] / 255), work.fill, 2);
         check.within("the gap keeps the popup glass", root.alphaAt(context, gap), root.alphaAt(context, rim), tolerance);
+        check.equal("the fixture uses rounded corners", work.radius > 0, true);
+        check.within("the rounded edge is no more transparent than either glass", root.cornerShortfall(context, work), 0, tolerance);
         if (root.scaled) {
             root.cardCenter = center;
             root.cardGap = gap;
+            root.cardPaintOpacity = work.fill.a;
             check.equal("the selected card extends past its resting edge", left.x < root.restingEdge.x - 2, true);
             const overlap = Qt.point((left.x + root.restingEdge.x) / 2, left.y);
             check.within("the cutout expands with the selected card", root.alphaAt(context, overlap), work.fill.a, tolerance);
@@ -121,7 +147,8 @@ Item {
     function scaleCategory(): void {
         root.scaled = true;
         notes.selectCategory("Work");
-        (notes.taskInput as TextInput).text = "Draft";
+        const composer = root.find(notes.cardItem, item => item.objectName === "quickNote") as DailyNoteComposer;
+        composer.text = "Draft";
         settle.start();
     }
 
@@ -145,14 +172,27 @@ Item {
             check.done();
             return;
         }
-        ready.until(DailyNotes.readyChanged, () => DailyNotes.ready, ok => {
-            check.equal("the notes service is ready", ok, true);
+        ready.until(Settings.readyChanged, () => Settings.ready, ok => {
+            check.equal("settings are ready", ok, true);
             if (!ok) { check.done(); return; }
+            Settings.setRoundnessFollowsWindows(false);
+            Settings.setOverride("roundness", 120);
+            Settings.setOverride("popupOpacity", 100);
+            Settings.setTheme("dark");
+            ready.until(DailyNotes.readyChanged, () => DailyNotes.ready, root.openNotes);
+        });
+    }
+
+    function openNotes(ok: bool): void {
+        check.equal("the notes service is ready", ok, true);
+        if (ok) {
             DailyNotes.addCategory(DailyNotes.today, "Work");
             DailyNotes.addCategory(DailyNotes.today, "Personal");
             const screen = Quickshell.screens[0];
             Overlay.open(Overlay.dailyNotes, screen, screen.width / 2);
             settle.start();
-        });
+        } else {
+            check.done();
+        }
     }
 }

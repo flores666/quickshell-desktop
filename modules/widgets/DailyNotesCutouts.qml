@@ -3,7 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 
-/*! The card silhouettes share the board's live geometry and scroll clip. */
+/*! The card silhouettes share the board's live geometry, scroll clip and paint opacity. */
 Item {
     id: root
 
@@ -31,6 +31,7 @@ Item {
                 width: silhouette.modelData.width
                 height: silhouette.modelData.height
                 radius: silhouette.modelData.radius
+                color: Qt.rgba(silhouette.modelData.fill.a, 0, 0, 1)
                 transform: Matrix4x4 { matrix: silhouette.modelData.cardTransform }
             }
         }
