@@ -53,7 +53,11 @@ Item {
         check.equal("legacy load has no error", root.notes.error, "");
         check.equal("legacy history retains identity order", root.notes.document.notes.map(note => note.id).join(","), "3,2,1");
         check.equal("legacy identity counter is preserved", root.notes.document.nextId, 4);
-        check.equal("legacy manual tracking is preserved", root.notes.preview?.id, "1");
+        check.equal("legacy manual tracking does not override the preview", root.notes.preview?.id, "3");
+        const previous = Object.assign({}, root.notes.document, { trackedId: "1" });
+        check.equal("a dated document with obsolete tracking still loads", root.notes.validDocument(previous), true);
+        check.equal("dated conversion discards only obsolete tracking",
+            JSON.stringify(root.bridge.format.migrate(previous)), JSON.stringify(root.notes.document));
         check.equal("legacy completion is preserved", root.notes.find("2").done, true);
         check.equal("legacy time window is preserved", root.notes.rangeText(root.notes.find("1")), "11:00–12:00");
         check.equal("legacy tasks without categories are recovered on their own dates",
@@ -76,7 +80,7 @@ Item {
                 check.equal("untouched legacy tasks persist their recovery category",
                     data.notes.find(note => note.id === "2").category, "Recovered Tasks");
                 check.equal("categorized legacy task persists its key", data.notes.find(note => note.id === "1").category, "Work");
-                check.equal("migration preserves manual tracking on disk", data.trackedId, "1");
+                check.equal("the next save drops the obsolete tracking field", data.trackedId, undefined);
                 check.equal("migrated disk document passes validation", root.notes.validDocument(data), true);
                 check.done();
             });
@@ -102,7 +106,7 @@ Item {
         check.equal("legacy choice is copied to at most one day", newer.quickCategory === "Personal" && older.quickCategory === undefined, true);
         check.equal("legacy tasks move to the first surviving card in saved order",
             JSON.stringify(migrated.notes.map(note => note.category)), '["Personal","Work","Personal"]');
-        check.equal("legacy order conversion keeps tracking", migrated.trackedId, "1");
+        check.equal("legacy order conversion drops obsolete tracking", migrated.trackedId, undefined);
         check.equal("migration leaves the source records intact", ordered.notes[2].category, "iNbOx");
         check.equal("a category without a dated task is not carried forward",
             Object.values(migrated.boards).some(board => board.categories.includes("Without a date")), false);

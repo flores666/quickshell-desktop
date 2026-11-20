@@ -86,15 +86,14 @@ Item {
             root.click(add);
             check.equal("clicking the same button creates the category and restores the plus",
                 root.board.keys.join(",") === "Project 0" && add.icon === "add" && root.entry.input.activeFocus, true);
-            check.equal("creating the first category does not select it", notes.targetCategory, "");
-            check.equal("no destination label before the first selection", root.destination.visible, false);
-            input.keyClick(Qt.Key_Return, Qt.NoModifier, -1);
-            check.equal("an unselected first category creates no task", DailyNotes.document.notes.length, 0);
+            check.equal("creating the first category selects it", notes.targetCategory, "Project 0");
+            check.equal("the first category is shown as the destination", root.destination.text, "To Project 0");
             root.afterLayout(() => {
-                root.click(root.action("Project 0", "selectNoteDestination"));
+                check.equal("the first category's target is accented", (root.action("Project 0", "selectNoteDestination") as IconButton).accented, true);
                 input.keyClick(Qt.Key_Return, Qt.NoModifier, -1);
                 const first = DailyNotes.document.notes[0];
-                check.equal("choosing the first category submits the retained draft", first?.title, "First task");
+                check.equal("the automatically selected category accepts the retained draft",
+                    first?.title === "First task" && first.category === "Project 0", true);
                 if (first) DailyNotes.toggleDone(first.id);
                 for (const category of ["Project 2", "Project 1"]) DailyNotes.addCategory(notes.day, category);
                 root.afterLayout(root.start);
@@ -201,7 +200,6 @@ Item {
         for (const category of ["Work", "Project 1"]) DailyNotes.addCategory(day, category);
         DailyNotes.save(day, "", "Older Work task", "", "", "Work");
         const id = DailyNotes.document.notes[0].id;
-        DailyNotes.toggleTracking(id);
         notes.showDay(day);
         root.afterLayout(() => {
             root.click(root.action("Work", "deleteNoteCategory"));
@@ -211,7 +209,7 @@ Item {
                 root.board.keys.join(",") === "Project 1" && notes.targetCategory === "", true);
             check.equal("deletion preserves the current date", notes.day, day);
             check.equal("the emptied date remains navigable", notes.days.includes(day), true);
-            check.equal("deletion releases historical tracking", DailyNotes.find(id) === null && DailyNotes.trackedId === "", true);
+            check.equal("the deleted historical task no longer resolves", DailyNotes.find(id), null);
             root.editDraft();
         });
     }

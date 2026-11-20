@@ -9,29 +9,33 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    property var document: ({ nextId: 1, trackedId: "", boards: {}, notes: [] })
+    property var document: ({ nextId: 1, boards: {}, notes: [] })
     property bool ready: false
     property string error: ""
 
     readonly property string today: Qt.formatDate(Time.now, "yyyy-MM-dd")
-    readonly property string trackedId: root.document.trackedId
     readonly property var emptyBoard: ({ categories: [] })
     readonly property var days: Object.keys(root.document.boards).sort()
     readonly property var todayChecklist: root.checklist(root.today)
     readonly property var preview: root.previewAt(Time.now)
+    readonly property bool caughtUp: root.ready && root.todayChecklist.done === root.todayChecklist.total
+    readonly property var dockPreview: root.caughtUp ? null : root.preview
+    readonly property string previewPinId: root.boardFor(root.today).quickCategory === undefined
+        ? (root.dockPreview?.id ?? "") : ""
 
     function previewAt(now: date): var {
-        const tracked = root.find(root.trackedId);
-        if (tracked && !tracked.done)
-            return tracked;
-
         const day = Qt.formatDate(now, "yyyy-MM-dd");
         const minute = Qt.formatTime(now, "HH:mm");
+        const category = root.boardFor(day).quickCategory;
+        return (category ? root.relevantNote(day, minute, category) : null) ?? root.relevantNote(day, minute);
+    }
+
+    function relevantNote(day: string, minute: string, category: var): var {
         let active = null;
         let upcoming = null;
         let newest = null;
         for (const note of root.document.notes) {
-            if (note.done)
+            if (note.done || (category !== undefined && (note.day !== day || note.category !== category)))
                 continue;
             if (!newest)
                 newest = note;
@@ -130,6 +134,8 @@ Singleton {
         if (existing !== undefined)
             return existing;
         const next = Object.assign({}, board, { categories: [...board.categories, name] });
+        if (board.categories.length === 0)
+            next.quickCategory = name;
         if (next.cardOrder !== undefined)
             next.cardOrder = [...board.cardOrder, name];
         return root.commitBoard(day, next) ? name : null;
@@ -165,8 +171,7 @@ Singleton {
         if (!root.ready || !board.categories.includes(category))
             return false;
         const notes = root.document.notes.filter(note => note.day !== day || note.category !== category);
-        const trackedId = notes.some(note => note.id === root.trackedId) ? root.trackedId : "";
-        return root.commitBoard(day, documentFormat.withoutCategory(board, category), { notes, trackedId });
+        return root.commitBoard(day, documentFormat.withoutCategory(board, category), { notes });
     }
 
     function commitBoard(day: string, board: var, changes: var): bool {
@@ -235,7 +240,7 @@ Singleton {
         if (note) {
             if (note.title === title && note.start === start && note.end === end && note.category === key)
                 return true;
-            return root.replace(note, fields, root.trackedId);
+            return root.replace(note, fields);
         }
         const nextId = root.document.nextId;
         if (!Number.isSafeInteger(nextId + 1))
@@ -245,30 +250,23 @@ Singleton {
             { nextId: nextId + 1, notes: [added, ...root.document.notes] }));
     }
 
-    function replace(note: var, fields: var, trackedId: string): bool {
+    function replace(note: var, fields: var): bool {
         const updated = Object.assign({}, note, fields);
         const notes = root.document.notes.map(item => item.id === note.id ? updated : item);
-        return root.commit(Object.assign({}, root.document, { notes, trackedId }));
+        return root.commit(Object.assign({}, root.document, { notes }));
     }
 
     function toggleDone(id: string): void {
         const note = root.find(id);
         if (note)
-            root.replace(note, { done: !note.done }, root.trackedId === id ? "" : root.trackedId);
-    }
-
-    function toggleTracking(id: string): void {
-        const note = root.find(id);
-        if (note && !note.done)
-            root.commit(Object.assign({}, root.document, { trackedId: root.trackedId === id ? "" : id }));
+            root.replace(note, { done: !note.done });
     }
 
     function remove(id: string): void {
         if (!root.find(id))
             return;
         const notes = root.document.notes.filter(note => note.id !== id);
-        const trackedId = root.trackedId === id ? "" : root.trackedId;
-        root.commit(Object.assign({}, root.document, { notes, trackedId }));
+        root.commit(Object.assign({}, root.document, { notes }));
     }
 
     Component.onCompleted: root.load()

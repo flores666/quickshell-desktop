@@ -15,7 +15,6 @@ Item {
 
     readonly property string path: Quickshell.statePath("daily-notes.json")
     readonly property string past: "2024-06-01"
-    property string tracked: ""
 
     Component.onCompleted: {
         if (Quickshell.env("TEST_BIN") === "") {
@@ -41,9 +40,8 @@ Item {
         return JSON.stringify(DailyNotes.checklist(day).groups.map(group => group.category));
     }
 
-    function add(day: string, category: string): string {
+    function add(day: string, category: string): void {
         check.equal("fixture saves in " + category, DailyNotes.save(day, "", "Task " + category, "", "", category), true);
-        return DailyNotes.document.notes[0].id;
     }
 
     function start(): void {
@@ -59,8 +57,7 @@ Item {
         DailyNotes.addCategory(root.past, "Personal");
         DailyNotes.addCategory(root.past, "Work");
         root.add(root.past, "Personal");
-        root.tracked = root.add(root.past, "Work");
-        DailyNotes.toggleTracking(root.tracked);
+        root.add(root.past, "Work");
         root.add(DailyNotes.today, "Personal");
         root.schema();
 
@@ -81,7 +78,7 @@ Item {
         root.order("backward move preserves unrelated order", ["Work", "Personal", "Empty"]);
         check.equal("registry order is independent of card order", JSON.stringify(DailyNotes.boardFor(DailyNotes.today).categories), '["Work","Personal","Empty"]');
         check.equal("reordering preserves notes", JSON.stringify(DailyNotes.document.notes), JSON.stringify(JSON.parse(before).notes));
-        check.equal("reordering preserves tracked identity", DailyNotes.trackedId, root.tracked);
+        check.equal("reordering preserves the selected category", DailyNotes.boardFor(DailyNotes.today).quickCategory, "Work");
         root.placeCards();
         check.equal("new category appends to the chosen card order", DailyNotes.addCategory(DailyNotes.today, "New"), "New");
         check.equal("a new category has no explicit lane", DailyNotes.lanesFor(DailyNotes.today).has("New"), false);
@@ -148,7 +145,7 @@ Item {
             board.cardLanes = value;
             check.equal("malformed lane row is rejected: " + JSON.stringify(value), DailyNotes.validDocument(data), false);
         }
-        const legacy = { nextId: data.nextId, trackedId: data.trackedId, notes: data.notes,
+        const legacy = { nextId: data.nextId, notes: data.notes,
             categories: [...board.categories, "Inbox"], cardLanes: { Work: 0, Inbox: 1 } };
         check.equal("a retired category lane is loadable", DailyNotes.validDocument(legacy), true);
         check.equal("migration releases the retired category lane", JSON.stringify(format.migrate(legacy).boards[root.past].cardLanes), '{"Work":0}');
@@ -184,7 +181,7 @@ Item {
             check.equal("persisted lanes accompany the new order", JSON.stringify(board.cardLanes), '{"New":0,"Work":1}');
             check.equal("persisted registry retains insertion order", JSON.stringify(board.categories), '["Work","New"]');
             check.equal("persisted document remains valid", DailyNotes.validDocument(data), true);
-            check.equal("tracking survives every reorder", data.trackedId, root.tracked);
+            check.equal("category selection survives every reorder", board.quickCategory, "Work");
             DailyNotes.load();
             check.equal("saved lane assignments load again", JSON.stringify([...DailyNotes.lanesFor(DailyNotes.today)]), '[["New",0],["Work",1]]');
             check.equal("saved flat order loads with its lanes", JSON.stringify(DailyNotes.orderFor(DailyNotes.today)), '["New","Work"]');

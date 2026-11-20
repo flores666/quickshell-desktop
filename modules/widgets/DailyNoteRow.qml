@@ -12,9 +12,9 @@ Clickable {
     signal editRequested(string id)
     readonly property string range: DailyNotes.rangeText(root.note)
     readonly property bool done: root.note?.done ?? false
-    readonly property bool tracked: root.note !== null && DailyNotes.trackedId === root.note.id
+    readonly property bool showPreviewPin: DailyNotes.previewPinId === root.note?.id
     readonly property real trailingWidth: more.width + Appearance.s.xs
-        + (root.tracked ? pin.width + Appearance.s.xs : 0)
+        + (root.showPreviewPin ? pin.width + Appearance.s.xs : 0)
 
     implicitHeight: Math.max(more.height, labels.implicitHeight + Appearance.s.xs * 2)
     acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -22,7 +22,7 @@ Clickable {
     enabled: DailyNotes.ready && root.note !== null
     Accessible.role: Accessible.CheckBox
     Accessible.name: root.note?.title ?? ""
-    Accessible.description: root.range
+    Accessible.description: [root.range, root.showPreviewPin ? qsTr("Shown in the Dock") : ""].filter(Boolean).join(" · ")
     Accessible.checked: root.done
     Accessible.checkable: true
     Accessible.onToggleAction: root.toggleDone()
@@ -35,23 +35,13 @@ Clickable {
     }
 
     function openMenu(): void {
-        const note = root.note;
         if (!root.enabled || !Overlay.isOpen(Overlay.dailyNotes))
             return;
-        const id = note.id;
-        const entries = [];
-        if (!note.done) {
-            entries.push({
-                label: root.tracked ? qsTr("Stop Tracking") : qsTr("Track"),
-                icon: "pin",
-                run: () => DailyNotes.toggleTracking(id)
-            });
-        }
-        entries.push(
+        const id = root.note.id;
+        Overlay.openMenu(more, [
             { label: qsTr("Edit"), icon: "settings", run: () => root.editRequested(id) },
             { label: qsTr("Delete"), icon: "trash", danger: true, run: () => DailyNotes.remove(id) }
-        );
-        Overlay.openMenu(more, entries);
+        ]);
     }
 
     Rectangle {
@@ -102,7 +92,7 @@ Clickable {
         id: pin
         x: more.x - width - Appearance.s.xs
         anchors.verticalCenter: parent.verticalCenter
-        visible: root.tracked
+        visible: root.showPreviewPin
         name: "pin"
         size: Appearance.m.iconSm
         color: Appearance.c.accent

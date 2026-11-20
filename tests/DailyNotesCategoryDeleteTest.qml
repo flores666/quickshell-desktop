@@ -15,7 +15,7 @@ Item {
     readonly property string path: Quickshell.statePath("daily-notes.json")
     readonly property string past: "2024-06-01"
     readonly property string later: "2024-06-02"
-    property string tracked: ""
+    property string workTask: ""
     property string survivor: ""
 
     Component.onCompleted: {
@@ -39,19 +39,18 @@ Item {
     }
 
     function start(): void {
+        DailyNotes.addCategory(root.past, "Personal");
         DailyNotes.addCategory(root.past, "Work");
         DailyNotes.addCategory(root.past, "Empty");
-        DailyNotes.addCategory(root.past, "Personal");
-        DailyNotes.addCategory(root.later, "Work");
         DailyNotes.addCategory(root.later, "Personal");
-        root.tracked = root.add(root.past, "Tracked past task", "Work");
-        DailyNotes.toggleTracking(root.tracked);
+        DailyNotes.addCategory(root.later, "Work");
+        root.workTask = root.add(root.past, "Past work task", "Work");
         DailyNotes.toggleDone(root.add(root.past, "Completed past task", "Work"));
         DailyNotes.toggleDone(root.add(root.later, "Completed later task", "Work"));
         root.survivor = root.add(root.later, "Keep this task", "Personal");
         root.add(root.past, "Older personal task", "Personal");
         const before = JSON.stringify(DailyNotes.document);
-        check.equal("without a saved choice the newest task supplies the destination", DailyNotes.targetCategory(root.past), "Personal");
+        check.equal("the first category becomes the saved destination", DailyNotes.boardFor(root.past).quickCategory, "Personal");
         check.equal("an unknown category cannot become the destination", DailyNotes.selectCategory(root.past, "Missing"), false);
         check.equal("blank category cannot be deleted", DailyNotes.removeCategory(root.past, ""), false);
         check.equal("unknown category cannot be deleted", DailyNotes.removeCategory(root.past, "Missing"), false);
@@ -59,8 +58,8 @@ Item {
         check.equal("rejected deletions preserve all data", JSON.stringify(DailyNotes.document), before);
         check.equal("empty categories can be deleted", DailyNotes.removeCategory(root.past, "Empty"), true);
         check.equal("empty category is removed", DailyNotes.boardFor(root.past).categories.includes("Empty"), false);
-        check.equal("unrelated tracked task is preserved", DailyNotes.trackedId, root.tracked);
-        check.equal("choosing a category succeeds without adding a task", DailyNotes.selectCategory(root.past, "Work"), true);
+        check.equal("removing an empty category preserves unrelated tasks", DailyNotes.find(root.workTask)?.category, "Work");
+        check.equal("choosing another category succeeds without adding a task", DailyNotes.selectCategory(root.past, "Work"), true);
         const expected = JSON.stringify(DailyNotes.document);
         written.until(root.path, text => text === expected, text => {
             check.equal("the choice is written to the notes file immediately", text, expected);
@@ -80,7 +79,7 @@ Item {
             check.equal("a failed selection retains the previous destination", DailyNotes.selectCategory(root.past, "Personal"), false);
             check.equal("the previously saved destination remains active", DailyNotes.targetCategory(root.past), "Work");
             check.equal("failed atomic deletion is reported", DailyNotes.removeCategory(root.past, "Work"), false);
-            check.equal("failed deletion preserves category, history and tracking", JSON.stringify(DailyNotes.document), before);
+            check.equal("failed deletion preserves category, history and selection", JSON.stringify(DailyNotes.document), before);
             check.equal("failed category remains selectable", DailyNotes.boardFor(root.past).categories.includes("Work"), true);
             check.equal("failed deletion leaves an error", DailyNotes.error !== "", true);
             Qt.callLater(() => mode.run('chmod u+w "$1" && printf unlocked', [root.path], unlocked => {
@@ -100,8 +99,7 @@ Item {
             DailyNotes.forDay(root.past).some(note => note.category === "Work"), false);
         check.equal("a same-name category on another date keeps its completed task",
             DailyNotes.forDay(root.later).find(note => note.category === "Work")?.done, true);
-        check.equal("deleted tracked identity no longer resolves", DailyNotes.find(root.tracked), null);
-        check.equal("category deletion clears its tracked task", DailyNotes.trackedId, "");
+        check.equal("the deleted task identity no longer resolves", DailyNotes.find(root.workTask), null);
         check.equal("other categories survive", DailyNotes.document.notes.length, 3);
         check.equal("other task identity survives", DailyNotes.find(root.survivor)?.title, "Keep this task");
         check.equal("identity counter never rewinds", DailyNotes.document.nextId, nextId);

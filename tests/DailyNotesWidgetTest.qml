@@ -207,7 +207,7 @@ Item {
         check.equal("popup initially focuses quick entry", entry.input.activeFocus, true);
         input.keyClick(Qt.Key_X, Qt.NoModifier, -1);
         check.equal("typing on open reaches the task field", entry.text.toLowerCase(), "x");
-        check.equal("today does not take yesterday's destination", notes.targetCategory, "");
+        check.equal("today selects its own first category", notes.targetCategory, "Other");
         notes.selectCategory("Tasks");
         entry.text = "Today's task";
         input.keyClick(Qt.Key_Return, Qt.NoModifier, -1);
@@ -241,32 +241,26 @@ Item {
         root.after(() => {
             root.click(root.named("previousNoteDay"), Qt.LeftButton);
             check.equal("history jumps to the day with notes", notes.day, root.historyDay);
-            root.after(root.track);
+            root.after(root.openHistoricalMenu);
         });
     }
 
-    function track(): void {
+    function openHistoricalMenu(): void {
         const task = root.find(notes.cardItem, child => child instanceof DailyNoteRow) as DailyNoteRow;
         check.equal("history renders the earlier task", task?.note.title, "Historical task");
         if (!task) { check.done(); return; }
         root.click(task, Qt.RightButton);
-        root.after(() => root.selectTracking(task));
-    }
-
-    function selectTracking(task: DailyNoteRow): void {
-        const trackAction = root.find(notes.cardItem, child => child instanceof MenuItemRow && child.label === "Track");
-        check.equal("right click offers Track", trackAction?.visible, true);
-        if (!trackAction) { check.done(); return; }
-        root.click(trackAction, Qt.LeftButton);
-        check.equal("using Track closes the context menu", Overlay.menu, null);
-        check.equal("tracking changes the Dock summary", (root.widget().control as DockNotesButton).summary, "Historical task");
+        check.equal("the task menu offers only Edit and Delete",
+            JSON.stringify(Overlay.menu?.entries.map(entry => entry.label)), '["Edit","Delete"]');
+        Overlay.closeMenu();
         root.after(() => root.completeHistoricalTask(task));
     }
 
     function completeHistoricalTask(task: DailyNoteRow): void {
         root.click(task, Qt.LeftButton);
         check.equal("checkbox completes the task", task.done, true);
-        check.equal("completing it returns to the latest open task", DailyNotes.preview?.title, "Today's task");
+        check.equal("history edits leave the current category in the miniature",
+            (root.widget().control as DockNotesButton).summary, "Today's task");
         DailyNotes.remove(task.note.id);
         check.equal("removing the last historical task keeps its day open", notes.day, root.historyDay);
         root.click(root.named("nextNoteDay"), Qt.LeftButton);

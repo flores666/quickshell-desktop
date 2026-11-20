@@ -9,9 +9,8 @@ import "root:/services"
 DockDraggable {
     id: root
 
-    readonly property bool caughtUp: DailyNotes.ready
-        && DailyNotes.todayChecklist.done === DailyNotes.todayChecklist.total
-    readonly property var note: root.caughtUp ? null : DailyNotes.preview
+    readonly property bool caughtUp: DailyNotes.caughtUp
+    readonly property var note: DailyNotes.dockPreview
     readonly property string heading: qsTr("Daily Notes")
     readonly property string summary: root.caughtUp ? qsTr("No tasks") : (root.note?.title ?? root.heading)
     readonly property string range: DailyNotes.rangeText(root.note)

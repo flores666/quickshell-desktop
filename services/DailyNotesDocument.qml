@@ -63,8 +63,7 @@ QtObject {
     }
 
     function validDocument(data: var, validDay: var, validRange: var): bool {
-        if (!Number.isSafeInteger(data?.nextId) || data.nextId < 1
-                || typeof data.trackedId !== "string" || !Array.isArray(data.notes))
+        if (!Number.isSafeInteger(data?.nextId) || data.nextId < 1 || !Array.isArray(data.notes))
             return false;
         const legacy = data.boards === undefined;
         const keysByDay = new Map();
@@ -101,8 +100,11 @@ QtObject {
 
     /*! Legacy category names without tasks have no date to recover. */
     function migrate(data: var): var {
-        if (data.boards !== undefined)
-            return data;
+        if (data.boards !== undefined) {
+            const document = Object.assign({}, data);
+            delete document.trackedId;
+            return document;
+        }
         const keep = key => !root.isLegacyCategory(key);
         const categories = (data.categories ?? []).filter(keep);
         const order = (data.cardOrder ?? categories).filter(keep);
@@ -128,7 +130,7 @@ QtObject {
                 board.quickCategory = data.quickCategory;
             boards[day] = board;
         }
-        return { nextId: data.nextId, trackedId: data.trackedId, boards, notes };
+        return { nextId: data.nextId, boards, notes };
     }
 
     function withoutCategory(board: var, category: string): var {

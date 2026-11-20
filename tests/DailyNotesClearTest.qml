@@ -49,11 +49,10 @@ Item {
         const completed = root.add(root.later, "Completed temporary task", "Temporary");
         DailyNotes.toggleDone(completed);
         root.survivor = root.add(root.later, "Keep Work task", "Work");
-        DailyNotes.toggleTracking(root.survivor);
         const nextId = DailyNotes.document.nextId;
         check.equal("category removal succeeds", DailyNotes.removeCategory(root.later, "Temporary"), true);
         check.equal("removal preserves other tasks", DailyNotes.forDay(root.later).map(note => note.id).join(","), root.survivor);
-        check.equal("removal preserves surviving tracking", DailyNotes.trackedId, root.survivor);
+        check.equal("removal preserves the selected category", DailyNotes.boardFor(root.later).quickCategory, "Work");
         check.equal("removal preserves other categories", JSON.stringify(DailyNotes.boardFor(root.later).categories), '["Work","Empty"]');
         check.equal("removal preserves identity counter", DailyNotes.document.nextId, nextId);
         const before = DailyNotes.document;
@@ -68,7 +67,7 @@ Item {
             check.equal("clear fixture can be made read-only", locked, "locked");
             if (locked !== "locked") { check.done(); return; }
             check.equal("failed removal returns false", DailyNotes.removeCategory(root.later, "Work"), false);
-            check.equal("failed removal preserves history and tracking", JSON.stringify(DailyNotes.document), before);
+            check.equal("failed removal preserves history and selection", JSON.stringify(DailyNotes.document), before);
             check.equal("failed removal leaves a visible error", DailyNotes.error !== "", true);
             Qt.callLater(() => mode.run('chmod u+w "$1" && printf unlocked', [root.path], unlocked => {
                 check.equal("clear fixture is writable again", unlocked, "unlocked");
@@ -80,7 +79,7 @@ Item {
     function retry(): void {
         const nextId = DailyNotes.document.nextId;
         check.equal("removal succeeds on retry", DailyNotes.removeCategory(root.later, "Work"), true);
-        check.equal("removal clears tracking of a deleted task", DailyNotes.trackedId, "");
+        check.equal("removal clears selection of the deleted category", DailyNotes.boardFor(root.later).quickCategory, undefined);
         check.equal("removed task no longer resolves", DailyNotes.find(root.survivor), null);
         check.equal("removal retry clears save error", DailyNotes.error, "");
         check.equal("an empty category keeps its day navigable", DailyNotes.days.includes(root.later), true);
@@ -93,7 +92,7 @@ Item {
         check.equal("cleared document remains valid", DailyNotes.validDocument(DailyNotes.document), true);
         const expected = JSON.stringify(DailyNotes.document);
         written.until(root.path, text => text === expected, text => {
-            check.equal("cleared history, categories and tracking persist together", text, expected);
+            check.equal("cleared history, categories and selection persist together", text, expected);
             check.equal("a task cannot recreate the retired category", DailyNotes.save(root.later, "", "Retry", "", ""), false);
             check.equal("a new category can be made after clearing", DailyNotes.addCategory(root.later, "Work"), "Work");
             check.equal("new task uses the new named category", DailyNotes.save(root.later, "", "After clearing", "", "", "Work"), true);
