@@ -62,7 +62,54 @@ QtObject {
         return true;
     }
 
-    function validDocument(data: var, validDay: var, validRange: var): bool {
+    function validTiming(note: var, validDeadline: var): bool {
+        const hasRange = note.start !== undefined || note.end !== undefined;
+        if (hasRange) {
+            const time = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+            if (typeof note.start !== "string" || typeof note.end !== "string"
+                    || !((note.start === "" && note.end === "")
+                        || (time.test(note.start) && time.test(note.end) && note.start < note.end)))
+                return false;
+        }
+        return note.deadline === undefined ? hasRange
+            : typeof note.deadline === "string" && validDeadline(note.deadline);
+    }
+
+    function withDeadline(note: var): var {
+        const converted = Object.assign({}, note, {
+            deadline: note.deadline ?? (note.end ? note.day + "T" + note.end : "")
+        });
+        delete converted.start;
+        delete converted.end;
+        return converted;
+    }
+
+    function validAnnotations(annotations: var): bool {
+        return annotations === undefined || (Array.isArray(annotations)
+            && annotations.every(text => typeof text === "string" && text !== "" && text === text.trim()));
+    }
+
+    function withAnnotation(annotations: var, index: int, replacement: var): var {
+        if (index < 0 || index > annotations.length)
+            return null;
+        if (replacement === null) {
+            if (index === annotations.length)
+                return null;
+            const next = annotations.slice();
+            next.splice(index, 1);
+            return next;
+        }
+        const text = typeof replacement === "string" ? replacement.trim() : "";
+        if (text === "")
+            return null;
+        if (annotations[index] === text)
+            return annotations;
+        const next = annotations.slice();
+        next[index] = text;
+        return next;
+    }
+
+    function validDocument(data: var, validDay: var, validDeadline: var): bool {
         if (!Number.isSafeInteger(data?.nextId) || data.nextId < 1 || !Array.isArray(data.notes))
             return false;
         const legacy = data.boards === undefined;
@@ -87,8 +134,7 @@ QtObject {
                     || typeof note.day !== "string" || !validDay(note.day)
                     || typeof note.title !== "string" || note.title.trim() === ""
                     || typeof note.done !== "boolean"
-                    || typeof note.start !== "string" || typeof note.end !== "string"
-                    || !validRange(note.start, note.end))
+                    || !root.validTiming(note, validDeadline) || !root.validAnnotations(note.annotations))
                 return false;
             if (legacy ? !legacyKeys.has(note.category) && !root.isLegacyCategory(note.category)
                        : !keysByDay.get(note.day)?.has(note.category))
@@ -101,7 +147,7 @@ QtObject {
     /*! Legacy category names without tasks have no date to recover. */
     function migrate(data: var): var {
         if (data.boards !== undefined) {
-            const document = Object.assign({}, data);
+            const document = Object.assign({}, data, { notes: data.notes.map(note => root.withDeadline(note)) });
             delete document.trackedId;
             return document;
         }
@@ -116,7 +162,7 @@ QtObject {
             if (!usedByDay.has(note.day))
                 usedByDay.set(note.day, new Set());
             usedByDay.get(note.day).add(category);
-            return category === note.category ? note : Object.assign({}, note, { category });
+            return Object.assign(root.withDeadline(note), { category });
         });
         const boards = {};
         const quickDay = notes[0]?.day;

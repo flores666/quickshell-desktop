@@ -280,7 +280,7 @@ Item {
                 check.equal("category saves: " + category, DailyNotes.addCategory(DailyNotes.today, category), category);
                 for (let row = 1; row <= counts[index]; ++row)
                     check.equal("task saves: " + category + " " + row,
-                        DailyNotes.save(DailyNotes.today, "", "Task " + row, "", "", category), true);
+                        DailyNotes.save(DailyNotes.today, "", "Task " + row, "", category), true);
             }
             root.seeded = true;
             root.after(root.start);

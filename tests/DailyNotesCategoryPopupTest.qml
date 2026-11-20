@@ -167,6 +167,16 @@ Item {
             const at = name.mapToItem(notes.cardItem, 0, 0);
             check.equal("the name slides out to the left of the fixed toolbar button",
                 at.x + name.width < anchor.x && at.y === anchor.y && add.mapToItem(notes.cardItem, 0, 0) === anchor, true);
+            check.equal("the category placeholder and typed text use muted ink",
+                name.placeholderColor === Appearance.c.textMuted && name.input.color === Appearance.c.textMuted, true);
+            root.click(name);
+            check.equal("clicking inside the category field keeps it open", name.enabled && name.input.activeFocus, true);
+            name.text = "Do not add";
+            root.click(root.entry);
+            check.equal("clicking outside retracts the category field without creating it",
+                !name.enabled && add.icon === "add" && root.entry.input.activeFocus
+                    && !DailyNotes.boardFor(notes.day).categories.includes("Do not add"), true);
+            root.click(add);
             name.text = "Discard me";
             Overlay.dismissOnEscape();
             check.equal("Escape retracts the field and returns focus to the task draft",
@@ -198,7 +208,7 @@ Item {
             && root.entry.input.activeFocus, true);
         const day = "2024-06-01";
         for (const category of ["Work", "Project 1"]) DailyNotes.addCategory(day, category);
-        DailyNotes.save(day, "", "Older Work task", "", "", "Work");
+        DailyNotes.save(day, "", "Older Work task", "", "Work");
         const id = DailyNotes.document.notes[0].id;
         notes.showDay(day);
         root.afterLayout(() => {
@@ -210,42 +220,28 @@ Item {
             check.equal("deletion preserves the current date", notes.day, day);
             check.equal("the emptied date remains navigable", notes.days.includes(day), true);
             check.equal("the deleted historical task no longer resolves", DailyNotes.find(id), null);
-            root.editDraft();
+            root.editTask();
         });
     }
-    function editDraft(): void {
-        DailyNotes.addCategory(notes.day, "Draft category");
-        DailyNotes.save(notes.day, "", "Keep editing", "", "", "Project 1");
+    function editTask(): void {
+        DailyNotes.addCategory(notes.day, "Other category");
+        DailyNotes.save(notes.day, "", "Keep editing", "", "Project 1");
         const id = DailyNotes.document.notes[0].id;
         notes.editTask(id);
         root.afterLayout(() => {
-            const title = root.named("noteTitle") as InputField;
-            title.text = "Keep my unsaved edit";
-            root.click(root.named("editNoteCategory"));
-            Qt.callLater(() => {
-                const picker = root.find(notes.cardItem, item => item instanceof DailyNoteCategoryPicker) as DailyNoteCategoryPicker;
-                check.equal("the editor lists only real categories", JSON.stringify(picker?.matches),
-                    JSON.stringify(DailyNotes.boardFor(notes.day).categories));
-                Overlay.dismissOnEscape();
-                check.equal("closing the editor picker returns title focus", title.input.activeFocus, true);
-                root.click(root.named("editNoteCategory"));
-                Qt.callLater(() => root.removeEditCategory(id, title));
-            });
+            const title = root.named("noteTitle") as TextEdit;
+            input.keyClick(Qt.Key_End, Qt.NoModifier, -1);
+            input.keyClick(Qt.Key_Period, Qt.NoModifier, -1);
+            DailyNotes.removeCategory(notes.day, "Other category");
+            check.equal("unrelated category deletion preserves the edited task and its focus", notes.draft?.id === id
+                && DailyNotes.find(id)?.title === "Keep editing." && title.activeFocus, true);
+            check.equal("editing preserves the task's category", DailyNotes.find(id)?.category, "Project 1");
+            root.removeEditedTask();
         });
     }
 
-    function removeEditCategory(id: string, title: InputField): void {
-        const search = root.named("noteCategorySearch") as InputField;
-        search.text = "Draft category";
-        input.keyClick(Qt.Key_Return, Qt.NoModifier, -1);
-        check.equal("the editor can choose another category", notes.editCategory, "Draft category");
-        DailyNotes.removeCategory(notes.day, "Draft category");
-        check.equal("deleting an edit destination returns to the saved category", notes.editCategory, "Project 1");
-        check.equal("unsaved edits survive unrelated category deletion", notes.draft?.id === id
-            && title.text === "Keep my unsaved edit" && title.input.activeFocus, true);
-        DailyNotes.addCategory(notes.day, "Remove edited task");
-        DailyNotes.save(notes.day, id, "Keep editing", "", "", "Remove edited task");
-        DailyNotes.removeCategory(notes.day, "Remove edited task");
+    function removeEditedTask(): void {
+        DailyNotes.removeCategory(notes.day, "Project 1");
         check.equal("removed edited task releases its stale draft", notes.draft, null);
         root.afterLayout(() => {
             check.equal("removing an edited task restores the composer's draft and focus", Overlay.menu === null && notes.shown
@@ -260,7 +256,7 @@ Item {
         DailyNotes.addCategory(notes.day, "Long category");
         const text = "Review the release plan and complete all remaining documentation before the meeting. ".repeat(8);
         for (let i = 0; i < 24; ++i)
-            DailyNotes.save(notes.day, "", text + i, "", "", "Long category");
+            DailyNotes.save(notes.day, "", text + i, "", "Long category");
         root.afterLayout(() => {
             check.equal("task content grows the popup", notes.cardHeight > root.compactHeight, true);
             check.near("overflow is capped only at available screen height", notes.cardHeight, notes.height);

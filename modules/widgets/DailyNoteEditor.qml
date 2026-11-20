@@ -5,102 +5,69 @@ import "root:/config"
 import "root:/components"
 import "root:/services"
 
-Column {
+Item {
     id: root
 
     required property var draft
-    required property string category
-    property alias input: taskTitle.input
+    property var annotationSnapshot
+    readonly property bool editingAnnotation: !!root.draft?.annotation
+    readonly property alias input: taskTitle
     signal finished
-    signal categoryRequested(Item anchor)
 
-    readonly property bool validTimes: DailyNotes.validRange(start.text.trim(), end.text.trim())
-    readonly property bool canSave: DailyNotes.ready && taskTitle.text.trim() !== "" && root.validTimes
+    implicitHeight: taskTitle.implicitHeight
 
-    spacing: Appearance.s.md
-
-    function save(): void {
-        if (root.canSave && DailyNotes.save(root.draft.day, root.draft.id,
-                taskTitle.text, start.text, end.text, root.category))
-            root.finished();
+    function persist(): bool {
+        const annotation = root.draft?.annotation;
+        if (annotation) {
+            if (!DailyNotes.saveAnnotation(root.draft.id, root.annotationSnapshot, annotation.index, taskTitle.text))
+                return false;
+            root.annotationSnapshot = DailyNotes.find(root.draft.id).annotations;
+            return true;
+        }
+        const note = DailyNotes.find(root.draft?.id ?? "");
+        if (!note)
+            return false;
+        return DailyNotes.save(note.day, note.id, taskTitle.text, note.deadline);
     }
 
-    Label {
-        text: qsTr("Edit Task")
-        role: Label.Role.Subtitle
-    }
-
-    InputField {
+    TextEdit {
         id: taskTitle
-        objectName: "noteTitle"
+        property bool initialized: false
+        objectName: root.editingAnnotation ? "taskAnnotationInput" : "noteTitle"
         width: root.width
-        text: root.draft.title
-        placeholder: qsTr("Task name")
-        onAccepted: root.save()
-    }
+        height: implicitHeight
+        color: Appearance.c.text
+        font.family: Appearance.fontFamily
+        font.pixelSize: root.editingAnnotation ? Appearance.font.small : Appearance.font.body
+        selectionColor: Appearance.c.accent
+        selectedTextColor: Appearance.c.accentText
+        selectByMouse: true
+        activeFocusOnTab: true
+        textFormat: TextEdit.PlainText
+        wrapMode: TextEdit.Wrap
+        renderType: Text.NativeRendering
+        Accessible.name: root.editingAnnotation ? qsTr("Task note") : qsTr("Task name")
 
-    DailyNoteCategoryButton {
-        objectName: "editNoteCategory"
-        width: Math.min(implicitWidth, root.width)
-        category: root.category
-        onClicked: root.categoryRequested(this)
-    }
-
-    Label {
-        text: qsTr("Time window (optional)")
-        role: Label.Role.Small
-        muted: true
-    }
-
-    Row {
-        width: root.width
-        spacing: Appearance.s.md
-
-        InputField {
-            id: start
-            objectName: "noteStart"
-            width: (parent.width - parent.spacing) / 2
-            text: root.draft.start
-            placeholder: qsTr("Start (HH:MM)")
-            onAccepted: end.input.forceActiveFocus()
+        Component.onCompleted: {
+            root.annotationSnapshot = root.draft?.annotation?.snapshot;
+            taskTitle.text = root.draft?.text ?? "";
+            taskTitle.initialized = true;
+        }
+        onTextChanged: if (taskTitle.initialized && taskTitle.text.trim() !== "") root.persist()
+        Keys.onPressed: event => {
+            if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
+                if (taskTitle.text.trim() !== "" && root.persist())
+                    root.finished();
+                event.accepted = true;
+            }
         }
 
-        InputField {
-            id: end
-            objectName: "noteEnd"
-            width: start.width
-            text: root.draft.end
-            placeholder: qsTr("End (HH:MM)")
-            onAccepted: root.save()
-        }
-    }
-
-    Label {
-        width: root.width
-        visible: !root.validTimes
-        text: qsTr("Enter both times in HH:MM, with the end after the start.")
-        role: Label.Role.Small
-        color: PopupStyle.danger
-        wrapMode: Text.WordWrap
-    }
-
-    Row {
-        anchors.right: parent.right
-        spacing: Appearance.s.md
-
-        TextButton {
-            text: qsTr("Cancel")
-            compact: true
-            onClicked: root.finished()
-        }
-
-        TextButton {
-            objectName: "saveNote"
-            text: qsTr("Save")
-            compact: true
-            kind: TextButton.Kind.Accent
-            enabled: root.canSave
-            onClicked: root.save()
+        Label {
+            anchors.fill: parent
+            visible: taskTitle.text === ""
+            text: root.editingAnnotation ? qsTr("Enter a note.") : qsTr("Enter a task name.")
+            role: root.editingAnnotation ? Label.Role.Small : Label.Role.Body
+            color: root.editingAnnotation ? Appearance.c.textMuted : PopupStyle.danger
         }
     }
 }

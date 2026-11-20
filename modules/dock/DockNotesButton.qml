@@ -13,13 +13,13 @@ DockDraggable {
     readonly property var note: DailyNotes.dockPreview
     readonly property string heading: qsTr("Daily Notes")
     readonly property string summary: root.caughtUp ? qsTr("No tasks") : (root.note?.title ?? root.heading)
-    readonly property string range: DailyNotes.rangeText(root.note)
+    readonly property string deadlineText: DailyNotes.deadlineText(root.note?.deadline ?? "")
     readonly property string progressText: root.caughtUp
         ? qsTr("All caught up") : DailyNotes.progressText(DailyNotes.todayChecklist)
     readonly property real progress: !root.caughtUp && DailyNotes.todayChecklist.total > 0
         ? DailyNotes.todayChecklist.done / DailyNotes.todayChecklist.total : 0
-    readonly property string tipText: root.range !== ""
-        ? qsTr("%1 · %2 · %3").arg(root.summary).arg(root.range).arg(root.progressText)
+    readonly property string tipText: root.deadlineText !== ""
+        ? qsTr("%1 · %2 · %3").arg(root.summary).arg(root.deadlineText).arg(root.progressText)
         : qsTr("%1 · %2").arg(root.summary).arg(root.progressText)
 
     implicitWidth: Appearance.m.dockNotesWidth

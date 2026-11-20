@@ -15,8 +15,10 @@ Item {
     property bool reorderEnabled: true
     property string destinationCategory
     property var focusedCategory: null
+    property var draft: null
+    property Component taskEditor: null
     signal selectRequested(string category)
-    signal editRequested(string id)
+    signal editRequested(string id, int annotationIndex)
     signal deleteRequested(string category)
 
     readonly property int gap: Appearance.s.md
@@ -246,6 +248,8 @@ Item {
             fill: PopupStyle.noteCategoryFill(Math.max(0, DailyNotes.boardFor(root.day).categories.indexOf(tile.category)), root.glass)
             taskDestination: tile.category === root.destinationCategory
             group: root.byCategory.get(tile.category) ?? null
+            draft: root.draft
+            taskEditor: root.taskEditor
             reorderEnabled: root.canReorder
             carried: motion.tile === tile
             lift: tile.carried ? motion.lift : 0
@@ -281,7 +285,7 @@ Item {
             onGripCanceled: if (root.gesture?.category === tile.category) root.finishDrag(false)
             onStepRequested: delta => root.step(tile.category, delta)
             onSelectRequested: category => root.selectRequested(category)
-            onEditRequested: id => root.editRequested(id)
+            onEditRequested: (id, index) => root.editRequested(id, index)
             onDeleteRequested: category => root.deleteRequested(category)
         }
     }

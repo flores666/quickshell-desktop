@@ -34,7 +34,7 @@ Item {
     }
 
     function add(day: string, title: string, category: string): string {
-        check.equal("fixture saves: " + title, DailyNotes.save(day, "", title, "", "", category), true);
+        check.equal("fixture saves: " + title, DailyNotes.save(day, "", title, "", category), true);
         return DailyNotes.document.notes[0].id;
     }
 
@@ -106,7 +106,7 @@ Item {
         check.equal("successful deletion clears write error", DailyNotes.error, "");
         check.equal("deletion preserves document validity", DailyNotes.validDocument(DailyNotes.document), true);
         check.equal("deleted categories cannot accept stale saves",
-            DailyNotes.save(root.past, "", "Stale task", "", "", "Work"), false);
+            DailyNotes.save(root.past, "", "Stale task", "", "Work"), false);
         const expected = JSON.stringify(DailyNotes.document);
         written.until(root.path, text => text === expected, text => {
             check.equal("category deletion is persisted together", text, expected);

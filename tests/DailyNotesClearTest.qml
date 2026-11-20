@@ -33,7 +33,7 @@ Item {
     }
 
     function add(day: string, title: string, category: string): string {
-        check.equal("fixture saves: " + title, DailyNotes.save(day, "", title, "", "", category), true);
+        check.equal("fixture saves: " + title, DailyNotes.save(day, "", title, "", category), true);
         return DailyNotes.document.notes[0].id;
     }
 
@@ -93,9 +93,9 @@ Item {
         const expected = JSON.stringify(DailyNotes.document);
         written.until(root.path, text => text === expected, text => {
             check.equal("cleared history, categories and selection persist together", text, expected);
-            check.equal("a task cannot recreate the retired category", DailyNotes.save(root.later, "", "Retry", "", ""), false);
+            check.equal("a task cannot recreate the retired category", DailyNotes.save(root.later, "", "Retry", ""), false);
             check.equal("a new category can be made after clearing", DailyNotes.addCategory(root.later, "Work"), "Work");
-            check.equal("new task uses the new named category", DailyNotes.save(root.later, "", "After clearing", "", "", "Work"), true);
+            check.equal("new task uses the new named category", DailyNotes.save(root.later, "", "After clearing", "", "Work"), true);
             check.equal("clearing never reuses deleted identities", DailyNotes.document.notes[0].id, String(nextId));
             check.done();
         });

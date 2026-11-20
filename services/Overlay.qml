@@ -60,6 +60,7 @@ Singleton {
     */
     property var pointerRegions: ({})
     readonly property bool pointerOverShell: Object.keys(root.pointerRegions).length > 0
+    signal outsideCardPressed
 
     function setPointerOver(key: string, over: bool): void {
         if (Boolean(root.pointerRegions[key]) === over)
@@ -82,8 +83,12 @@ Singleton {
         outside it, though the shell has lost the pointer to it.
     */
     function dismissOnOutsideClick(): void {
-        if (root.anyOpen && !root.authorizing && !root.pointerOverShell && !Compositor.covered)
+        if (!root.anyOpen || root.authorizing || Compositor.covered)
+            return;
+        if (!root.pointerOverShell)
             root.close();
+        else if (!root.pointerRegions["popup:" + root.active])
+            root.outsideCardPressed();
     }
 
     /*!
@@ -208,8 +213,8 @@ Singleton {
     */
     property var menu: null
 
-    function openMenu(source: Item, entries: var): void {
-        root.menu = { source: source, entries: entries };
+    function openMenu(source: Item, entries: var, scenePosition: var): void {
+        root.menu = { source, entries, scenePosition };
     }
 
     function openMenuContent(source: Item, content: Component, returnFocus: Item): void {

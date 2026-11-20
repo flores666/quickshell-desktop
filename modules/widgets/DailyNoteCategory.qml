@@ -13,13 +13,15 @@ Clickable {
     required property var group
     required property color fill
     required property matrix4x4 cardTransform
+    property var draft: null
+    property Component taskEditor: null
     property bool taskDestination: false
     property bool reorderEnabled: false
     property bool carried: false
     property real lift: 0
     property real layoutScale: 1
     signal selectRequested(string category)
-    signal editRequested(string id)
+    signal editRequested(string id, int annotationIndex)
     signal deleteRequested(string category)
     signal gripStarted(point cursor, point origin, point grab, real heldFor)
     signal gripMoved(point cursor)
@@ -184,7 +186,9 @@ Clickable {
 
                 width: contents.width
                 note: root.group?.notes.get(this.modelData) ?? null
-                onEditRequested: id => root.editRequested(id)
+                draft: this.modelData === root.draft?.id ? root.draft : null
+                editor: root.taskEditor
+                onEditRequested: (id, index) => root.editRequested(id, index)
             }
         }
     }

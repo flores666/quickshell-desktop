@@ -35,8 +35,8 @@ Item {
         return date;
     }
 
-    function add(day: string, title: string, start: string, end: string): string {
-        check.equal("priority fixture saves: " + title, DailyNotes.save(day, "", title, start, end, "Work"), true);
+    function add(day: string, title: string, deadline: string): string {
+        check.equal("priority fixture saves: " + title, DailyNotes.save(day, "", title, deadline, "Work"), true);
         return DailyNotes.document.notes[0].id;
     }
 
@@ -47,49 +47,49 @@ Item {
     function start(): void {
         for (const day of ["2024-05-31", root.day, root.tomorrow])
             DailyNotes.addCategory(day, "Work");
-        const expired = root.add("2024-05-31", "Expired", "08:00", "09:00");
-        const tomorrow = root.add(root.tomorrow, "Tomorrow", "08:00", "09:00");
-        const upcoming = root.add(root.day, "Upcoming", "10:00", "11:00");
-        const untimed = root.add(root.day, "Untimed", "", "");
-        root.expect("nearest upcoming beats newer untimed and later date", root.day, "09:30", upcoming);
-        const long = root.add(root.day, "Long active", "09:00", "12:00");
-        root.expect("active task beats nearest upcoming", root.day, "09:30", long);
-        const short = root.add(root.day, "Short active", "09:00", "10:00");
-        root.expect("active priority uses earliest end", root.day, "09:30", short);
-        const tied = root.add(root.day, "Newest tied active", "09:30", "10:00");
-        root.expect("tied active ranges retain newest-first order", root.day, "09:30", tied);
-        root.expect("range start is inclusive", root.day, "09:00", short);
-        root.expect("future task cannot become active before its start", root.day, "09:29", short);
-        root.expect("range end is exclusive and next start is inclusive", root.day, "10:00", upcoming);
-        root.expect("a selected category falls back to its latest open task", root.day, "12:00", tied);
-        root.expect("next day's exact start becomes active", root.tomorrow, "08:00", tomorrow);
-        root.expect("without a selected category, all expired ranges fall back to latest addition", "2024-06-03", "09:00", tied);
-        root.expect("upcoming ties retain newest-first order", root.day, "08:59", short);
+        const expired = root.add("2024-05-31", "Expired", "2024-05-31T09:00");
+        const tomorrow = root.add(root.tomorrow, "Tomorrow", "2024-06-02T08:00");
+        const upcoming = root.add(root.day, "Upcoming", "2024-06-01T11:00");
+        const untimed = root.add(root.day, "Untimed", "");
+        root.expect("nearest deadline beats newer unset deadline and later date", root.day, "09:30", upcoming);
+        const earlier = root.add(root.day, "Earlier deadline", "2024-06-01T10:00");
+        root.expect("earlier deadline becomes priority", root.day, "09:30", earlier);
+        const tied = root.add(root.day, "Newest tied deadline", "2024-06-01T10:00");
+        root.expect("deadline ties retain newest-first order", root.day, "09:30", tied);
+        root.expect("exact deadline minute is inclusive", root.day, "10:00", tied);
+        const lastSecond = root.at(root.day, "10:00");
+        lastSecond.setSeconds(59, 999);
+        check.equal("deadline stays current through its full minute", DailyNotes.previewAt(lastSecond)?.id, tied);
+        root.expect("deadline expires on the next minute", root.day, "10:01", upcoming);
+        root.expect("selected category falls back to newest when all its deadlines passed", root.day, "12:00", tied);
+        root.expect("next day's exact deadline is inclusive", root.tomorrow, "08:00", tomorrow);
+        root.expect("all expired deadlines fall back to newest addition", "2024-06-03", "09:00", tied);
 
         DailyNotes.addCategory(root.day, "Personal");
-        DailyNotes.save(root.day, "", "Other category active", "09:30", "09:45", "Personal");
+        DailyNotes.save(root.day, "", "Other category deadline", "2024-06-01T09:45", "Personal");
         const other = DailyNotes.document.notes[0].id;
-        root.expect("the selected category takes priority over a competing active task", root.day, "09:30", tied);
+        root.expect("selected category beats an earlier competing deadline", root.day, "09:30", tied);
         DailyNotes.selectCategory(root.day, "Personal");
-        root.expect("changing category changes the time-ranked preview", root.day, "09:30", other);
+        root.expect("changing category changes the deadline priority", root.day, "09:30", other);
         DailyNotes.toggleDone(other);
-        root.expect("a completed category falls back to general priority", root.day, "09:30", tied);
-        root.expect("the general fallback considers upcoming tasks on other dates", root.day, "12:00", tomorrow);
+        root.expect("completed category falls back to general priority", root.day, "09:30", tied);
+        root.expect("general fallback considers deadlines on other dates", root.day, "12:00", tomorrow);
+        const crossDay = root.add("2024-05-31", "Older board, future deadline", "2024-06-01T09:40");
+        root.expect("board membership does not determine the deadline", root.day, "09:30", crossDay);
+        DailyNotes.toggleDone(crossDay);
         DailyNotes.selectCategory(root.day, "Work");
 
         DailyNotes.toggleDone(tied);
-        root.expect("completed active task is skipped", root.day, "09:30", short);
-        root.expect("completed newest task is skipped by fallback", root.day, "12:00", short);
+        root.expect("completed deadline task is skipped", root.day, "09:30", earlier);
+        root.expect("completed newest task is skipped by fallback", root.day, "12:00", earlier);
         DailyNotes.toggleDone(expired);
-        DailyNotes.toggleDone(short);
-        root.expect("completed earliest-ending task yields remaining active", root.day, "09:30", long);
-        DailyNotes.toggleDone(long);
-        root.expect("no active task yields upcoming", root.day, "09:30", upcoming);
+        DailyNotes.toggleDone(earlier);
+        root.expect("completed nearest deadline yields next candidate", root.day, "09:30", upcoming);
         DailyNotes.toggleDone(upcoming);
-        root.expect("the selected category's untimed task is preferred to a later date", root.day, "09:30", untimed);
-        root.expect("without a category choice, completed tasks yield the later date", "2024-05-30", "09:30", tomorrow);
+        root.expect("selected category's untimed task precedes a later date", root.day, "09:30", untimed);
+        root.expect("without a category choice general priority considers other dates", "2024-05-30", "09:30", tomorrow);
         DailyNotes.toggleDone(tomorrow);
-        root.expect("no timed candidate yields unfinished untimed", root.day, "09:30", untimed);
+        root.expect("no deadline candidate yields unfinished untimed", root.day, "09:30", untimed);
         DailyNotes.toggleDone(untimed);
         root.expect("all completed yields no preview", root.day, "09:30", "");
     }

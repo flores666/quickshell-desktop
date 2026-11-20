@@ -46,6 +46,7 @@ Surface {
 
     /*! Keys the card did not handle itself. */
     signal keyPressed(var event)
+    signal menuBackgroundPressed(point scenePosition)
 
     /*! What the popup puts in the card. Not the default property: Surface's
         own `content` is, and is where this file's children go. */
@@ -276,6 +277,7 @@ Surface {
     CardMenu {
         anchors.fill: parent
         active: card.shown
+        onBackgroundPressed: scenePosition => card.menuBackgroundPressed(scenePosition)
     }
 
     /*!

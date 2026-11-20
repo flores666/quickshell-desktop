@@ -46,7 +46,7 @@ Item {
     }
 
     function addNote(day: string, title: string): string {
-        check.equal("task saves: " + title, DailyNotes.save(day, "", title, "", "", "Tasks"), true);
+        check.equal("task saves: " + title, DailyNotes.save(day, "", title, "", "Tasks"), true);
         return DailyNotes.document.notes[0].id;
     }
 
@@ -83,7 +83,7 @@ Item {
     function exerciseCategory(today: string): void {
         const current = root.addNote(today, "Task in the selected category");
         DailyNotes.addCategory(today, "Other");
-        check.equal("task saves in another category", DailyNotes.save(today, "", "Newest task in another category", "", "", "Other"), true);
+        check.equal("task saves in another category", DailyNotes.save(today, "", "Newest task in another category", "", "Other"), true);
         const other = DailyNotes.document.notes[0].id;
         check.equal("adding another category preserves the selected category", DailyNotes.targetCategory(today), "Tasks");
         check.equal("the miniature stays with the selected category", button.note?.id, current);

@@ -20,8 +20,9 @@ Item {
     readonly property Item focusedControl: root.visible ? root.Window.activeFocusItem : null
     readonly property var focusedBounds: {
         const control = root.focusedControl;
-        let y = 0;
-        let height = control?.height ?? 0;
+        const caret = (control as TextEdit)?.cursorRectangle;
+        let y = caret?.y ?? 0;
+        let height = caret?.height ?? control?.height ?? 0;
         // Measure within the content so scrolling does not trigger another reveal.
         for (let item = control; item; item = item.parent) {
             if (item === view.contentItem)

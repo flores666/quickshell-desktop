@@ -126,7 +126,7 @@ Item {
         root.expectOrder("legacy app order is preserved", root.apps);
         for (const category of ["Other", "Tasks"]) DailyNotes.addCategory(DailyNotes.today, category);
         DailyNotes.addCategory(root.historyDay, "Tasks");
-        check.equal("historical fixture saves", DailyNotes.save(root.historyDay, "", "Historical task", "", "", "Tasks"), true);
+        check.equal("historical fixture saves", DailyNotes.save(root.historyDay, "", "Historical task", "", "Tasks"), true);
         root.toggleFromSettings(root.arrange);
     }
 
@@ -232,12 +232,12 @@ Item {
     }
 
     function saveToday(): void {
-        (root.named("noteStart") as InputField).text = "18:00";
-        (root.named("noteEnd") as InputField).text = "09:00";
-        check.equal("reverse deadline is rejected in the editor", root.named("saveNote").enabled, false);
-        (root.named("noteEnd") as InputField).text = "19:15";
-        root.click(root.named("saveNote"), Qt.LeftButton);
-        check.equal("task keeps its time window", DailyNotes.rangeText(DailyNotes.preview), "18:00–19:15");
+        const title = root.named("noteTitle") as TextEdit;
+        check.equal("the inline editor focuses the task title", title?.activeFocus, true);
+        if (!title) { check.done(); return; }
+        title.text = "Updated task";
+        input.keyClick(Qt.Key_Return, Qt.NoModifier, -1);
+        check.equal("Enter leaves the editor with the new title saved", notes.draft === null && DailyNotes.preview?.title === "Updated task", true);
         root.after(() => {
             root.click(root.named("previousNoteDay"), Qt.LeftButton);
             check.equal("history jumps to the day with notes", notes.day, root.historyDay);
@@ -250,17 +250,17 @@ Item {
         check.equal("history renders the earlier task", task?.note.title, "Historical task");
         if (!task) { check.done(); return; }
         root.click(task, Qt.RightButton);
-        check.equal("the task menu offers only Edit and Delete",
-            JSON.stringify(Overlay.menu?.entries.map(entry => entry.label)), '["Edit","Delete"]');
+        check.equal("the task menu offers Edit, Add note, and Delete",
+            JSON.stringify(Overlay.menu?.entries.map(entry => entry.label)), '["Edit","Add note","Delete"]');
         Overlay.closeMenu();
         root.after(() => root.completeHistoricalTask(task));
     }
 
     function completeHistoricalTask(task: DailyNoteRow): void {
-        root.click(task, Qt.LeftButton);
+        root.click(root.named("noteCheckbox"), Qt.LeftButton);
         check.equal("checkbox completes the task", task.done, true);
         check.equal("history edits leave the current category in the miniature",
-            (root.widget().control as DockNotesButton).summary, "Today's task");
+            (root.widget().control as DockNotesButton).summary, "Updated task");
         DailyNotes.remove(task.note.id);
         check.equal("removing the last historical task keeps its day open", notes.day, root.historyDay);
         root.click(root.named("nextNoteDay"), Qt.LeftButton);

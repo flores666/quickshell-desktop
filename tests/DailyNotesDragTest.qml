@@ -154,9 +154,9 @@ Item {
         check.equal("small pointer movement does not start a drag", board.dragging, false);
         root.release(point);
         root.order("clicking the header does not reorder", root.initialOrder);
-        const task = root.center(root.task());
+        const task = root.center(root.find(root.task(), item => item.objectName === "noteCheckbox"));
         input.mouseClick(scene, task.x, task.y, Qt.LeftButton, Qt.NoModifier, -1);
-        check.equal("clicking a task still toggles it", DailyNotes.find(root.noteId).done, true);
+        check.equal("clicking a task checkbox toggles it", DailyNotes.find(root.noteId).done, true);
         const trash = root.center(root.deleteButton("Alpha"));
         input.mouseClick(scene, trash.x, trash.y, Qt.LeftButton, Qt.NoModifier, -1);
         check.equal("clicking the delete button still invokes it", root.deletions, 1);
@@ -291,7 +291,7 @@ Item {
             if (!ok) { check.done(); return; }
             for (const category of ["Alpha", "Beta", "Gamma"])
                 DailyNotes.addCategory(DailyNotes.today, category);
-            check.equal("the drag fixture saves a task", DailyNotes.save(DailyNotes.today, "", "Alpha task", "", "", "Alpha"), true);
+            check.equal("the drag fixture saves a task", DailyNotes.save(DailyNotes.today, "", "Alpha task", "", "Alpha"), true);
             root.noteId = DailyNotes.document.notes[0].id;
             root.seeded = true;
             root.after(root.start);

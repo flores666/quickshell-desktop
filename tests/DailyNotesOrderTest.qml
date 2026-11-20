@@ -41,7 +41,7 @@ Item {
     }
 
     function add(day: string, category: string): void {
-        check.equal("fixture saves in " + category, DailyNotes.save(day, "", "Task " + category, "", "", category), true);
+        check.equal("fixture saves in " + category, DailyNotes.save(day, "", "Task " + category, "", category), true);
     }
 
     function start(): void {

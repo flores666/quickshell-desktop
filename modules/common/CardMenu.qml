@@ -25,6 +25,7 @@ Item {
 
     /*! Whether the popup this card belongs to is the one open. */
     required property bool active
+    signal backgroundPressed(point scenePosition)
 
     readonly property var menu: root.active ? Overlay.menu : null
     /*! The item it opens beside goes with its delegate; the menu goes too. */
@@ -68,12 +69,19 @@ Item {
         // would also take the selection. A MouseArea passes hover on to its
         // ancestors, so the card still knows the pointer is over it.
         hoverEnabled: true
-        onPressed: Overlay.closeMenu()
-        // The scroll still reaches the pane underneath (hard rule 6); the menu
-        // only gets out of the way, since what it was opened beside is moving.
-        onWheel: event => {
+        onPressed: mouse => {
+            if (panel.contains(panel.mapFromItem(root, mouse.x, mouse.y)))
+                return;
+            const scenePosition = root.mapToItem(null, mouse.x, mouse.y);
             Overlay.closeMenu();
-            event.accepted = false;
+            root.backgroundPressed(scenePosition);
+        }
+        onWheel: event => {
+            // A list can leave the gesture unhandled at its edges or between
+            // columns. Keep that scroll inside the custom menu's surface.
+            event.accepted = root.customItem !== null && panel.contains(panel.mapFromItem(root, event.x, event.y));
+            if (!event.accepted)
+                Overlay.closeMenu();
         }
     }
 
@@ -84,14 +92,18 @@ Item {
         readonly property rect at: root.open
             ? root.menu.source.mapToItem(root, 0, 0, root.menu.source.width, root.menu.source.height)
             : Qt.rect(0, 0, 0, 0)
+        readonly property var cursor: root.menu?.scenePosition
+        readonly property point anchor: panel.cursor
+            ? root.mapFromItem(null, panel.cursor.x, panel.cursor.y) : Qt.point(panel.at.x, panel.at.y)
         readonly property int edge: Appearance.s.md
-        readonly property real below: panel.at.y + panel.at.height + Appearance.s.xs
+        readonly property real above: panel.anchor.y - panel.height - Appearance.s.xs
+        readonly property real below: panel.anchor.y + (panel.cursor ? 0 : panel.at.height) + Appearance.s.xs
 
-        // Below the item, or above it when the card has no room underneath;
-        // never past the card's sides.
-        x: Math.max(panel.edge, Math.min(root.width - panel.width - panel.edge, panel.at.x))
-        y: panel.below + panel.height <= root.height - panel.edge ? panel.below
-            : Math.max(panel.edge, panel.at.y - panel.height - Appearance.s.xs)
+        // Give pointer menus priority above the cursor and item menus room below their source.
+        x: Math.max(panel.edge, Math.min(root.width - panel.width - panel.edge, panel.anchor.x))
+        y: panel.cursor && panel.above >= panel.edge ? panel.above
+            : panel.below + panel.height <= root.height - panel.edge ? panel.below
+            : Math.max(panel.edge, panel.above)
         width: root.customItem ? Math.max(0, Math.min(root.width - panel.edge * 2,
             root.customItem.implicitWidth + Appearance.s.xs * 2)) : Appearance.m.menuWidth
         height: root.customItem ? Math.max(0, Math.min(root.height - panel.edge * 2,

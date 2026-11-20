@@ -25,13 +25,12 @@ Singleton {
 
     function previewAt(now: date): var {
         const day = Qt.formatDate(now, "yyyy-MM-dd");
-        const minute = Qt.formatTime(now, "HH:mm");
+        const deadline = day + "T" + Qt.formatTime(now, "HH:mm");
         const category = root.boardFor(day).quickCategory;
-        return (category ? root.relevantNote(day, minute, category) : null) ?? root.relevantNote(day, minute);
+        return (category ? root.relevantNote(day, deadline, category) : null) ?? root.relevantNote(day, deadline);
     }
 
-    function relevantNote(day: string, minute: string, category: var): var {
-        let active = null;
+    function relevantNote(day: string, deadline: string, category: var): var {
         let upcoming = null;
         let newest = null;
         for (const note of root.document.notes) {
@@ -39,17 +38,10 @@ Singleton {
                 continue;
             if (!newest)
                 newest = note;
-            if (!note.start || note.day < day)
-                continue;
-            if (note.day === day && note.start <= minute) {
-                if (minute < note.end && (!active || note.end < active.end))
-                    active = note;
-            } else if (!upcoming || note.day < upcoming.day
-                    || (note.day === upcoming.day && note.start < upcoming.start)) {
+            if (note.deadline && note.deadline >= deadline && (!upcoming || note.deadline < upcoming.deadline))
                 upcoming = note;
-            }
         }
-        return active ?? upcoming ?? newest;
+        return upcoming ?? newest;
     }
 
     function dateFor(day: string): date {
@@ -64,13 +56,16 @@ Singleton {
         return /^\d{4}-\d{2}-\d{2}$/.test(day) && Qt.formatDate(root.dateFor(day), "yyyy-MM-dd") === day;
     }
 
-    function validRange(start: string, end: string): bool {
-        const time = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-        return (start === "" && end === "") || (time.test(start) && time.test(end) && start < end);
+    function validDeadline(deadline: string): bool {
+        return deadline === "" || (/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/.test(deadline)
+            && root.validDay(deadline.slice(0, 10)));
     }
 
-    function rangeText(note: var): string {
-        return note?.start ? qsTr("%1–%2").arg(note.start).arg(note.end) : "";
+    function deadlineText(deadline: string): string {
+        if (!deadline)
+            return "";
+        const date = root.dateFor(deadline.slice(0, 10));
+        return qsTr("%1 · %2").arg(Qt.formatDate(date, "MMM d, yyyy")).arg(deadline.slice(11));
     }
 
     function forDay(day: string): var {
@@ -80,7 +75,8 @@ Singleton {
     function checklist(day: string): var {
         const groups = new Map(root.orderFor(day).map(category => [category, { category, notes: new Map(), done: 0 }]));
         let done = 0;
-        const notes = root.forDay(day);
+        // The Dock uses document order. The board shows tasks in creation order.
+        const notes = root.forDay(day).reverse();
         for (const note of notes) {
             const group = groups.get(note.category);
             group.notes.set(note.id, note);
@@ -184,7 +180,7 @@ Singleton {
     }
 
     function validDocument(data: var): bool {
-        return documentFormat.validDocument(data, root.validDay, root.validRange);
+        return documentFormat.validDocument(data, root.validDay, root.validDeadline);
     }
 
     function load(): void {
@@ -224,11 +220,10 @@ Singleton {
 
     /*! A blank id adds a task to the supplied category. Editing keeps its day,
         identity and category unless another category is explicitly supplied. */
-    function save(day: string, id: string, text: string, start: string, end: string, category: var): bool {
+    function save(day: string, id: string, text: string, deadline: string, category: var): bool {
         const title = text.trim();
-        start = start.trim();
-        end = end.trim();
-        if (!root.ready || title === "" || !root.validDay(day) || !root.validRange(start, end))
+        deadline = deadline.trim();
+        if (!root.ready || title === "" || !root.validDay(day) || !root.validDeadline(deadline))
             return false;
         const note = id === "" ? null : root.find(id);
         if (id !== "" && (!note || note.day !== day))
@@ -236,9 +231,9 @@ Singleton {
         const key = category === undefined ? note?.category : category;
         if (!root.boardFor(day).categories.includes(key))
             return false;
-        const fields = { title, start, end, category: key };
+        const fields = { title, deadline, category: key };
         if (note) {
-            if (note.title === title && note.start === start && note.end === end && note.category === key)
+            if (note.title === title && note.deadline === deadline && note.category === key)
                 return true;
             return root.replace(note, fields);
         }
@@ -254,6 +249,19 @@ Singleton {
         const updated = Object.assign({}, note, fields);
         const notes = root.document.notes.map(item => item.id === note.id ? updated : item);
         return root.commit(Object.assign({}, root.document, { notes }));
+    }
+
+    function setDeadlineTime(id: string, time: string): bool {
+        const note = root.find(id);
+        return note !== null && root.save(note.day, id, note.title,
+            time === "" ? "" : (note.deadline.slice(0, 10) || note.day) + "T" + time);
+    }
+
+    function saveAnnotation(id: string, snapshot: var, index: int, replacement: var): bool {
+        const note = root.find(id);
+        const annotations = note && note.annotations === snapshot
+            ? documentFormat.withAnnotation(snapshot ?? [], index, replacement) : null;
+        return annotations !== null && (annotations === snapshot || root.replace(note, { annotations }));
     }
 
     function toggleDone(id: string): void {

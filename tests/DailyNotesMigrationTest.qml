@@ -59,18 +59,19 @@ Item {
         check.equal("dated conversion discards only obsolete tracking",
             JSON.stringify(root.bridge.format.migrate(previous)), JSON.stringify(root.notes.document));
         check.equal("legacy completion is preserved", root.notes.find("2").done, true);
-        check.equal("legacy time window is preserved", root.notes.rangeText(root.notes.find("1")), "11:00–12:00");
+        check.equal("legacy range end becomes the deadline", root.notes.find("1").deadline, "2024-06-01T12:00");
         check.equal("legacy tasks without categories are recovered on their own dates",
             JSON.stringify(root.notes.boardFor("2024-06-01").categories), '["Recovered Tasks"]');
         check.equal("migration does not carry recovery categories to other dates", root.notes.boardFor("2024-06-03").categories.length, 0);
         check.equal("all legacy notes keep their membership in the recovery category",
             root.notes.document.notes.every(note => note.category === "Recovered Tasks"), true);
+        root.deadlines();
         root.namedCategories();
         root.schema();
         written.until(root.path, text => text === JSON.stringify(root.legacy), text => {
             check.equal("loading does not rewrite the legacy file", text, JSON.stringify(root.legacy));
             check.equal("category can be created after migration", root.notes.addCategory("2024-06-01", "Work"), "Work");
-            check.equal("legacy task can be categorized", root.notes.save("2024-06-01", "1", "Tracked", "11:00", "12:00", "Work"), true);
+            check.equal("legacy task can be categorized", root.notes.save("2024-06-01", "1", "Tracked", "2024-06-01T12:00", "Work"), true);
             const expected = JSON.stringify(root.notes.document);
             written.until(root.path, text => text === expected, text => {
                 check.equal("successful change persists migration", text, expected);
@@ -81,10 +82,56 @@ Item {
                     data.notes.find(note => note.id === "2").category, "Recovered Tasks");
                 check.equal("categorized legacy task persists its key", data.notes.find(note => note.id === "1").category, "Work");
                 check.equal("the next save drops the obsolete tracking field", data.trackedId, undefined);
+                check.equal("normal writes remove all obsolete range fields",
+                    data.notes.every(note => note.start === undefined && note.end === undefined), true);
+                check.equal("normal writes retain empty legacy deadlines", data.notes[0].deadline, "");
                 check.equal("migrated disk document passes validation", root.notes.validDocument(data), true);
                 check.done();
             });
         });
+    }
+
+    function deadlines(): void {
+        check.equal("empty legacy range becomes an unset deadline", root.notes.find("3").deadline, "");
+        check.equal("migration does not mutate legacy range fields", root.legacy.notes[2].end, "12:00");
+        const dated = root.copy(root.notes.document);
+        dated.trackedId = "1";
+        for (const note of dated.notes) {
+            note.start = note.id === "3" ? "" : "08:00";
+            note.end = note.id === "3" ? "" : "09:30";
+            delete note.deadline;
+        }
+        check.equal("dated legacy ranges validate", root.notes.validDocument(dated), true);
+        const migrated = root.bridge.format.migrate(dated);
+        check.equal("dated migration uses original end on board day", migrated.notes[1].deadline, "2024-06-01T09:30");
+        check.equal("dated migration preserves empty ranges", migrated.notes[0].deadline, "");
+        check.equal("dated migration preserves boards", JSON.stringify(migrated.boards), JSON.stringify(dated.boards));
+        check.equal("dated migration preserves task order and state",
+            migrated.notes.map(note => note.id + ":" + note.done).join(","), "3:false,2:true,1:false");
+        check.equal("dated migration strips ranges and tracking",
+            migrated.trackedId === undefined && migrated.notes.every(note => note.start === undefined && note.end === undefined), true);
+        check.equal("dated migration leaves its source intact", dated.notes[1].end, "09:30");
+        for (const pair of [["09:00", ""], ["", "10:00"], ["9:00", "10:00"], ["10:00", "09:00"],
+                ["09:00", "09:00"], ["23:00", "01:00"], ["24:00", "25:00"], ["09:60", "10:00"], [null, "10:00"]]) {
+            const invalid = root.copy(dated);
+            [invalid.notes[0].start, invalid.notes[0].end] = pair;
+            check.equal("invalid dated legacy range rejected: " + JSON.stringify(pair), root.notes.validDocument(invalid), false);
+            delete invalid.boards;
+            invalid.notes.forEach(note => delete note.category);
+            check.equal("invalid flat legacy range rejected: " + JSON.stringify(pair), root.notes.validDocument(invalid), false);
+        }
+        for (const deadline of [null, 1, "2023-02-29T09:00", "2024-06-01T24:00", "2024-06-01", "2024-06-01T09:00Z"]) {
+            const invalid = root.copy(migrated);
+            invalid.notes[0].deadline = deadline;
+            check.equal("invalid canonical deadline rejected: " + deadline, root.notes.validDocument(invalid), false);
+        }
+        const mixed = root.copy(dated);
+        mixed.notes[0] = migrated.notes[0];
+        check.equal("mixed old and new note timing schemas validate", root.notes.validDocument(mixed), true);
+        check.equal("mixed schemas normalize to canonical notes", JSON.stringify(root.bridge.format.migrate(mixed)), JSON.stringify(migrated));
+        const missing = root.copy(migrated);
+        delete missing.notes[0].deadline;
+        check.equal("missing both timing schemas is rejected", root.notes.validDocument(missing), false);
     }
 
     function namedCategories(): void {

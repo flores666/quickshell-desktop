@@ -110,7 +110,7 @@ QtObject {
     /*! A small visual lift keeps focused notes within the popup's paint gutter. */
     readonly property real dailyNotesFocusScale: 1.06
     readonly property real dailyNotesOtherScale: 2 - root.dailyNotesFocusScale
-    readonly property int dailyNotesCategoryRows: 4
+    readonly property int dailyNotesTimeRows: 4
     readonly property int touchTarget: 32
     /*! How tall a text field stands. Named once so the search fields and the
         password wells cannot drift apart. */

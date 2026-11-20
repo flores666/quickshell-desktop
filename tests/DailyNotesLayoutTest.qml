@@ -58,7 +58,7 @@ Item {
     function seed(name: string, count: int, title: string): void {
         DailyNotes.addCategory(DailyNotes.today, name);
         for (let i = 0; i < count; ++i)
-            DailyNotes.save(DailyNotes.today, "", title, "", "", name);
+            DailyNotes.save(DailyNotes.today, "", title, "", name);
     }
 
     function tile(category: string): DailyNoteCategory {
@@ -187,7 +187,7 @@ Item {
 
     function shorten(study: DailyNoteCategory, task: DailyNoteRow): void {
         const originalHeight = study.height;
-        check.equal("fixture edit succeeds", DailyNotes.save(DailyNotes.today, task.note.id, "Read", "", "", study.category), true);
+        check.equal("fixture edit succeeds", DailyNotes.save(DailyNotes.today, task.note.id, "Read", "", study.category), true);
         root.afterLayout(() => {
             check.equal("shortening wrapped text shrinks its tile", study.height < originalHeight, true);
             check.equal("editing retains the note and category", root.lastRow(study) === task && study.count === 1, true);
@@ -225,7 +225,7 @@ Item {
             DailyNotes.addCategory(DailyNotes.today, "Travel");
             DailyNotes.addCategory(DailyNotes.today, "Later");
             DailyNotes.addCategory(root.historyDay, "Study");
-            check.equal("historical task saves", DailyNotes.save(root.historyDay, "", "Archived task", "", "", "Study"), true);
+            check.equal("historical task saves", DailyNotes.save(root.historyDay, "", "Archived task", "", "Study"), true);
             root.seeded = true;
             root.afterLayout(root.arranged);
         });

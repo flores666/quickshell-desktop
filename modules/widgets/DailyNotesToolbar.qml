@@ -20,6 +20,11 @@ Item {
 
     height: Math.max(actions.height, date.implicitHeight)
 
+    function containsCategoryEntry(scenePosition: point): bool {
+        return reveal.contains(reveal.mapFromItem(null, scenePosition))
+            || add.contains(add.mapFromItem(null, scenePosition));
+    }
+
     function addCategory(): void {
         if (!root.categoryEntryOpen || !root.enabled || !root.actionsEnabled || !root.canAddCategory)
             return;
@@ -63,6 +68,8 @@ Item {
             height: reveal.height
             enabled: root.categoryEntryOpen && root.actionsEnabled
             placeholder: qsTr("Category name")
+            placeholderColor: Appearance.c.textMuted
+            input.color: Appearance.c.textMuted
             input.Accessible.name: qsTr("Category name")
             onAccepted: root.addCategory()
         }
@@ -76,6 +83,7 @@ Item {
         enabled: root.actionsEnabled
 
         IconButton {
+            id: add
             objectName: "newNoteCategory"
             size: Appearance.m.compactButton
             icon: root.categoryEntryOpen ? "check" : "add"
