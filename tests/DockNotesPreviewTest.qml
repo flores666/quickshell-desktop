@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import "root:/components"
+import "root:/config"
 import "root:/modules/dock"
 import "root:/modules/widgets"
 import "root:/services"
@@ -12,6 +13,7 @@ Item {
 
     Check { id: check }
     Until { id: ready }
+    readonly property Rectangle progressRing: button.children.find(child => child.objectName === "notesProgressRing") as Rectangle
 
     Surface {
         id: surface
@@ -38,10 +40,10 @@ Item {
         return row?.children.find(child => child instanceof Icon && child.name === "pin")?.visible ?? false;
     }
 
-    function expectEmpty(label: string): void {
+    function expectCaughtUp(label: string, progress: real): void {
         check.equal(label + " uses the empty title", button.summary, "No tasks");
         check.equal(label + " uses the empty subtitle", button.progressText, "All caught up");
-        check.equal(label + " has no progress arc", button.progress, 0);
+        check.near(label + " shows the expected progress arc", button.progress, progress);
         check.equal(label + " describes the empty state", button.tipText, "No tasks · All caught up");
     }
 
@@ -53,12 +55,13 @@ Item {
     function exercise(): void {
         const today = DailyNotes.today;
         const earlier = "2001-01-02";
-        root.expectEmpty("an empty day");
+        root.expectCaughtUp("an empty day", 0);
+        check.equal("an empty day leaves the right circle unfilled", root.progressRing.color.a, 0);
         DailyNotes.addCategory(today, "Tasks");
         DailyNotes.addCategory(earlier, "Tasks");
         const historical = root.addNote(earlier, "Earlier task");
         check.equal("the service can still preview other dates", DailyNotes.preview?.id, historical);
-        root.expectEmpty("a day with only an unfinished historical task");
+        root.expectCaughtUp("a day with only an unfinished historical task", 0);
         check.equal("a task absent from the miniature has no pin", root.pinVisible(historical), false);
 
         const first = root.addNote(today, "First task");
@@ -70,13 +73,16 @@ Item {
         check.near("an unfinished day still shows its progress arc", button.progress, 0.5);
 
         DailyNotes.toggleDone(second);
-        root.expectEmpty("a completed day");
+        root.expectCaughtUp("a completed day", 1);
+        check.equal("a completed day leaves the center of the ring unfilled", root.progressRing.color.a, 0);
+        check.sameColor("the fill uses the system accent hue", Qt.alpha(button.completionFill, 1), Appearance.c.accent, 0);
+        check.equal("the accent fill is translucent", button.completionFill.a > 0 && button.completionFill.a < 1, true);
         check.equal("the pin is hidden when the miniature has no task", root.pinVisible(second), false);
         DailyNotes.toggleDone(first);
         check.equal("reopening a task restores the task title", button.summary, "First task");
         check.near("reopening a task restores the arc", button.progress, 0.5);
         DailyNotes.remove(first);
-        root.expectEmpty("a day after removing the last unfinished task");
+        root.expectCaughtUp("a day after removing the last unfinished task", 1);
         root.exerciseCategory(today);
     }
 
@@ -100,7 +106,7 @@ Item {
         check.equal("removing the selected category succeeds", DailyNotes.removeCategory(today, "Other"), true);
         check.equal("without a selected category the preview has a pin", root.pinVisible(current), true);
         DailyNotes.toggleDone(current);
-        root.expectEmpty("a completed day without a selected category");
+        root.expectCaughtUp("a completed day without a selected category", 1);
         check.equal("the pin disappears with the preview", root.pinVisible(current), false);
     }
 

@@ -60,6 +60,7 @@ QtObject {
     readonly property int dockNotesBadge: Math.round(root.dockSlot * 0.72)
     readonly property int dockNotesRing: 22
     readonly property int dockNotesRingStroke: 3
+    readonly property real dockNotesAccentOpacity: 0.95
     /*! At defaults, a broad Gaussian: one stride away is 117.2%, two is 111.1%. */
     readonly property real dockMagnification: 1 + Tuning.pick("dockZoom") / 100
     readonly property real dockWaveSpread: 1.85 * Tuning.pick("dockWaveWidth") / 100

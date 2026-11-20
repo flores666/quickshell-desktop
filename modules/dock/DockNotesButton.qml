@@ -10,13 +10,14 @@ DockDraggable {
     id: root
 
     readonly property bool caughtUp: DailyNotes.caughtUp
+    readonly property color completionFill: Qt.alpha(Appearance.c.accent, Appearance.m.dockNotesAccentOpacity)
     readonly property var note: DailyNotes.dockPreview
     readonly property string heading: qsTr("Daily Notes")
     readonly property string summary: root.caughtUp ? qsTr("No tasks") : (root.note?.title ?? root.heading)
     readonly property string deadlineText: DailyNotes.deadlineText(root.note?.deadline ?? "")
     readonly property string progressText: root.caughtUp
         ? qsTr("All caught up") : DailyNotes.progressText(DailyNotes.todayChecklist)
-    readonly property real progress: !root.caughtUp && DailyNotes.todayChecklist.total > 0
+    readonly property real progress: DailyNotes.todayChecklist.total > 0
         ? DailyNotes.todayChecklist.done / DailyNotes.todayChecklist.total : 0
     readonly property string tipText: root.deadlineText !== ""
         ? qsTr("%1 · %2 · %3").arg(root.summary).arg(root.deadlineText).arg(root.progressText)
@@ -49,15 +50,7 @@ DockDraggable {
             ShapePath {
                 strokeWidth: Appearance.m.controlBorder
                 strokeColor: root.scheme.borderStrong
-                fillGradient: RadialGradient {
-                    centerX: badge.width / 2
-                    centerY: centerX
-                    centerRadius: centerX
-                    focalX: centerX
-                    focalY: centerY
-                    GradientStop { position: 0; color: root.scheme.raised }
-                    GradientStop { position: 1; color: root.scheme.borderStrong }
-                }
+                fillColor: root.completionFill
                 PathRectangle { width: badge.width; height: width; radius: width / 2 }
             }
         }
@@ -66,7 +59,7 @@ DockDraggable {
             anchors.centerIn: parent
             name: "check"
             size: Appearance.m.iconLg
-            color: root.scheme.text
+            color: Appearance.c.accentText
         }
     }
 
@@ -100,6 +93,7 @@ DockDraggable {
 
     Rectangle {
         id: ring
+        objectName: "notesProgressRing"
 
         anchors.right: parent.right
         anchors.rightMargin: Appearance.s.md
@@ -118,7 +112,7 @@ DockDraggable {
 
             ShapePath {
                 strokeWidth: ring.border.width
-                strokeColor: root.scheme.accent
+                strokeColor: root.completionFill
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
 
