@@ -57,6 +57,7 @@ QtObject {
     readonly property int dockGap: 12
     readonly property int dockSlot: root.dockIcon + root.dockInset * 2
     readonly property int dockNotesWidth: 176
+    readonly property int dockNotesBadge: Math.round(root.dockSlot * 0.72)
     readonly property int dockNotesRing: 22
     readonly property int dockNotesRingStroke: 3
     /*! At defaults, a broad Gaussian: one stride away is 117.2%, two is 111.1%. */

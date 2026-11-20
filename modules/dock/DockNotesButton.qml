@@ -9,12 +9,15 @@ import "root:/services"
 DockDraggable {
     id: root
 
-    readonly property var note: DailyNotes.preview
+    readonly property bool caughtUp: DailyNotes.ready
+        && DailyNotes.todayChecklist.done === DailyNotes.todayChecklist.total
+    readonly property var note: root.caughtUp ? null : DailyNotes.preview
     readonly property string heading: qsTr("Daily Notes")
-    readonly property string summary: root.note?.title ?? root.heading
+    readonly property string summary: root.caughtUp ? qsTr("No tasks") : (root.note?.title ?? root.heading)
     readonly property string range: DailyNotes.rangeText(root.note)
-    readonly property string progressText: DailyNotes.progressText(DailyNotes.todayChecklist)
-    readonly property real progress: DailyNotes.todayChecklist.total > 0
+    readonly property string progressText: root.caughtUp
+        ? qsTr("All caught up") : DailyNotes.progressText(DailyNotes.todayChecklist)
+    readonly property real progress: !root.caughtUp && DailyNotes.todayChecklist.total > 0
         ? DailyNotes.todayChecklist.done / DailyNotes.todayChecklist.total : 0
     readonly property string tipText: root.range !== ""
         ? qsTr("%1 · %2 · %3").arg(root.summary).arg(root.range).arg(root.progressText)
@@ -31,12 +34,50 @@ DockDraggable {
     onDraggingChanged: if (root.dragging && root.selected) Overlay.close()
     onPointerOverChanged: root.hoverChanged(Dock.notesSlot.key, root.tipText, root.centerX(), root.pointerOver)
 
-    Column {
+    Item {
+        id: badge
         anchors.left: parent.left
-        anchors.leftMargin: Appearance.s.lg
+        anchors.leftMargin: Appearance.s.md
+        anchors.verticalCenter: parent.verticalCenter
+        width: Appearance.m.dockNotesBadge
+        height: width
+        visible: root.caughtUp
+
+        Shape {
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+
+            ShapePath {
+                strokeWidth: Appearance.m.controlBorder
+                strokeColor: root.scheme.borderStrong
+                fillGradient: RadialGradient {
+                    centerX: badge.width / 2
+                    centerY: centerX
+                    centerRadius: centerX
+                    focalX: centerX
+                    focalY: centerY
+                    GradientStop { position: 0; color: root.scheme.raised }
+                    GradientStop { position: 1; color: root.scheme.borderStrong }
+                }
+                PathRectangle { width: badge.width; height: width; radius: width / 2 }
+            }
+        }
+
+        Icon {
+            anchors.centerIn: parent
+            name: "check"
+            size: Appearance.m.iconLg
+            color: root.scheme.text
+        }
+    }
+
+    Column {
+        anchors.left: root.caughtUp ? badge.right : parent.left
+        anchors.leftMargin: root.caughtUp ? Appearance.s.xl : Appearance.s.lg
         anchors.right: ring.left
         anchors.rightMargin: Appearance.s.sm
         anchors.verticalCenter: parent.verticalCenter
+        spacing: root.caughtUp ? Math.min(0, root.height - summaryLabel.implicitHeight - detailLabel.implicitHeight) : 0
 
         Label {
             id: summaryLabel
@@ -48,8 +89,9 @@ DockDraggable {
         }
 
         Label {
+            id: detailLabel
             width: parent.width
-            visible: summaryLabel.implicitHeight + implicitHeight <= root.height
+            visible: root.caughtUp || summaryLabel.implicitHeight + implicitHeight <= root.height
             text: root.progressText
             role: Label.Role.Caption
             muted: true
