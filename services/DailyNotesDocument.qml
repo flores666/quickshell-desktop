@@ -25,38 +25,62 @@ QtObject {
         return lanes;
     }
 
-    // Legacy documents can omit categories, layout, and the quick entry destination.
-    function validDocument(data: var, validDay: var, validRange: var): bool {
-        if (!Number.isSafeInteger(data?.nextId) || data.nextId < 1
-                || typeof data.trackedId !== "string" || !Array.isArray(data.notes))
+    function isObject(value: var): bool {
+        return value !== null && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype;
+    }
+
+    function validBoard(board: var, legacy: bool): bool {
+        if (!root.isObject(board))
             return false;
-        const categories = data.categories === undefined ? [] : data.categories;
+        const categories = legacy && board.categories === undefined ? [] : board.categories;
         if (!Array.isArray(categories))
             return false;
         const names = new Set();
         for (const name of categories) {
-            if (typeof name !== "string" || name === "" || name !== name.trim() || names.has(name.toLowerCase()))
+            if (typeof name !== "string" || name === "" || name !== name.trim()
+                    || (!legacy && root.isLegacyCategory(name)) || names.has(name.toLowerCase()))
                 return false;
             names.add(name.toLowerCase());
         }
         const keys = new Set(categories);
-        if (data.quickCategory !== undefined && (!keys.has(data.quickCategory) || root.isLegacyCategory(data.quickCategory)))
+        if (board.quickCategory !== undefined && (!keys.has(board.quickCategory) || root.isLegacyCategory(board.quickCategory)))
             return false;
-        const lanes = data.cardLanes;
-        if (lanes !== undefined && (lanes === null || typeof lanes !== "object"
-                || Object.getPrototypeOf(lanes) !== Object.prototype
-                || !root.validLaneEntries(Object.entries(lanes), keys)))
+        const lanes = board.cardLanes;
+        if (lanes !== undefined && (!root.isObject(lanes) || !root.validLaneEntries(Object.entries(lanes), keys)))
             return false;
-        if (data.cardOrder !== undefined) {
-            if (!Array.isArray(data.cardOrder))
+        if (board.cardOrder !== undefined) {
+            if (!Array.isArray(board.cardOrder))
                 return false;
-            const ordered = new Set(data.cardOrder);
-            if (ordered.size !== data.cardOrder.length)
+            const ordered = new Set(board.cardOrder);
+            if (ordered.size !== board.cardOrder.length)
                 return false;
-            ordered.delete("");
+            if (legacy)
+                ordered.delete("");
             if (ordered.size !== keys.size || categories.some(key => !ordered.has(key)))
                 return false;
         }
+        return true;
+    }
+
+    function validDocument(data: var, validDay: var, validRange: var): bool {
+        if (!Number.isSafeInteger(data?.nextId) || data.nextId < 1
+                || typeof data.trackedId !== "string" || !Array.isArray(data.notes))
+            return false;
+        const legacy = data.boards === undefined;
+        const keysByDay = new Map();
+        if (legacy) {
+            if (!root.validBoard(data, true))
+                return false;
+        } else {
+            if (!root.isObject(data.boards))
+                return false;
+            for (const [day, board] of Object.entries(data.boards)) {
+                if (!validDay(day) || !root.validBoard(board, false) || board.categories.length === 0)
+                    return false;
+                keysByDay.set(day, new Set(board.categories));
+            }
+        }
+        const legacyKeys = new Set(legacy ? data.categories : []);
         const ids = new Set();
         for (const note of data.notes) {
             if (typeof note?.id !== "string" || !/^[1-9]\d*$/.test(note.id)
@@ -65,34 +89,72 @@ QtObject {
                     || typeof note.title !== "string" || note.title.trim() === ""
                     || typeof note.done !== "boolean"
                     || typeof note.start !== "string" || typeof note.end !== "string"
-                    || !validRange(note.start, note.end)
-                    || (!keys.has(note.category) && !root.isLegacyCategory(note.category)))
+                    || !validRange(note.start, note.end))
+                return false;
+            if (legacy ? !legacyKeys.has(note.category) && !root.isLegacyCategory(note.category)
+                       : !keysByDay.get(note.day)?.has(note.category))
                 return false;
             ids.add(note.id);
         }
         return true;
     }
 
-    /*! Normalize a validated document in memory before exposing its categories.
-        Use a named fallback only when the document has notes to recover. */
+    /*! Legacy category names without tasks have no date to recover. */
     function migrate(data: var): var {
+        if (data.boards !== undefined)
+            return data;
         const keep = key => !root.isLegacyCategory(key);
-        const next = Object.assign({}, data, { categories: (data.categories ?? []).filter(keep) });
-        if (data.cardOrder !== undefined)
-            next.cardOrder = data.cardOrder.filter(keep);
-        if (data.cardLanes !== undefined)
-            next.cardLanes = root.laneObject(Object.entries(data.cardLanes).filter(([key]) => keep(key)));
-        if (data.notes.every(note => keep(note.category)))
-            return next;
-
-        const order = next.cardOrder ?? next.categories;
-        if (order.length === 0) {
-            const recovery = qsTr("Recovered Tasks");
-            next.categories.push(recovery);
-            next.cardOrder?.push(recovery);
+        const categories = (data.categories ?? []).filter(keep);
+        const order = (data.cardOrder ?? categories).filter(keep);
+        const lanes = Object.entries(data.cardLanes ?? {});
+        const fallback = order[0] ?? qsTr("Recovered Tasks");
+        const usedByDay = new Map();
+        const notes = data.notes.map(note => {
+            const category = keep(note.category) ? note.category : fallback;
+            if (!usedByDay.has(note.day))
+                usedByDay.set(note.day, new Set());
+            usedByDay.get(note.day).add(category);
+            return category === note.category ? note : Object.assign({}, note, { category });
+        });
+        const boards = {};
+        const quickDay = notes[0]?.day;
+        for (const [day, used] of usedByDay) {
+            const board = { categories: categories.length === 0 ? [fallback] : categories.filter(key => used.has(key)) };
+            if (data.cardOrder !== undefined)
+                board.cardOrder = order.length === 0 ? [fallback] : order.filter(key => used.has(key));
+            if (data.cardLanes !== undefined)
+                board.cardLanes = root.laneObject(lanes.filter(([key]) => used.has(key)));
+            if (day === quickDay && used.has(data.quickCategory))
+                board.quickCategory = data.quickCategory;
+            boards[day] = board;
         }
-        next.notes = data.notes.map(note => keep(note.category) ? note
-            : Object.assign({}, note, { category: order[0] }));
+        return { nextId: data.nextId, trackedId: data.trackedId, boards, notes };
+    }
+
+    function withoutCategory(board: var, category: string): var {
+        const keep = key => key !== category;
+        const next = Object.assign({}, board, { categories: board.categories.filter(keep) });
+        if (next.cardOrder !== undefined)
+            next.cardOrder = next.cardOrder.filter(keep);
+        if (next.cardLanes !== undefined)
+            next.cardLanes = root.laneObject(Object.entries(next.cardLanes).filter(([key]) => keep(key)));
+        if (next.quickCategory === category)
+            delete next.quickCategory;
         return next;
+    }
+
+    function withLayout(board: var, cardOrder: var, lanes: var): var {
+        const current = board.cardOrder ?? board.categories;
+        const changes = { cardOrder };
+        if (lanes !== undefined) {
+            if (!(lanes instanceof Map) || !root.validLaneEntries(lanes, new Set(current)))
+                return null;
+            const previous = new Map(Object.entries(board.cardLanes ?? {}));
+            if (lanes.size !== previous.size || [...lanes].some(([key, lane]) => previous.get(key) !== lane))
+                changes.cardLanes = root.laneObject(lanes);
+        }
+        if (changes.cardLanes === undefined && cardOrder.every((key, index) => key === current[index]))
+            return null;
+        return Object.assign({}, board, changes);
     }
 }

@@ -46,15 +46,18 @@ Item {
         check.equal("new document has no read error", DailyNotes.error, "");
         check.equal("new document has no notes", DailyNotes.document.notes.length, 0);
         check.equal("new document begins with identity one", DailyNotes.document.nextId, 1);
-        check.equal("new checklist starts without categories", JSON.stringify(DailyNotes.categories), '[]');
-        check.equal("category creation cannot submit the retired name", DailyNotes.canAddCategory("  iNbox  "), false);
-        check.equal("category creation can submit a valid name", DailyNotes.canAddCategory("  Work  "), true);
-        check.equal("blank category is rejected", DailyNotes.addCategory("  "), null);
-        check.equal("retired category name is rejected", DailyNotes.addCategory("  iNbox  "), null);
-        check.equal("category name is trimmed", DailyNotes.addCategory("  Work  "), "Work");
-        check.equal("duplicate category resolves its canonical key", DailyNotes.addCategory("work"), "Work");
-        check.equal("second category saves", DailyNotes.addCategory("Personal"), "Personal");
-        check.equal("duplicate category is not appended", JSON.stringify(DailyNotes.categories), '["Work","Personal"]');
+        check.equal("new checklist starts without categories", JSON.stringify(DailyNotes.boardFor(root.earlier).categories), '[]');
+        check.equal("category creation cannot submit the retired name", DailyNotes.canAddCategory(root.earlier, "  iNbox  "), false);
+        check.equal("category creation can submit a valid name", DailyNotes.canAddCategory(root.earlier, "  Work  "), true);
+        check.equal("blank category is rejected", DailyNotes.addCategory(root.earlier, "  "), null);
+        check.equal("retired category name is rejected", DailyNotes.addCategory(root.earlier, "  iNbox  "), null);
+        check.equal("category name is trimmed", DailyNotes.addCategory(root.earlier, "  Work  "), "Work");
+        check.equal("duplicate category resolves its canonical key", DailyNotes.addCategory(root.earlier, "work"), "Work");
+        check.equal("second category saves", DailyNotes.addCategory(root.earlier, "Personal"), "Personal");
+        check.equal("duplicate category is not appended", JSON.stringify(DailyNotes.boardFor(root.earlier).categories), '["Work","Personal"]');
+        check.equal("other dates start without cards", DailyNotes.checklist(root.later).groups.length, 0);
+        check.equal("another day cannot select this category", DailyNotes.selectCategory(root.later, "Work"), false);
+        check.equal("a category cannot be created on an invalid date", DailyNotes.addCategory("2024-02-30", "Work"), null);
         check.equal("empty document has no tracked task", DailyNotes.trackedId, "");
         check.equal("empty document has no preview", DailyNotes.preview, null);
         check.equal("missing identity resolves to null", DailyNotes.find("missing"), null);
@@ -79,8 +82,11 @@ Item {
         check.equal("omitted category cannot add", DailyNotes.save(root.earlier, "", "Task", "", ""), false);
         check.equal("empty category cannot add", DailyNotes.save(root.earlier, "", "Task", "", "", ""), false);
         check.equal("unknown category cannot add", DailyNotes.save(root.earlier, "", "Task", "", "", "Missing"), false);
+        check.equal("a category from another date cannot add", DailyNotes.save(root.later, "", "Task", "", "", "Work"), false);
         root.unchanged("rejected additions do not allocate identities", before);
 
+        DailyNotes.addCategory(root.later, "Work");
+        DailyNotes.addCategory(root.later, "Personal");
         check.equal("first historical task saves", DailyNotes.save(root.earlier, "", "  First task  ", "", "", "Personal"), true);
         root.firstId = DailyNotes.preview.id;
         check.equal("task title is trimmed", DailyNotes.find(root.firstId).title, "First task");
@@ -124,9 +130,9 @@ Item {
         check.equal("category assignment preserves identity and order", DailyNotes.document.notes[1].id, root.secondId);
         const checklist = DailyNotes.checklist(root.later);
         check.equal("historical checklist counts tasks", checklist.total, 1);
-        check.equal("historical checklist omits empty categories", checklist.groups.length, 1);
-        check.equal("checklist groups by saved category", checklist.groups[0].category, "Personal");
-        check.equal("checklist uses stable identity keys", [...checklist.groups[0].notes.keys()].join(","), root.secondId);
+        check.equal("historical checklist retains its own empty category", checklist.groups[0].notes.size, 0);
+        check.equal("checklist groups by saved category", checklist.groups[1].category, "Personal");
+        check.equal("checklist uses stable identity keys", [...checklist.groups[1].notes.keys()].join(","), root.secondId);
         check.equal("edit preserves newest-first ordering", DailyNotes.preview.id, root.thirdId);
         const unchanged = JSON.stringify(DailyNotes.document);
         check.equal("unchanged edit succeeds",
@@ -204,7 +210,7 @@ Item {
         written.until(root.path, text => text === expected, text => {
             check.equal("completion, deletion and history persist", text, expected);
             check.equal("final disk document remains valid", DailyNotes.validDocument(root.parse(text)), true);
-            check.equal("empty categories remain available", JSON.stringify(DailyNotes.categories), '["Work","Personal"]');
+            check.equal("empty categories remain available", JSON.stringify(DailyNotes.boardFor(root.earlier).categories), '["Work","Personal"]');
             check.equal("all operations leave service ready", DailyNotes.ready, true);
             root.retryWrite();
         });
@@ -216,9 +222,9 @@ Item {
             check.equal("state file can be made read-only", locked, "locked");
             if (locked !== "locked") { check.done(); return; }
             check.equal("write failure is reported", DailyNotes.save(root.later, "", "Retry this task", "", "", "Work"), false);
-            check.equal("category write failure is reported", DailyNotes.addCategory("Not saved"), null);
+            check.equal("category write failure is reported", DailyNotes.addCategory(root.earlier, "Not saved"), null);
             root.unchanged("failed write preserves the last saved document", before);
-            check.equal("failed category never becomes selectable", DailyNotes.categories.includes("Not saved"), false);
+            check.equal("failed category never becomes selectable", DailyNotes.boardFor(root.earlier).categories.includes("Not saved"), false);
             check.equal("failed write leaves an error for the editor", DailyNotes.error !== "", true);
             Qt.callLater(() => mode.run('chmod u+w "$1" && printf unlocked', [root.path], unlocked => {
                 check.equal("state file is writable again", unlocked, "unlocked");

@@ -11,7 +11,7 @@ Item {
     required property var groups
     property Item dragViewport: root
     property real glass: Appearance.popupOpacity
-    property string day
+    required property string day
     property bool reorderEnabled: true
     property string destinationCategory
     property var focusedCategory: null
@@ -43,7 +43,7 @@ Item {
             return drag.landing;
         if (!drag || drag.category === drag.target)
             return root.resting;
-        const order = DailyNotes.orderAfterMove(drag.category, drag.target, drag.after);
+        const order = DailyNotes.orderAfterMove(root.day, drag.category, drag.target, drag.after);
         const lanes = root.lanesAfterMove(drag.category, drag.target, drag.after);
         return order === null || lanes === null ? root.resting : root.pack(order, lanes ?? root.resting.lanes);
     }
@@ -54,7 +54,7 @@ Item {
         const lanes = new Map();
         const loads = [0, 0];
         const cards = root.keys.map(key => root.tiles.get(key)).filter(tile => tile);
-        const saved = DailyNotes.cardLanes;
+        const saved = DailyNotes.lanesFor(root.day);
         const pinned = cards.filter(tile => saved.has(tile.category));
         const side = saved.get(pinned[0]?.category);
         // If a pinned column was emptied, keep the replacement stable when new cards join.
@@ -182,7 +182,7 @@ Item {
         if (source === destination && sourceKeys.indexOf(category) === sourceKeys.indexOf(target) + (after ? 1 : -1))
             return null;
 
-        const lanes = new Map(DailyNotes.cardLanes);
+        const lanes = DailyNotes.lanesFor(root.day);
         for (const [key, lane] of visibleLanes)
             lanes.set(key, lane);
         // Exchange the two cards if moving would otherwise empty the source lane.
@@ -195,7 +195,7 @@ Item {
     function moveTo(category: string, target: string, after: bool): void {
         const lanes = root.lanesAfterMove(category, target, after);
         if (lanes !== null)
-            DailyNotes.moveCategory(category, target, after, lanes);
+            DailyNotes.moveCategory(root.day, category, target, after, lanes);
     }
 
     function step(category: string, delta: int): void {
@@ -213,7 +213,10 @@ Item {
             root.moveTo(category, order[to], delta > 0);
     }
 
-    onDayChanged: root.finishDrag(false)
+    onDayChanged: {
+        root.finishDrag(false);
+        motion.reset();
+    }
     onWidthChanged: root.finishDrag(false)
     onCanReorderChanged: if (!root.canReorder) root.finishDrag(false)
     onKeysChanged: if (root.dragging && root.gesture) {
@@ -225,18 +228,22 @@ Item {
     DailyNoteDragMotion { id: motion; animated: root.animated }
 
     Repeater {
-        model: ScriptModel { values: root.keys }
+        model: ScriptModel {
+            objectProp: "key"
+            values: root.keys.map(category => ({ key: root.day + "/" + category, day: root.day, category }))
+        }
 
         DailyNoteCategory {
             id: tile
-            required property string modelData
+            required property var modelData
 
             readonly property rect box: root.arrangement.boxes.get(tile.category) ?? Qt.rect(0, 0, 0, 0)
             readonly property bool sliding: root.animated && motion.tile !== null
             layoutScale: !root.focusActive ? 1
                 : tile.category === root.focusedCategory ? Appearance.m.dailyNotesFocusScale : Appearance.m.dailyNotesOtherScale
-            category: tile.modelData
-            fill: PopupStyle.noteCategoryFill(Math.max(0, DailyNotes.categories.indexOf(tile.category)), root.glass)
+            category: tile.modelData.category
+            enabled: tile.modelData.day === root.day
+            fill: PopupStyle.noteCategoryFill(Math.max(0, DailyNotes.boardFor(root.day).categories.indexOf(tile.category)), root.glass)
             taskDestination: tile.category === root.destinationCategory
             group: root.byCategory.get(tile.category) ?? null
             reorderEnabled: root.canReorder

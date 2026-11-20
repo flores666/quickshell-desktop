@@ -73,6 +73,14 @@ QtObject {
             root.tile = null;
     }
 
+    function reset(): void {
+        raise.stop();
+        straighten.stop();
+        landing.stop();
+        root.held = false;
+        root.tile = null;
+    }
+
     function matrixFor(tile: Item, baseScale: real): matrix4x4 {
         // Resting cards scale about their top center; a held card pins the grip.
         const inset = (1 - baseScale) * tile.width / 2;

@@ -56,21 +56,23 @@ Item {
         check.equal("legacy manual tracking is preserved", root.notes.preview?.id, "1");
         check.equal("legacy completion is preserved", root.notes.find("2").done, true);
         check.equal("legacy time window is preserved", root.notes.rangeText(root.notes.find("1")), "11:00–12:00");
-        check.equal("legacy tasks without categories get one recovery category",
-            JSON.stringify(root.notes.categories), '["Recovered Tasks"]');
+        check.equal("legacy tasks without categories are recovered on their own dates",
+            JSON.stringify(root.notes.boardFor("2024-06-01").categories), '["Recovered Tasks"]');
+        check.equal("migration does not carry recovery categories to other dates", root.notes.boardFor("2024-06-03").categories.length, 0);
         check.equal("all legacy notes keep their membership in the recovery category",
             root.notes.document.notes.every(note => note.category === "Recovered Tasks"), true);
         root.namedCategories();
         root.schema();
         written.until(root.path, text => text === JSON.stringify(root.legacy), text => {
             check.equal("loading does not rewrite the legacy file", text, JSON.stringify(root.legacy));
-            check.equal("category can be created after migration", root.notes.addCategory("Work"), "Work");
+            check.equal("category can be created after migration", root.notes.addCategory("2024-06-01", "Work"), "Work");
             check.equal("legacy task can be categorized", root.notes.save("2024-06-01", "1", "Tracked", "11:00", "12:00", "Work"), true);
             const expected = JSON.stringify(root.notes.document);
             written.until(root.path, text => text === expected, text => {
                 check.equal("successful change persists migration", text, expected);
                 const data = JSON.parse(text);
-                check.equal("only named category keys persist", JSON.stringify(data.categories), '["Recovered Tasks","Work"]');
+                check.equal("each date persists its own category keys",
+                    JSON.stringify(data.boards["2024-06-01"].categories), '["Recovered Tasks","Work"]');
                 check.equal("untouched legacy tasks persist their recovery category",
                     data.notes.find(note => note.id === "2").category, "Recovered Tasks");
                 check.equal("categorized legacy task persists its key", data.notes.find(note => note.id === "1").category, "Work");
@@ -83,25 +85,37 @@ Item {
 
     function namedCategories(): void {
         const ordered = root.copy(root.legacy);
-        ordered.categories = ["Work", "iNbOx", "Personal"];
-        ordered.cardOrder = ["", "Personal", "iNbOx", "Work"];
+        ordered.categories = ["Work", "iNbOx", "Personal", "Without a date"];
+        ordered.cardOrder = ["", "Personal", "iNbOx", "Work", "Without a date"];
+        ordered.cardLanes = { Work: 0, Personal: 1, iNbOx: 0 };
+        ordered.quickCategory = "Personal";
         ordered.notes[0].category = "";
         ordered.notes[1].category = "Work";
         ordered.notes[2].category = "iNbOx";
         check.equal("legacy order and literal Inbox are loadable", root.notes.validDocument(ordered), true);
         const migrated = root.bridge.format.migrate(ordered);
-        check.equal("registry retains surviving named categories", JSON.stringify(migrated.categories), '["Work","Personal"]');
-        check.equal("order drops both Inbox slots", JSON.stringify(migrated.cardOrder), '["Personal","Work"]');
+        const older = migrated.boards["2024-06-01"];
+        const newer = migrated.boards["2024-06-02"];
+        check.equal("registry retains surviving named categories", JSON.stringify(older.categories), '["Work","Personal"]');
+        check.equal("order drops both Inbox slots", JSON.stringify(older.cardOrder), '["Personal","Work"]');
+        check.equal("lanes stay with the categories of that date", JSON.stringify(newer.cardLanes), '{"Personal":1}');
+        check.equal("legacy choice is copied to at most one day", newer.quickCategory === "Personal" && older.quickCategory === undefined, true);
         check.equal("legacy tasks move to the first surviving card in saved order",
             JSON.stringify(migrated.notes.map(note => note.category)), '["Personal","Work","Personal"]');
         check.equal("legacy order conversion keeps tracking", migrated.trackedId, "1");
         check.equal("migration leaves the source records intact", ordered.notes[2].category, "iNbOx");
+        check.equal("a category without a dated task is not carried forward",
+            Object.values(migrated.boards).some(board => board.categories.includes("Without a date")), false);
+        check.equal("a task cannot reference another day's category",
+            root.notes.validDocument(Object.assign({}, migrated, { notes: [Object.assign({}, migrated.notes[0], { category: "Work" })] })), false);
         ordered.notes = [];
         ordered.categories = ["iNbOx"];
         ordered.cardOrder = ["", "iNbOx"];
+        delete ordered.quickCategory;
+        delete ordered.cardLanes;
         const empty = root.bridge.format.migrate(ordered);
         check.equal("no recovery category is created for an empty legacy Inbox",
-            JSON.stringify([empty.categories, empty.cardOrder]), '[[],[]]');
+            JSON.stringify(empty.boards), '{}');
     }
 
     function schema(): void {

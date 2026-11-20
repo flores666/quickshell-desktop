@@ -9,6 +9,7 @@ import "root:/services"
 FocusScope {
     id: root
 
+    required property string day
     required property string category
     signal selected(string key)
 
@@ -17,7 +18,7 @@ FocusScope {
         + Math.max(0, root.shownRows - 1) * list.spacing
 
     readonly property string query: search.text.trim().toLowerCase()
-    readonly property var matches: DailyNotes.categories.filter(
+    readonly property var matches: DailyNotes.boardFor(root.day).categories.filter(
         key => key.toLowerCase().includes(root.query))
     readonly property int shownRows: Math.min(root.matches.length, Appearance.m.dailyNotesCategoryRows)
 
@@ -37,7 +38,7 @@ FocusScope {
             root.selectCurrent();
             return;
         }
-        const key = DailyNotes.addCategory(search.text);
+        const key = DailyNotes.addCategory(root.day, search.text);
         if (key !== null)
             root.selected(key);
     }

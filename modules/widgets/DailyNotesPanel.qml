@@ -30,28 +30,15 @@ ShellOverlay {
     property var draft: null
 
     readonly property string day: root.draft?.day ?? (root.selectedDay || DailyNotes.today)
-    readonly property bool isToday: root.day === DailyNotes.today
-    readonly property bool notesMenuOpen: {
-        const content = Overlay.menu?.content;
-        return content === categoryPicker || content === categoryName;
-    }
+    readonly property bool notesMenuOpen: Overlay.menu?.content === categoryPicker
     readonly property Item taskInput: root.draft ? (editor.item as DailyNoteEditor)?.input ?? null : entry.input
     readonly property var days: [...new Set([...DailyNotes.days, DailyNotes.today, root.day])].sort()
     readonly property int dayIndex: root.days.indexOf(root.day)
-    readonly property var checklist: !root.rendered ? null
-        : root.isToday ? DailyNotes.todayChecklist : DailyNotes.checklist(root.day)
-    readonly property string targetCategory: DailyNotes.targetCategory
+    readonly property string targetCategory: root.rendered ? DailyNotes.targetCategory(root.day) : ""
     readonly property var focusedCategory: root.rendered && root.draft === null
         && entry.text !== "" && root.targetCategory !== "" ? root.targetCategory : null
-    readonly property var boardGroups: {
-        const groups = root.checklist?.groups ?? [];
-        if (!root.rendered || root.isToday)
-            return groups;
-        // The board is also the category selector when adding to an older date.
-        const byCategory = new Map(groups.map(group => [group.category, group]));
-        return DailyNotes.cardOrder
-            .map(category => byCategory.get(category) ?? { category, notes: new Map(), done: 0 });
-    }
+    readonly property var boardGroups: !root.rendered ? []
+        : (root.day === DailyNotes.today ? DailyNotes.todayChecklist : DailyNotes.checklist(root.day)).groups
     readonly property bool showEmpty: root.draft === null && root.boardGroups.length === 0 && DailyNotes.error === ""
     readonly property real bodyHeight: root.draft !== null ? editor.implicitHeight
         : root.showEmpty ? empty.implicitHeight : board.resting.height
@@ -60,17 +47,35 @@ ShellOverlay {
         && root.draft === null && root.targetCategory !== "" && entry.text.trim() !== ""
 
     onShownChanged: if (root.shown) {
+        toolbar.categoryEntryOpen = false;
         root.draft = null;
         entry.text = "";
         root.showDay(DailyNotes.today);
     }
-    onRenderedChanged: if (!root.rendered) root.draft = null
-    onDayChanged: if (root.rendered) list.reset()
+    onRenderedChanged: if (!root.rendered) {
+        toolbar.categoryEntryOpen = false;
+        root.draft = null;
+    }
+    onDayChanged: if (root.rendered) {
+        if (root.notesMenuOpen)
+            Overlay.closeMenu();
+        root.cancelCategoryEntry();
+        list.reset();
+        Qt.callLater(root.revealCategory);
+    }
     onFocusedCategoryChanged: Qt.callLater(root.revealCategory)
 
     function focusTask(): void {
         if (root.shown && !root.notesMenuOpen)
             root.taskInput?.forceActiveFocus();
+    }
+
+    function cancelCategoryEntry(): bool {
+        if (!root.shown || !toolbar.categoryEntryOpen)
+            return false;
+        toolbar.categoryEntryOpen = false;
+        root.focusTask();
+        return true;
     }
 
     function showDay(day: string): void {
@@ -81,7 +86,7 @@ ShellOverlay {
     }
 
     function selectCategory(category: string): void {
-        DailyNotes.selectCategory(category);
+        DailyNotes.selectCategory(root.day, category);
         root.focusTask();
     }
 
@@ -99,7 +104,7 @@ ShellOverlay {
     function deleteCategory(category: string): void {
         if (!root.shown || !DailyNotes.ready || root.draft || root.notesMenuOpen)
             return;
-        if (DailyNotes.removeCategory(category))
+        if (DailyNotes.removeCategory(root.day, category))
             root.focusTask();
     }
 
@@ -116,6 +121,7 @@ ShellOverlay {
         const note = DailyNotes.find(id);
         if (!note || note.day !== root.day)
             return;
+        toolbar.categoryEntryOpen = false;
         root.editCategory = note.category;
         editList.reset();
         root.draft = note;
@@ -125,6 +131,7 @@ ShellOverlay {
         id: categoryPicker
 
         DailyNoteCategoryPicker {
+            day: root.draft?.day ?? ""
             category: root.editCategory
             onSelected: category => {
                 root.editCategory = category;
@@ -133,25 +140,11 @@ ShellOverlay {
         }
     }
 
-    Component {
-        id: categoryName
-
-        FocusScope {
-            implicitWidth: name.implicitWidth
-            implicitHeight: name.height
-
-            DailyNoteComposer {
-                id: name
-                objectName: "newNoteCategoryName"
-                width: parent.width
-                canSave: DailyNotes.canAddCategory(name.text)
-                placeholder: qsTr("Category name")
-                saveLabel: qsTr("Add category")
-                containFocus: true
-                input.focus: true
-                input.Accessible.name: qsTr("Category name")
-                onAccepted: if (DailyNotes.addCategory(name.text) !== null) Overlay.closeMenu()
-            }
+    Connections {
+        target: Overlay
+        function onEscapeRequested(request: var): void {
+            if (root.cancelCategoryEntry())
+                request.accepted = true;
         }
     }
 
@@ -164,7 +157,7 @@ ShellOverlay {
             if (!note) {
                 root.draft = null;
                 Qt.callLater(root.focusTask);
-            } else if (!DailyNotes.categories.includes(root.editCategory)) {
+            } else if (!DailyNotes.boardFor(note.day).categories.includes(root.editCategory)) {
                 root.editCategory = note.category;
             }
         }
@@ -190,12 +183,14 @@ ShellOverlay {
             spacing: Appearance.s.md
 
             DailyNotesToolbar {
+                id: toolbar
+
                 width: header.width
                 day: root.day
                 canGoBack: root.dayIndex > 0
                 canGoForward: root.dayIndex + 1 < root.days.length
                 actionsEnabled: root.draft === null && !root.notesMenuOpen
-                onMakeCategory: anchor => Overlay.openMenuContent(anchor, categoryName, entry.input)
+                onCategoryAdded: root.focusTask()
                 onPreviousDay: root.showDay(root.days[root.dayIndex - 1])
                 onNextDay: root.showDay(root.days[root.dayIndex + 1])
             }
@@ -210,7 +205,7 @@ ShellOverlay {
                 enabled: DailyNotes.ready
                 canSave: root.canAdd
                 destinationName: root.targetCategory
-                destinationHint: DailyNotes.categories.length === 0 ? qsTr("Create a category") : ""
+                destinationHint: DailyNotes.boardFor(root.day).categories.length === 0 ? qsTr("Create a category") : ""
                 input.Accessible.description: entry.destinationName === "" ? entry.destinationHint
                     : qsTr("Adds to %1").arg(entry.destinationName)
                 onAccepted: root.addTask()

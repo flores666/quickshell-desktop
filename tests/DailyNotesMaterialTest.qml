@@ -103,6 +103,9 @@ Item {
         const rim = Qt.point(Appearance.s.xs, gap.y);
         const tolerance = 2 / 255;
         check.within("the card transmits through its own fill", root.alphaAt(context, center), work.fill.a, tolerance);
+        const pixel = context.getImageData(Math.round(center.x), Math.round(center.y), 1, 1).data;
+        check.sameColor("the category tint has no popup material beneath it",
+            Qt.rgba(pixel[0] / 255, pixel[1] / 255, pixel[2] / 255, pixel[3] / 255), work.fill, 2);
         check.within("the gap keeps the popup glass", root.alphaAt(context, gap), root.alphaAt(context, rim), tolerance);
         if (root.scaled) {
             root.cardCenter = center;
@@ -145,8 +148,8 @@ Item {
         ready.until(DailyNotes.readyChanged, () => DailyNotes.ready, ok => {
             check.equal("the notes service is ready", ok, true);
             if (!ok) { check.done(); return; }
-            DailyNotes.addCategory("Work");
-            DailyNotes.addCategory("Personal");
+            DailyNotes.addCategory(DailyNotes.today, "Work");
+            DailyNotes.addCategory(DailyNotes.today, "Personal");
             const screen = Quickshell.screens[0];
             Overlay.open(Overlay.dailyNotes, screen, screen.width / 2);
             settle.start();

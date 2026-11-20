@@ -12,20 +12,60 @@ Item {
     required property bool canGoBack
     required property bool canGoForward
     required property bool actionsEnabled
-    signal makeCategory(Item anchor)
+    property bool categoryEntryOpen: false
+    readonly property bool canAddCategory: DailyNotes.canAddCategory(root.day, name.text)
+    signal categoryAdded
     signal previousDay
     signal nextDay
 
     height: Math.max(actions.height, date.implicitHeight)
 
+    function addCategory(): void {
+        if (!root.categoryEntryOpen || !root.enabled || !root.actionsEnabled || !root.canAddCategory)
+            return;
+        if (DailyNotes.addCategory(root.day, name.text) === null) {
+            name.input.forceActiveFocus();
+            return;
+        }
+        root.categoryEntryOpen = false;
+        root.categoryAdded();
+    }
+
     Label {
         id: date
         anchors.left: parent.left
-        anchors.right: actions.left
+        anchors.right: reveal.left
         anchors.rightMargin: Appearance.s.sm
         anchors.verticalCenter: parent.verticalCenter
         text: Qt.formatDate(DailyNotes.dateFor(root.day), "ddd, d MMM")
         role: Label.Role.Subtitle
+    }
+
+    Item {
+        id: reveal
+
+        anchors.right: actions.left
+        anchors.verticalCenter: parent.verticalCenter
+        width: root.categoryEntryOpen ? name.width + Appearance.s.xs : 0
+        height: actions.height
+        visible: root.categoryEntryOpen || reveal.width > 0
+        clip: true
+
+        Behavior on width {
+            NumberAnimation { duration: Appearance.t.popupMove; easing.type: Appearance.t.resizeEasing }
+        }
+
+        InputField {
+            id: name
+
+            objectName: "newNoteCategoryName"
+            width: Math.max(0, Math.min(implicitWidth, actions.x - Appearance.s.xs))
+            height: reveal.height
+            enabled: root.categoryEntryOpen && root.actionsEnabled
+            placeholder: qsTr("Category name")
+            input.Accessible.name: qsTr("Category name")
+            onAccepted: root.addCategory()
+        }
     }
 
     Row {
@@ -38,11 +78,19 @@ Item {
         IconButton {
             objectName: "newNoteCategory"
             size: Appearance.m.compactButton
-            icon: "add"
-            enabled: DailyNotes.ready
+            icon: root.categoryEntryOpen ? "check" : "add"
+            enabled: DailyNotes.ready && (!root.categoryEntryOpen || root.canAddCategory)
             Accessible.role: Accessible.Button
-            Accessible.name: qsTr("Add category")
-            onClicked: root.makeCategory(this)
+            Accessible.name: root.categoryEntryOpen ? qsTr("Save category") : qsTr("Add category")
+            onClicked: {
+                if (root.categoryEntryOpen) {
+                    root.addCategory();
+                } else {
+                    name.text = "";
+                    root.categoryEntryOpen = true;
+                    name.input.forceActiveFocus();
+                }
+            }
         }
 
         IconButton {
@@ -51,7 +99,7 @@ Item {
             icon: "chevron-left"
             enabled: root.canGoBack
             Accessible.role: Accessible.Button
-            Accessible.name: qsTr("Previous day with tasks")
+            Accessible.name: qsTr("Previous day with notes")
             onClicked: root.previousDay()
         }
 
@@ -61,7 +109,7 @@ Item {
             icon: "chevron-right"
             enabled: root.canGoForward
             Accessible.role: Accessible.Button
-            Accessible.name: qsTr("Next day with tasks")
+            Accessible.name: qsTr("Next day with notes")
             onClicked: root.nextDay()
         }
     }

@@ -46,6 +46,7 @@ Item {
                 DailyNotesBoard {
                     id: board
                     width: viewport.contentWidth
+                    day: DailyNotes.today
                     groups: DailyNotes.todayChecklist.groups
                     dragViewport: viewport
                 }
@@ -130,7 +131,7 @@ Item {
         root.column("lower half preview", ["Delta", "Echo"], 0);
         root.column("lower half preview", ["Bravo", "Alpha", "Charlie", "Foxtrot"], board.columnWidth + board.gap);
         check.equal("changing insertion side leaves the document untouched", DailyNotes.document, saved);
-        check.equal("the preview preserves saved category order", JSON.stringify(DailyNotes.cardOrder),
+        check.equal("the preview preserves saved category order", JSON.stringify(DailyNotes.orderFor(DailyNotes.today)),
             JSON.stringify(root.categories));
         root.move(Qt.point(viewport.x / 2, upper.y));
         root.after(() => {
@@ -205,7 +206,7 @@ Item {
         check.equal("Up is delivered to the grip", direction, -1);
         check.equal("Up on the first visual card is a no-op", DailyNotes.document, before);
 
-        check.equal("remove the other left card", DailyNotes.removeCategory("Echo"), true);
+        check.equal("remove the other left card", DailyNotes.removeCategory(DailyNotes.today, "Echo"), true);
         root.after(root.exchange);
     }
 
@@ -217,7 +218,7 @@ Item {
             root.release(drop);
             root.after(() => {
                 root.exchangedColumns("after exchange");
-                check.equal("remove the only left card", DailyNotes.removeCategory("Alpha"), true);
+                check.equal("remove the only left card", DailyNotes.removeCategory(DailyNotes.today, "Alpha"), true);
                 root.after(root.refill);
             });
         });
@@ -231,7 +232,7 @@ Item {
     function refill(): void {
         root.column("after deleting the last left card", ["Foxtrot"], 0);
         root.column("after deleting the last left card", ["Delta", "Bravo", "Charlie"], board.columnWidth + board.gap);
-        check.equal("new category saves", DailyNotes.addCategory("Golf"), "Golf");
+        check.equal("new category saves", DailyNotes.addCategory(DailyNotes.today, "Golf"), "Golf");
         root.after(() => {
             root.column("after adding a category", ["Foxtrot", "Golf"], 0);
             root.column("after adding a category", ["Delta", "Bravo", "Charlie"], board.columnWidth + board.gap);
@@ -276,7 +277,7 @@ Item {
             if (!ok) { check.done(); return; }
             const counts = [5, 3, 5, 1, 4, 4];
             for (const [index, category] of root.categories.entries()) {
-                check.equal("category saves: " + category, DailyNotes.addCategory(category), category);
+                check.equal("category saves: " + category, DailyNotes.addCategory(DailyNotes.today, category), category);
                 for (let row = 1; row <= counts[index]; ++row)
                     check.equal("task saves: " + category + " " + row,
                         DailyNotes.save(DailyNotes.today, "", "Task " + row, "", "", category), true);

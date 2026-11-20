@@ -22,8 +22,6 @@ FieldWell {
 
     signal accepted
 
-    focused: field.activeFocus
-
     TextInput {
         id: field
 

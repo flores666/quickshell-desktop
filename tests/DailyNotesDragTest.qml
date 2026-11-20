@@ -52,6 +52,7 @@ Item {
                 DailyNotesBoard {
                     id: board
                     width: scrollViewport.contentWidth
+                    day: DailyNotes.today
                     groups: DailyNotes.todayChecklist.groups
                     dragViewport: scrollViewport
                     onDeleteRequested: root.deletions++
@@ -74,7 +75,6 @@ Item {
         interval: Appearance.t.popupFade + Appearance.t.popupResize + Appearance.t.grace
         onTriggered: check.attempt("category drag step", settle.then)
     }
-
     function after(then: var): void {
         settle.then = then;
         settle.restart();
@@ -127,7 +127,7 @@ Item {
     }
 
     function order(label: string, expected: string): void {
-        check.equal(label, JSON.stringify(DailyNotes.cardOrder), expected);
+        check.equal(label, JSON.stringify(DailyNotes.orderFor(DailyNotes.today)), expected);
     }
 
     function retained(): void {
@@ -241,7 +241,7 @@ Item {
             root.viewportWidth = 420;
             root.viewportHeight = 190;
             for (let i = 1; i <= 12; ++i)
-                DailyNotes.addCategory("Extra " + i);
+                DailyNotes.addCategory(DailyNotes.today, "Extra " + i);
             root.after(root.scrollDrag);
         });
     }
@@ -272,7 +272,7 @@ Item {
             check.equal("dragging from a card button does not invoke it", root.deletions, 1);
             check.equal("dropping after edge scroll ends the drag", board.dragging, false);
             check.equal("the drop reaches a category below the original viewport",
-                DailyNotes.cardOrder.indexOf("Beta") > DailyNotes.cardOrder.indexOf("Extra 8"), true);
+                DailyNotes.orderFor(DailyNotes.today).indexOf("Beta") > DailyNotes.orderFor(DailyNotes.today).indexOf("Extra 8"), true);
             root.after(() => {
                 root.retained();
                 check.done();
@@ -290,7 +290,7 @@ Item {
             check.equal("notes service is ready", ok, true);
             if (!ok) { check.done(); return; }
             for (const category of ["Alpha", "Beta", "Gamma"])
-                DailyNotes.addCategory(category);
+                DailyNotes.addCategory(DailyNotes.today, category);
             check.equal("the drag fixture saves a task", DailyNotes.save(DailyNotes.today, "", "Alpha task", "", "", "Alpha"), true);
             root.noteId = DailyNotes.document.notes[0].id;
             root.seeded = true;

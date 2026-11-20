@@ -74,7 +74,6 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.min(LockStyle.fieldWidth, root.width - Appearance.s.xxl)
             color: root.scheme.surface
-            focused: field.activeFocus
 
             Icon {
                 id: keyIcon

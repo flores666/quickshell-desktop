@@ -220,17 +220,29 @@ Singleton {
         root.menu = null;
     }
 
+    /*! The open popup can accept Escape to close its inline editor. */
+    signal escapeRequested(var request)
+
+    QtObject {
+        id: escapeRequest
+        property bool accepted: false
+    }
+
     /*!
-        Escape: a context menu goes first, and the popup only once none is up.
+        Escape dismisses a context menu or inline editor before the popup.
         Escape into something covering the screen is its own, and so is
         Escape into the password prompt.
     */
     function dismissOnEscape(): void {
         if (Compositor.covered || root.authorizing)
             return;
-        if (root.menu !== null)
+        if (root.menu !== null) {
             root.closeMenu();
-        else
+            return;
+        }
+        escapeRequest.accepted = false;
+        root.escapeRequested(escapeRequest);
+        if (!escapeRequest.accepted)
             root.close();
     }
 

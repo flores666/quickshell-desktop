@@ -9,17 +9,14 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    property var document: ({ nextId: 1, trackedId: "", categories: [], notes: [] })
+    property var document: ({ nextId: 1, trackedId: "", boards: {}, notes: [] })
     property bool ready: false
     property string error: ""
 
     readonly property string today: Qt.formatDate(Time.now, "yyyy-MM-dd")
     readonly property string trackedId: root.document.trackedId
-    readonly property var categories: root.document.categories
-    readonly property var cardOrder: root.document.cardOrder ?? root.categories
-    readonly property var cardLanes: new Map(Object.entries(root.document.cardLanes ?? {}))
-    readonly property string targetCategory: root.document.quickCategory ?? root.document.notes[0]?.category ?? ""
-    readonly property var days: [...new Set(root.document.notes.map(note => note.day))].sort()
+    readonly property var emptyBoard: ({ categories: [] })
+    readonly property var days: Object.keys(root.document.boards).sort()
     readonly property var todayChecklist: root.checklist(root.today)
     readonly property var preview: root.previewAt(Time.now)
 
@@ -77,64 +74,70 @@ Singleton {
     }
 
     function checklist(day: string): var {
-        const groups = new Map();
+        const groups = new Map(root.orderFor(day).map(category => [category, { category, notes: new Map(), done: 0 }]));
         let done = 0;
         const notes = root.forDay(day);
         for (const note of notes) {
-            let group = groups.get(note.category);
-            if (!group) {
-                group = { category: note.category, notes: new Map(), done: 0 };
-                groups.set(note.category, group);
-            }
+            const group = groups.get(note.category);
             group.notes.set(note.id, note);
             if (note.done) {
                 group.done++;
                 done++;
             }
         }
-        const cards = [];
-        for (const category of root.cardOrder) {
-            const group = groups.get(category);
-            if (group)
-                cards.push(group);
-            else if (day === root.today)
-                cards.push({ category, notes: new Map(), done: 0 });
-        }
-        return { total: notes.length, done, groups: cards };
+        return { total: notes.length, done, groups: [...groups.values()] };
     }
 
     function progressText(checklist: var): string {
         return qsTr("%1 of %2 done").arg(checklist.done).arg(checklist.total);
     }
 
-    function canAddCategory(text: string): bool {
-        return root.ready && !documentFormat.isLegacyCategory(text.trim());
+    function boardFor(day: string): var {
+        return Object.prototype.hasOwnProperty.call(root.document.boards, day) ? root.document.boards[day] : root.emptyBoard;
     }
 
-    function selectCategory(category: string): bool {
-        return root.ready && root.categories.includes(category) && (root.document.quickCategory === category
-            || root.commit(Object.assign({}, root.document, { quickCategory: category })));
+    function orderFor(day: string): var {
+        const board = root.boardFor(day);
+        return board.cardOrder ?? board.categories;
+    }
+
+    function lanesFor(day: string): var {
+        return new Map(Object.entries(root.boardFor(day).cardLanes ?? {}));
+    }
+
+    function targetCategory(day: string): string {
+        return root.boardFor(day).quickCategory ?? root.document.notes.find(note => note.day === day)?.category ?? "";
+    }
+
+    function canAddCategory(day: string, text: string): bool {
+        return root.ready && root.validDay(day) && !documentFormat.isLegacyCategory(text.trim());
+    }
+
+    function selectCategory(day: string, category: string): bool {
+        const board = root.boardFor(day);
+        return root.ready && board.categories.includes(category) && (board.quickCategory === category
+            || root.commitBoard(day, Object.assign({}, board, { quickCategory: category })));
     }
 
     /*! Null means the category could not be saved. */
-    function addCategory(text: string): var {
-        if (!root.canAddCategory(text))
+    function addCategory(day: string, text: string): var {
+        if (!root.canAddCategory(day, text))
             return null;
+        const board = root.boardFor(day);
         const name = text.trim();
         const key = name.toLowerCase();
-        const existing = root.categories.find(category => category.toLowerCase() === key);
+        const existing = board.categories.find(category => category.toLowerCase() === key);
         if (existing !== undefined)
             return existing;
-        const categories = [...root.document.categories, name];
-        const next = Object.assign({}, root.document, { categories });
+        const next = Object.assign({}, board, { categories: [...board.categories, name] });
         if (next.cardOrder !== undefined)
-            next.cardOrder = [...root.cardOrder, name];
-        return root.commit(next) ? name : null;
+            next.cardOrder = [...board.cardOrder, name];
+        return root.commitBoard(day, next) ? name : null;
     }
 
     /*! Resolve both keys against the current order for preview and commit. */
-    function orderAfterMove(category: string, target: string, after: bool): var {
-        const current = root.cardOrder;
+    function orderAfterMove(day: string, category: string, target: string, after: bool): var {
+        const current = root.orderFor(day);
         if (category === target || !current.includes(category) || !current.includes(target))
             return null;
         const cardOrder = current.filter(key => key !== category);
@@ -143,45 +146,36 @@ Singleton {
     }
 
     /*! Save lane assignments atomically with the order. */
-    function moveCategory(category: string, target: string, after: bool, lanes: var): bool {
+    function moveCategory(day: string, category: string, target: string, after: bool, lanes: var): bool {
         if (!root.ready)
             return false;
-        const cardOrder = root.orderAfterMove(category, target, after);
+        const cardOrder = root.orderAfterMove(day, category, target, after);
         if (cardOrder === null)
             return false;
-        const current = root.cardOrder;
-        const changes = { cardOrder };
-        if (lanes !== undefined) {
-            if (!(lanes instanceof Map) || !documentFormat.validLaneEntries(lanes, new Set(current)))
-                return false;
-            const previous = root.cardLanes;
-            if (lanes.size !== previous.size || [...lanes].some(([key, lane]) => previous.get(key) !== lane))
-                changes.cardLanes = documentFormat.laneObject(lanes);
-        }
-        if (changes.cardLanes === undefined && cardOrder.every((key, index) => key === current[index]))
-            return false;
-        return root.commit(Object.assign({}, root.document, changes));
+        const next = documentFormat.withLayout(root.boardFor(day), cardOrder, lanes);
+        return next !== null && root.commitBoard(day, next);
     }
 
     function find(id: string): var {
         return root.document.notes.find(note => note.id === id) ?? null;
     }
 
-    /*! Remove the category and its history across all dates in the same commit. */
-    function removeCategory(category: string): bool {
-        if (!root.ready || !root.categories.includes(category))
+    function removeCategory(day: string, category: string): bool {
+        const board = root.boardFor(day);
+        if (!root.ready || !board.categories.includes(category))
             return false;
-        const categories = root.document.categories.filter(key => key !== category);
-        const notes = root.document.notes.filter(note => note.category !== category);
+        const notes = root.document.notes.filter(note => note.day !== day || note.category !== category);
         const trackedId = notes.some(note => note.id === root.trackedId) ? root.trackedId : "";
-        const next = Object.assign({}, root.document, { categories, notes, trackedId });
-        if (next.cardOrder !== undefined)
-            next.cardOrder = root.cardOrder.filter(key => key !== category);
-        if (root.cardLanes.has(category))
-            next.cardLanes = documentFormat.laneObject([...root.cardLanes].filter(([key]) => key !== category));
-        if (next.quickCategory === category)
-            delete next.quickCategory;
-        return root.commit(next);
+        return root.commitBoard(day, documentFormat.withoutCategory(board, category), { notes, trackedId });
+    }
+
+    function commitBoard(day: string, board: var, changes: var): bool {
+        const boards = Object.assign({}, root.document.boards);
+        if (board.categories.length > 0)
+            boards[day] = board;
+        else
+            delete boards[day];
+        return root.commit(Object.assign({}, root.document, changes, { boards }));
     }
 
     function validDocument(data: var): bool {
@@ -235,7 +229,7 @@ Singleton {
         if (id !== "" && (!note || note.day !== day))
             return false;
         const key = category === undefined ? note?.category : category;
-        if (!root.categories.includes(key))
+        if (!root.boardFor(day).categories.includes(key))
             return false;
         const fields = { title, start, end, category: key };
         if (note) {

@@ -25,9 +25,7 @@ FocusScope {
     function clear(): void { field.text = ""; }
 
     FieldWell {
-        id: well
         anchors.fill: parent
-        focused: field.activeFocus
 
         Icon {
             id: searchIcon

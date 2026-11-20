@@ -45,7 +45,6 @@ Item {
         root.afterAnimation = then;
         animation.restart();
     }
-
     function find(item: Item, matches: var): Item {
         if (matches(item)) return item;
         for (const child of item.children) {
@@ -54,7 +53,6 @@ Item {
         }
         return null;
     }
-
     function named(name: string): Item {
         return root.find(notes.cardItem, child => child.objectName === name);
     }
@@ -126,7 +124,8 @@ Item {
         for (const key of root.apps) Settings.pin(key);
         check.equal("existing settings leave the new widget off by default", Settings.dailyNotesEnabled, false);
         root.expectOrder("legacy app order is preserved", root.apps);
-        for (const category of ["Other", "Tasks"]) DailyNotes.addCategory(category);
+        for (const category of ["Other", "Tasks"]) DailyNotes.addCategory(DailyNotes.today, category);
+        DailyNotes.addCategory(root.historyDay, "Tasks");
         check.equal("historical fixture saves", DailyNotes.save(root.historyDay, "", "Historical task", "", "", "Tasks"), true);
         root.toggleFromSettings(root.arrange);
     }
@@ -208,7 +207,8 @@ Item {
         check.equal("popup initially focuses quick entry", entry.input.activeFocus, true);
         input.keyClick(Qt.Key_X, Qt.NoModifier, -1);
         check.equal("typing on open reaches the task field", entry.text.toLowerCase(), "x");
-        check.equal("opening the widget defaults to the last task's category", notes.targetCategory, "Tasks");
+        check.equal("today does not take yesterday's destination", notes.targetCategory, "");
+        notes.selectCategory("Tasks");
         entry.text = "Today's task";
         input.keyClick(Qt.Key_Return, Qt.NoModifier, -1);
         check.equal("Enter clears the draft on success", entry.text, "");
@@ -270,7 +270,7 @@ Item {
         DailyNotes.remove(task.note.id);
         check.equal("removing the last historical task keeps its day open", notes.day, root.historyDay);
         root.click(root.named("nextNoteDay"), Qt.LeftButton);
-        check.equal("next day returns to current checklist from empty history", notes.day, DailyNotes.today);
+        check.equal("next day returns to current checklist", notes.day, DailyNotes.today);
         for (const key of root.apps) Settings.unpin(key);
         root.after(() => {
             root.expectOrder("only the widget and launcher remain", [null]);

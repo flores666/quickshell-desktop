@@ -57,7 +57,6 @@ Column {
 
     FieldWell {
         width: parent.width
-        focused: psk.activeFocus
 
         TextInput {
             id: psk

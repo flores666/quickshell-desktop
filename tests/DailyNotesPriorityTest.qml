@@ -45,7 +45,8 @@ Item {
     }
 
     function start(): void {
-        DailyNotes.addCategory("Work");
+        for (const day of ["2024-05-31", root.day, root.tomorrow])
+            DailyNotes.addCategory(day, "Work");
         const expired = root.add("2024-05-31", "Expired", "08:00", "09:00");
         const tomorrow = root.add(root.tomorrow, "Tomorrow", "08:00", "09:00");
         const upcoming = root.add(root.day, "Upcoming", "10:00", "11:00");

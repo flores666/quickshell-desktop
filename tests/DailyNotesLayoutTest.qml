@@ -36,6 +36,7 @@ Item {
             DailyNotesBoard {
                 id: board
                 width: viewport.contentWidth
+                day: root.day
                 groups: root.day === DailyNotes.today ? DailyNotes.todayChecklist.groups
                     : DailyNotes.checklist(root.day).groups
             }
@@ -55,7 +56,7 @@ Item {
     }
 
     function seed(name: string, count: int, title: string): void {
-        DailyNotes.addCategory(name);
+        DailyNotes.addCategory(DailyNotes.today, name);
         for (let i = 0; i < count; ++i)
             DailyNotes.save(DailyNotes.today, "", title, "", "", name);
     }
@@ -82,7 +83,7 @@ Item {
     }
 
     function categoryFills(): var {
-        return DailyNotes.categories.map(category => root.tile(category).fill);
+        return DailyNotes.boardFor(DailyNotes.today).categories.map(category => root.tile(category).fill);
     }
 
     function checkPalette(): void {
@@ -193,13 +194,14 @@ Item {
             check.equal("focused task stays visible after editing", root.inView(task), true);
             root.checkPacking();
             root.day = root.historyDay;
-            root.afterLayout(root.singleCategory);
+            root.afterLayout(() => root.singleCategory(study));
         });
     }
 
-    function singleCategory(): void {
+    function singleCategory(previous: DailyNoteCategory): void {
         check.equal("history contains one category", board.groups.length, 1);
         check.equal("a lone category can fill a wide board", board.columns, 1);
+        check.equal("same-name cards do not share delegate identity across dates", root.tile("Study") !== previous, true);
         root.checkPacking();
         check.done();
     }
@@ -219,9 +221,10 @@ Item {
             root.seed("Errands", 1, "Send a note today");
             root.seed("Reading", 1, "Send the briefing packet");
             root.seed("Study", 1, "Review the draft release schedule with the team before the meeting");
-            DailyNotes.addCategory(root.longCategory);
-            DailyNotes.addCategory("Travel");
-            DailyNotes.addCategory("Later");
+            DailyNotes.addCategory(DailyNotes.today, root.longCategory);
+            DailyNotes.addCategory(DailyNotes.today, "Travel");
+            DailyNotes.addCategory(DailyNotes.today, "Later");
+            DailyNotes.addCategory(root.historyDay, "Study");
             check.equal("historical task saves", DailyNotes.save(root.historyDay, "", "Archived task", "", "", "Study"), true);
             root.seeded = true;
             root.afterLayout(root.arranged);
