@@ -50,7 +50,22 @@ DockDraggable {
             ShapePath {
                 strokeWidth: Appearance.m.controlBorder
                 strokeColor: root.scheme.borderStrong
-                fillColor: root.completionFill
+                fillGradient: RadialGradient {
+                    centerX: badge.width / 2
+                    centerY: badge.height / 2
+                    centerRadius: badge.width / 2
+                    focalX: centerX
+                    focalY: centerY
+
+                    GradientStop {
+                        position: Appearance.m.dockNotesBadgeClearFraction
+                        color: Qt.alpha(root.completionFill, 0)
+                    }
+                    GradientStop {
+                        position: 1
+                        color: Qt.alpha(root.completionFill, Appearance.m.dockNotesBadgeAccentOpacity)
+                    }
+                }
                 PathRectangle { width: badge.width; height: width; radius: width / 2 }
             }
         }
@@ -59,7 +74,7 @@ DockDraggable {
             anchors.centerIn: parent
             name: "check"
             size: Appearance.m.iconLg
-            color: Appearance.c.accentText
+            color: root.scheme.text
         }
     }
 
